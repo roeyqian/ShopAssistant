@@ -1378,7 +1378,7 @@
     <div
       v-if="aiOpen && !isAdminUser"
       class="overlay"
-      :class="{ 'ai-product-companion': productPreviewOpen }"
+      :class="{ 'ai-chat-overlay': true, 'ai-product-companion': productPreviewOpen }"
       @click.self="closeAi"
     >
       <aside class="drawer ai-drawer" role="dialog" aria-modal="true" :aria-label="activeAiTitle">
@@ -2725,6 +2725,9 @@ function pickProduct(id) {
 }
 
 function openProductPreview(product) {
+  if (isMobileViewport() && aiOpen.value) {
+    closeAi();
+  }
   pickProduct(product.id);
   productPreviewOpen.value = true;
   void nextTick(() => productPreviewDialog.value?.focus());
@@ -2828,7 +2831,7 @@ async function triggerPromotionalDwellNudge(productId) {
       streamedMessage.streaming = false;
     }
     await nextTick();
-    aiOpen.value = true;
+    showAiDrawer();
   } catch (error) {
     if (error.status === 401) {
       openAuth('login');
@@ -2879,9 +2882,20 @@ function closeAuth() {
 function openAi(type = 'seller', product = selectedProduct.value) {
   if (!ensureStandardUser(t('toast.adminAiBlocked'))) return;
   activateAiThread(type, product?.id || '');
-  aiOpen.value = true;
+  showAiDrawer();
   void loadAiHistory(type, aiConversationId.value);
   void nextTick(() => aiInputEl.value?.focus());
+}
+
+function isMobileViewport() {
+  return window.matchMedia?.('(max-width: 720px)').matches ?? window.innerWidth <= 720;
+}
+
+function showAiDrawer() {
+  if (isMobileViewport() && productPreviewOpen.value) {
+    closeProductPreview();
+  }
+  aiOpen.value = true;
 }
 
 function closeAi() {
@@ -2981,7 +2995,7 @@ function askGuardianForPitch() {
   });
   activateAiThread('guardian', productId || '');
   aiMessage.value = pitch.prompt;
-  aiOpen.value = true;
+  showAiDrawer();
   void loadAiHistory('guardian', aiConversationId.value);
   void nextTick(() => aiInputEl.value?.focus());
 }
@@ -2997,7 +3011,7 @@ function startIntervention(item, product = selectedProduct.value) {
   });
   activateAiThread('guardian', productId || '');
   aiMessage.value = item.prompt;
-  aiOpen.value = true;
+  showAiDrawer();
   void loadAiHistory('guardian', aiConversationId.value);
   void nextTick(() => aiInputEl.value?.focus());
 }
@@ -3572,7 +3586,7 @@ function recordPressureProbe(product = selectedProduct.value) {
     level: pressureLevelLabel.value,
     cues: cueLabels.length ? cueLabels.join(', ') : t('pressure.noCue'),
   });
-  aiOpen.value = true;
+  showAiDrawer();
   pressureOpen.value = false;
   void loadAiHistory('guardian', aiConversationId.value);
   toast(t('toast.pressureProbeSaved'));

@@ -863,7 +863,7 @@ img {
 
 .drawer.product-preview-modal {
   display: block;
-  width: min(1040px, 72vw);
+  width: 50vw;
   height: 100%;
   max-height: none;
   overflow: auto;
@@ -885,12 +885,8 @@ img {
 }
 
 @media (min-width: 721px) {
-  .product-preview-overlay.with-ai-companion .product-preview-modal {
-    width: min(1040px, 54vw);
-  }
-
-  .ai-product-companion .ai-drawer {
-    width: min(560px, 46vw);
+  .ai-chat-overlay .ai-drawer {
+    width: 50vw;
   }
 }
 
@@ -3284,6 +3280,10 @@ textarea:focus-visible {
   }
 
   .drawer {
+    width: 100%;
+  }
+
+  .drawer.product-preview-modal {
     width: 100%;
   }
 }
