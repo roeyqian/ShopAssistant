@@ -208,6 +208,11 @@ export const OrderAPI = {
 };
 
 export const AIAPI = {
+  synthesize: (productId, sellerConversationId, guardianConversationId) =>
+    request('/ai/synthesis', {
+      method: 'POST',
+      body: JSON.stringify({ productId, sellerConversationId, guardianConversationId }),
+    }),
   chatStream: (message, aiType, productId = null, conversationId, clientMessageId, options = {}) =>
     requestEventStream('/ai/chat', {
       method: 'POST',

@@ -2,6 +2,8 @@ import { json, readJsonBody, requireStandardUser, createId } from "../../app/htt
 import { streamDeepSeek } from "./deepseek.js";
 import { getSellerPrompt } from "./seller.js";
 import { getGuardianPrompt } from "./guardian.js";
+import { getDecisionPrompt, getSynthesisPrompt, parseDecisionResponse, parseStoredAssessment } from "./decision.js";
+import { getStructuredAgentPrompt, parseStructuredAgentResponse, parseStoredAssessment as parseAgentAssessment } from "./structured.js";
 import { getLocaleFromRequest, normalizeProduct } from "../shop/utils.js";
 
 const HIDDEN_METADATA_KEY = 'hiddenFromUser';
@@ -37,7 +39,7 @@ export async function chat({ request, env, url }) {
   }
 
   const duplicate = await findIdempotentResponse(env, session.userId, clientMessageId);
-  if (duplicate.hasAssistant) return streamStoredResponse(duplicate.response, aiType);
+  if (duplicate.hasAssistant) return streamStoredResponse(duplicate.response, aiType, duplicate.assessment);
   if (duplicate.pending) throw { status: 409, message: 'AI request is still being processed' };
 
   await enforceAiRateLimit(env, session.userId);
@@ -73,6 +75,7 @@ export async function chat({ request, env, url }) {
   const systemPrompt = aiType === 'seller'
     ? getSellerPrompt(productInfo, locale)
     : getGuardianPrompt(session, productInfo, locale);
+  const structuredSystemPrompt = `${systemPrompt}\n\n${getStructuredAgentPrompt(locale)}`;
 
   const messageRecordId = createId("conv");
   const userTimestamp = new Date().toISOString();
@@ -93,13 +96,13 @@ export async function chat({ request, env, url }) {
     userTimestamp
   ).run().catch(async (error) => {
     const existing = await findIdempotentResponse(env, session.userId, clientMessageId);
-    if (existing.hasAssistant) return { duplicateResponse: existing.response };
+    if (existing.hasAssistant) return { duplicateResponse: existing.response, assessment: existing.assessment };
     if (existing.pending) return { duplicatePending: true };
     throw error;
   });
 
   if (reservation?.duplicateResponse !== undefined) {
-    return streamStoredResponse(reservation.duplicateResponse, aiType);
+    return streamStoredResponse(reservation.duplicateResponse, aiType, reservation.assessment);
   }
   if (reservation?.duplicatePending) {
     throw { status: 409, message: 'AI request is still being processed' };
@@ -108,9 +111,9 @@ export async function chat({ request, env, url }) {
   return streamAiResponse(async (sendDelta) => {
     let result;
     try {
-      result = await getStreamedAiResponse({
+      result = await getStructuredAgentResponse({
         config,
-        systemPrompt,
+        systemPrompt: structuredSystemPrompt,
         messages,
         userMessage: message,
         locale,
@@ -141,13 +144,214 @@ export async function chat({ request, env, url }) {
       productId || null,
       JSON.stringify({
         model: config.deepseek_model || 'deepseek-chat',
+        assessment: result.assessment,
+        structured: true,
         finishReason: result.finishReason || null,
         providerError: result.providerError || null,
       }),
       assistantTimestamp,
     ).run();
 
-    return { response: result.content, aiType, providerError: result.providerError || null };
+    return { response: result.content, aiType, assessment: result.assessment, providerError: result.providerError || null };
+  });
+}
+
+export async function decision({ request, env, url }) {
+  const { token, session } = await requireStandardUser(request, env);
+  const locale = getLocaleFromRequest(request, url);
+  const body = await readJsonBody(request);
+  const message = String(body.message || '').trim();
+  const productId = body.productId || null;
+  const conversationId = requireConversationId(body.conversationId);
+  const clientMessageId = requireClientMessageId(body.clientMessageId);
+
+  if (!message) throw { status: 400, message: "Message is required" };
+  if (message.length > MAX_MESSAGE_LENGTH) {
+    throw { status: 400, message: "Message must be 2,000 characters or fewer" };
+  }
+
+  const duplicate = await findIdempotentResponse(env, session.userId, clientMessageId);
+  if (duplicate.hasAssistant) {
+    return streamStoredResponse(duplicate.response, 'neutral', duplicate.assessment);
+  }
+  if (duplicate.pending) throw { status: 409, message: 'AI request is still being processed' };
+
+  await enforceAiRateLimit(env, session.userId);
+  const config = await env.db.prepare("SELECT * FROM ai_config WHERE id = 1").first();
+  if (!config || !config.deepseek_api_key) {
+    throw { status: 503, message: "AI service not configured. Please contact administrator to set up DeepSeek API Key." };
+  }
+  if (!config.seller_ai_enabled && !config.guardian_ai_enabled) {
+    throw { status: 503, message: "The decision panel is currently disabled" };
+  }
+
+  const historyResult = await env.db.prepare(
+    "SELECT role, content FROM ai_conversations " +
+    "WHERE user_id = ? AND ai_type = 'neutral' AND conversation_id = ? " +
+    "ORDER BY timestamp DESC, CASE role WHEN 'assistant' THEN 0 WHEN 'user' THEN 1 ELSE 2 END, id DESC " +
+    "LIMIT " + HISTORY_LIMIT,
+  ).bind(session.userId, conversationId).all();
+  const messages = historyResult.results.reverse().map((item) => ({ role: item.role, content: item.content }));
+
+  let productInfo = null;
+  if (productId) {
+    const product = await env.db.prepare("SELECT * FROM products WHERE id = ?").bind(productId).first();
+    productInfo = product ? normalizeProduct(product, locale) : null;
+  }
+
+  const systemPrompt = getDecisionPrompt(productInfo, locale);
+  const messageRecordId = createId("decision");
+  const userTimestamp = new Date().toISOString();
+  const reservation = await env.db.prepare(
+    "INSERT INTO ai_conversations (id, user_id, session_id, conversation_id, client_message_id, ai_type, role, content, product_id, metadata_json, timestamp) " +
+    "VALUES (?, ?, ?, ?, ?, 'neutral', 'user', ?, ?, ?, ?)",
+  ).bind(
+    messageRecordId + '_u',
+    session.userId,
+    token,
+    conversationId,
+    clientMessageId,
+    message,
+    productId,
+    JSON.stringify({ messageLength: message.length, source: 'unified-decision-panel' }),
+    userTimestamp,
+  ).run().catch(async (error) => {
+    const existing = await findIdempotentResponse(env, session.userId, clientMessageId);
+    if (existing.hasAssistant) return { duplicateResponse: existing.response, assessment: existing.assessment };
+    if (existing.pending) return { duplicatePending: true };
+    throw error;
+  });
+
+  if (reservation?.duplicateResponse !== undefined) {
+    return streamStoredResponse(reservation.duplicateResponse, 'neutral', reservation.assessment);
+  }
+  if (reservation?.duplicatePending) {
+    throw { status: 409, message: 'AI request is still being processed' };
+  }
+
+  return streamAiResponse(async (sendDelta) => {
+    let result;
+    try {
+      result = await getStreamedAiResponse({
+        config,
+        systemPrompt,
+        messages,
+        userMessage: message,
+        locale,
+        request,
+      });
+    } catch (error) {
+      if (error?.status === 499) {
+        await env.db.prepare('DELETE FROM ai_conversations WHERE user_id = ? AND client_message_id = ?')
+          .bind(session.userId, clientMessageId)
+          .run();
+      }
+      throw error;
+    }
+
+    const assessment = parseDecisionResponse(result.content, locale);
+    const assistantTimestamp = createLaterIsoTimestamp(userTimestamp);
+    const summary = assessment.summary;
+    sendDelta(summary);
+
+    await env.db.prepare(
+      "INSERT INTO ai_conversations (id, user_id, session_id, conversation_id, reply_to_message_id, ai_type, role, content, product_id, metadata_json, timestamp) " +
+      "VALUES (?, ?, ?, ?, ?, 'neutral', 'assistant', ?, ?, ?, ?)",
+    ).bind(
+      messageRecordId + '_a',
+      session.userId,
+      token,
+      conversationId,
+      clientMessageId,
+      summary,
+      productId,
+      JSON.stringify({
+        model: config.deepseek_model || 'deepseek-chat',
+        structured: true,
+        assessment,
+        finishReason: result.finishReason || null,
+        providerError: result.providerError || null,
+      }),
+      assistantTimestamp,
+    ).run();
+
+    return {
+      response: summary,
+      aiType: 'neutral',
+      assessment,
+      providerError: result.providerError || null,
+    };
+  });
+}
+
+export async function synthesis({ request, env, url }) {
+  const { token, session } = await requireStandardUser(request, env);
+  const locale = getLocaleFromRequest(request, url);
+  const body = await readJsonBody(request);
+  const productId = body.productId || null;
+  const sellerConversationId = requireConversationId(body.sellerConversationId);
+  const guardianConversationId = requireConversationId(body.guardianConversationId);
+
+  const config = await env.db.prepare("SELECT * FROM ai_config WHERE id = 1").first();
+  if (!config || !config.deepseek_api_key) {
+    throw { status: 503, message: "AI service not configured. Please contact administrator to set up DeepSeek API Key." };
+  }
+
+  let productInfo = null;
+  if (productId) {
+    const product = await env.db.prepare("SELECT * FROM products WHERE id = ?").bind(productId).first();
+    productInfo = product ? normalizeProduct(product, locale) : null;
+  }
+
+  const [sellerRows, guardianRows] = await Promise.all([
+    getAgentConversationRows(env, session.userId, 'seller', sellerConversationId),
+    getAgentConversationRows(env, session.userId, 'guardian', guardianConversationId),
+  ]);
+  const sellerTranscript = buildAgentTranscript(sellerRows, locale);
+  const guardianTranscript = buildAgentTranscript(guardianRows, locale);
+  if (!sellerRows.some((item) => item.role === 'assistant') || !guardianRows.some((item) => item.role === 'assistant')) {
+    throw { status: 400, message: locale === 'en-US' ? 'Both AI conversations need at least one answer before synthesis.' : '卖家 AI 和管家 AI 都至少需要一条回复后才能综合。' };
+  }
+
+  const result = await streamDeepSeek(
+    config,
+    getSynthesisPrompt(productInfo, sellerTranscript, guardianTranscript, locale),
+    [],
+    locale === 'en-US' ? 'Generate the final synthesis now.' : '请现在生成最终综合建议。',
+    { signal: request.signal },
+  );
+  const assessment = parseDecisionResponse(result.content, locale);
+  const conversationId = 'synthesis-' + (productId || 'general');
+  const timestamp = new Date().toISOString();
+  const synthesisId = createId('synthesis');
+
+  await env.db.prepare(
+    "INSERT INTO ai_conversations (id, user_id, session_id, conversation_id, ai_type, role, content, product_id, metadata_json, timestamp) " +
+    "VALUES (?, ?, ?, ?, 'neutral', 'assistant', ?, ?, ?, ?)",
+  ).bind(
+    synthesisId + '_a',
+    session.userId,
+    token,
+    conversationId,
+    assessment.summary,
+    productId,
+    JSON.stringify({
+      model: config.deepseek_model || 'deepseek-chat',
+      structured: true,
+      source: 'explicit-synthesis',
+      assessment,
+      sellerConversationId,
+      guardianConversationId,
+      finishReason: result.finishReason || null,
+    }),
+    timestamp,
+  ).run();
+
+  return json({
+    assessment,
+    conversationId,
+    sellerConversationId,
+    guardianConversationId,
   });
 }
 
@@ -249,11 +453,11 @@ export async function sellerNudge({ request, env, url }) {
   });
 }
 
-function streamStoredResponse(response, aiType) {
+function streamStoredResponse(response, aiType, assessment = null) {
   const content = String(response || '');
   return streamAiResponse(async (sendDelta) => {
     if (content) sendDelta(content);
-    return { response: content, aiType, idempotent: true };
+    return { response: content, aiType, assessment, idempotent: true };
   });
 }
 
@@ -305,6 +509,32 @@ async function getStreamedAiResponse({ config, systemPrompt, messages, userMessa
   }
 }
 
+async function getStructuredAgentResponse({ config, systemPrompt, messages, userMessage, locale, request, sendDelta }) {
+  try {
+    const result = await streamDeepSeek(config, systemPrompt, messages, userMessage, {
+      signal: request.signal,
+    });
+    const parsed = parseStructuredAgentResponse(result.content, locale);
+    sendDelta(parsed.reply);
+    return {
+      content: parsed.reply,
+      assessment: parsed.assessment,
+      finishReason: result.finishReason,
+      providerError: null,
+    };
+  } catch (error) {
+    if (error?.status === 499) throw error;
+    const content = formatProviderFailure(locale, error);
+    sendDelta(content);
+    return {
+      content,
+      assessment: parseStructuredAgentResponse(content, locale).assessment,
+      finishReason: null,
+      providerError: getStreamErrorMessage(error),
+    };
+  }
+}
+
 function formatProviderFailure(locale, error) {
   const errorMessage = getStreamErrorMessage(error);
   if (locale === 'en-US') {
@@ -342,7 +572,12 @@ export async function getHistory({ request, env, url }) {
   const { results } = await env.db.prepare(query).bind(...params).all();
 
   return json({
-    history: results.filter((item) => !isHiddenConversation(item) && String(item.content || '').trim()),
+    history: results
+      .filter((item) => !isHiddenConversation(item) && String(item.content || '').trim())
+      .map((item) => ({
+        ...item,
+        assessment: parseStoredAssessment(item.metadata_json),
+      })),
   });
 }
 
@@ -351,7 +586,7 @@ export async function clearHistory({ request, env, url }) {
   const aiType = url.searchParams.get('aiType');
   const conversationId = requireConversationId(url.searchParams.get('conversationId'));
 
-  if (!['seller', 'guardian'].includes(aiType)) {
+  if (!['seller', 'guardian', 'neutral'].includes(aiType)) {
     throw { status: 400, message: 'A valid AI type is required' };
   }
 
@@ -361,6 +596,25 @@ export async function clearHistory({ request, env, url }) {
   `).bind(session.userId, aiType, conversationId).run();
 
   return json({ aiType, clearedCount: result.meta.changes || 0 });
+}
+
+async function getAgentConversationRows(env, userId, aiType, conversationId) {
+  const result = await env.db.prepare(
+    "SELECT role, content, metadata_json FROM ai_conversations " +
+    "WHERE user_id = ? AND ai_type = ? AND conversation_id = ? " +
+    "ORDER BY timestamp ASC, id ASC LIMIT " + HISTORY_LIMIT,
+  ).bind(userId, aiType, conversationId).all();
+  return result.results || [];
+}
+
+function buildAgentTranscript(rows, locale) {
+  const userLabel = locale === 'en-US' ? 'User' : '用户';
+  const assistantLabel = locale === 'en-US' ? 'Assistant' : 'AI';
+  return rows.map((item) => {
+    const assessment = parseAgentAssessment(item.metadata_json);
+    const structured = assessment ? '\nAssessment: ' + JSON.stringify(assessment) : '';
+    return (item.role === 'user' ? userLabel : assistantLabel) + ': ' + item.content + structured;
+  }).join('\n\n');
 }
 
 function requireConversationId(value) {
@@ -385,10 +639,10 @@ async function findIdempotentResponse(env, userId, clientMessageId) {
     WHERE user_id = ? AND client_message_id = ?
   `).bind(userId, clientMessageId).first();
 
-  if (!userMessage) return { pending: false, hasAssistant: false, response: '' };
+  if (!userMessage) return { pending: false, hasAssistant: false, response: '', assessment: null };
 
   const assistantMessage = await env.db.prepare(`
-    SELECT content FROM ai_conversations
+    SELECT content, metadata_json FROM ai_conversations
     WHERE user_id = ? AND reply_to_message_id = ?
     LIMIT 1
   `).bind(userId, clientMessageId).first();
@@ -397,6 +651,7 @@ async function findIdempotentResponse(env, userId, clientMessageId) {
     pending: !assistantMessage,
     hasAssistant: Boolean(assistantMessage),
     response: String(assistantMessage?.content || ''),
+    assessment: parseStoredAssessment(assistantMessage?.metadata_json),
   };
 }
 

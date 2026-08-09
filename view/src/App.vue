@@ -1358,6 +1358,56 @@
           </button>
         </div>
 
+        <div class="synthesis-toolbar">
+          <div>
+            <strong>{{ t('ai.synthesisTitle') }}</strong>
+            <span>{{ t('ai.synthesisBody') }}</span>
+          </div>
+          <button
+            class="secondary-btn compact-btn"
+            type="button"
+            :disabled="!canSynthesize || synthesisLoading || aiSending"
+            @click="generateSynthesis"
+          >
+            {{ synthesisLoading ? t('ai.synthesizing') : t('ai.generateSynthesis') }}
+          </button>
+        </div>
+
+        <section v-if="synthesisAssessment" class="decision-assessment synthesis-assessment">
+          <div class="decision-recommendation" :class="`recommendation-${synthesisAssessment.recommendation}`">
+            <div>
+              <span class="decision-kicker">{{ t('ai.finalRecommendation') }}</span>
+              <strong>{{ recommendationLabel(synthesisAssessment.recommendation) }}</strong>
+            </div>
+            <span class="decision-readiness">
+              {{ synthesisAssessment.ready ? t('ai.ready') : t('ai.needsMoreInfo') }}
+            </span>
+          </div>
+          <p class="synthesis-summary">{{ synthesisAssessment.summary }}</p>
+          <div v-if="synthesisAssessment.consensus?.length" class="decision-section">
+            <span class="decision-kicker">{{ t('ai.consensus') }}</span>
+            <ul><li v-for="item in synthesisAssessment.consensus" :key="item">{{ item }}</li></ul>
+          </div>
+          <div v-if="synthesisAssessment.disagreements?.length" class="decision-section">
+            <span class="decision-kicker">{{ t('ai.disagreements') }}</span>
+            <ul><li v-for="item in synthesisAssessment.disagreements" :key="item">{{ item }}</li></ul>
+          </div>
+          <div class="decision-section">
+            <span class="decision-kicker">{{ t('ai.evidence') }}</span>
+            <div class="decision-evidence-list">
+              <div v-for="item in synthesisAssessment.evidence" :key="`${item.item}-${item.value}`" class="decision-evidence-item">
+                <span :class="`evidence-status-${item.status}`">{{ evidenceStatusLabel(item.status) }}</span>
+                <div><strong>{{ item.item }}</strong><p>{{ item.value }}</p></div>
+              </div>
+            </div>
+          </div>
+          <div v-if="synthesisAssessment.next_questions?.length" class="decision-section decision-next-questions">
+            <span class="decision-kicker">{{ t('ai.nextQuestions') }}</span>
+            <ul><li v-for="item in synthesisAssessment.next_questions" :key="item">{{ item }}</li></ul>
+          </div>
+        </section>
+        <div v-else class="synthesis-assessment-placeholder" aria-hidden="true"></div>
+
         <div class="ai-context-card">
           <div v-if="aiContextProduct" class="ai-context-product">
             <img
@@ -1437,12 +1487,47 @@
                   class="chat-bubble markdown-body"
                   v-html="renderMarkdown(message.content)"
                 ></div>
-                <div v-else-if="message.role === 'assistant'" class="typing-bubble" :aria-label="t('ai.thinking')">
+                <section v-if="message.role === 'assistant' && message.assessment?.ready" class="decision-assessment agent-assessment">
+                  <div class="decision-recommendation" :class="`recommendation-${message.assessment.recommendation}`">
+                    <div>
+                      <span class="decision-kicker">{{ t('ai.agentRecommendation') }}</span>
+                      <strong>{{ recommendationLabel(message.assessment.recommendation) }}</strong>
+                    </div>
+                    <span class="decision-readiness">
+                      {{ message.assessment.ready ? t('ai.ready') : t('ai.needsMoreInfo') }}
+                    </span>
+                  </div>
+
+                  <p class="synthesis-summary">{{ message.assessment.summary }}</p>
+
+                  <div v-if="message.assessment.consensus?.length" class="decision-section">
+                    <span class="decision-kicker">{{ t('ai.consensus') }}</span>
+                    <ul><li v-for="item in message.assessment.consensus" :key="item">{{ item }}</li></ul>
+                  </div>
+                  <div v-if="message.assessment.disagreements?.length" class="decision-section">
+                    <span class="decision-kicker">{{ t('ai.disagreements') }}</span>
+                    <ul><li v-for="item in message.assessment.disagreements" :key="item">{{ item }}</li></ul>
+                  </div>
+                  <div class="decision-section">
+                    <span class="decision-kicker">{{ t('ai.evidence') }}</span>
+                    <div class="decision-evidence-list">
+                      <div v-for="item in message.assessment.evidence" :key="`${item.item}-${item.value}`" class="decision-evidence-item">
+                        <span :class="`evidence-status-${item.status}`">{{ evidenceStatusLabel(item.status) }}</span>
+                        <div><strong>{{ item.item }}</strong><p>{{ item.value }}</p></div>
+                      </div>
+                    </div>
+                  </div>
+                  <div v-if="message.assessment.next_questions?.length" class="decision-section decision-next-questions">
+                    <span class="decision-kicker">{{ t('ai.nextQuestions') }}</span>
+                    <ul><li v-for="item in message.assessment.next_questions" :key="item">{{ item }}</li></ul>
+                  </div>
+                </section>
+                <div v-else-if="message.role === 'assistant' && message.streaming && !message.content" class="typing-bubble" :aria-label="t('ai.thinking')">
                   <span></span>
                   <span></span>
                   <span></span>
                 </div>
-                <div v-else class="chat-bubble">{{ message.content }}</div>
+                <div v-else-if="message.role === 'user'" class="chat-bubble">{{ message.content }}</div>
               </div>
             </div>
             <div v-if="aiSending && !activeAiMessages.some((message) => message.streaming)" class="chat-row assistant">
@@ -1466,7 +1551,7 @@
             ref="aiInputEl"
             v-model="aiMessage"
             rows="3"
-            :placeholder="aiType === 'seller' ? t('ai.chatPlaceholderSeller') : t('ai.chatPlaceholderGuardian')"
+            :placeholder="t('ai.chatPlaceholderDecision')"
             :disabled="aiSending || aiHistoryLoading"
             @keydown="handleAiKeydown"
           ></textarea>
@@ -1491,7 +1576,7 @@
             <SendHorizontal :size="18" />
           </button>
           <div class="chat-footnote">
-            <span>{{ aiType === 'seller' ? t('ai.sellerModeHint') : t('ai.guardianModeHint') }}</span>
+            <span>{{ t('ai.unifiedModeHint') }}</span>
             <span>{{ t('ai.messageCount', { count: activeAiMessages.length }) }}</span>
           </div>
         </form>
@@ -1972,6 +2057,8 @@ const aiMessagesEl = ref(null);
 const aiInputEl = ref(null);
 const productPreviewDialog = ref(null);
 const aiThreads = reactive({});
+const synthesisAssessment = ref(null);
+const synthesisLoading = ref(false);
 
 const adminConfig = ref(null);
 const adminStats = ref(null);
@@ -2233,6 +2320,12 @@ const aiSuggestionPrompts = computed(() => {
   const productName = aiContextProduct.value?.name || t('common.product');
   const prefix = aiType.value === 'seller' ? 'ai.sellerPrompt' : 'ai.guardianPrompt';
   return [1, 2, 3].map((index) => t(`${prefix}${index}`, { name: productName }));
+});
+const canSynthesize = computed(() => {
+  const productId = aiProductId.value || selectedProduct.value?.id || '';
+  const sellerMessages = getAiThread('seller', getAiConversationId('seller', productId));
+  const guardianMessages = getAiThread('guardian', getAiConversationId('guardian', productId));
+  return sellerMessages.some((item) => item.role === 'assistant') && guardianMessages.some((item) => item.role === 'assistant');
 });
 
 const behaviorBreakdown = computed(() => adminStats.value?.behavior_breakdown || []);
@@ -2618,8 +2711,14 @@ function closeAuth() {
 function openAi(type = 'seller', product = selectedProduct.value) {
   if (!ensureStandardUser(t('toast.adminAiBlocked'))) return;
   activateAiThread(type, product?.id || '');
+  synthesisAssessment.value = null;
   showAiDrawer();
-  void loadAiHistory(type, aiConversationId.value);
+  void (async () => {
+    await loadAiHistory(type, aiConversationId.value);
+    const otherType = type === 'seller' ? 'guardian' : 'seller';
+    await loadAiHistory(otherType, getAiConversationId(otherType, product?.id || ''));
+  })();
+  void loadSynthesisHistory(product?.id || '');
   void nextTick(() => aiInputEl.value?.focus());
 }
 
@@ -2655,7 +2754,9 @@ function switchAi(type) {
 function useCurrentAiProduct() {
   if (aiSending.value || !selectedProduct.value) return;
   activateAiThread(aiType.value, selectedProduct.value.id);
+  synthesisAssessment.value = null;
   void loadAiHistory(aiType.value, aiConversationId.value);
+  void loadSynthesisHistory(selectedProduct.value.id);
 }
 
 function applyAiPrompt(prompt) {
@@ -2678,8 +2779,12 @@ function getAiConversationId(type, productId = '') {
   return `product-${type}-${productId || 'general'}`;
 }
 
+function getSynthesisConversationId(productId = '') {
+  return `synthesis-${productId || 'general'}`;
+}
+
 function activateAiThread(type, productId = '') {
-  aiType.value = type;
+  aiType.value = ['seller', 'guardian'].includes(type) ? type : 'seller';
   aiProductId.value = productId;
   aiConversationId.value = getAiConversationId(type, productId);
 }
@@ -3120,7 +3225,24 @@ function editableOrderStatus(status) {
 }
 
 function aiTypeLabel(value) {
+  if (value === 'neutral') return t('common.decisionAi');
   return value === 'seller' ? t('common.sellerAi') : t('common.guardianAi');
+}
+
+function parseMetadataAssessment(metadataJson) {
+  try {
+    return JSON.parse(metadataJson || '{}')?.assessment || null;
+  } catch {
+    return null;
+  }
+}
+
+function recommendationLabel(value) {
+  return t(`ai.recommendation.${value || 'verify'}`);
+}
+
+function evidenceStatusLabel(value) {
+  return t(`ai.evidenceStatus.${value || 'unverified'}`);
 }
 
 function behaviorLabel(value) {
@@ -3604,7 +3726,10 @@ async function loadAiHistory(type, conversationId = aiConversationId.value) {
   try {
     const result = await AIAPI.getHistory(type, conversationId);
     if (requestId === aiHistoryRequestId.value) {
-      aiThreads[aiThreadKey(type, conversationId)] = (result.history || []).slice().reverse();
+      aiThreads[aiThreadKey(type, conversationId)] = (result.history || []).slice().reverse().map((message) => ({
+        ...message,
+        assessment: message.assessment || parseMetadataAssessment(message.metadata_json),
+      }));
     }
   } catch (error) {
     if (error.status !== 401) {
@@ -3614,6 +3739,39 @@ async function loadAiHistory(type, conversationId = aiConversationId.value) {
     if (requestId === aiHistoryRequestId.value && isActiveThread()) {
       aiHistoryLoading.value = false;
     }
+  }
+}
+
+async function loadSynthesisHistory(productId = aiProductId.value) {
+  if (!ensureStandardUser(t('toast.adminAiBlocked'))) return;
+  const conversationId = getSynthesisConversationId(productId || '');
+  try {
+    const result = await AIAPI.getHistory('neutral', conversationId);
+    const latest = (result.history || []).slice().reverse().find((item) => item.role === 'assistant' && item.assessment);
+    synthesisAssessment.value = latest?.assessment || null;
+  } catch (error) {
+    if (error.status !== 401) synthesisAssessment.value = null;
+  }
+}
+
+async function generateSynthesis() {
+  if (!ensureStandardUser(t('toast.adminAiBlocked')) || !canSynthesize.value || synthesisLoading.value) return;
+  const productId = aiProductId.value || selectedProduct.value?.id || null;
+  const sellerConversationId = getAiConversationId('seller', productId || '');
+  const guardianConversationId = getAiConversationId('guardian', productId || '');
+  synthesisLoading.value = true;
+  try {
+    const result = await AIAPI.synthesize(productId, sellerConversationId, guardianConversationId);
+    synthesisAssessment.value = result.assessment || null;
+    toast(t('toast.synthesisReady'));
+  } catch (error) {
+    if (error.status === 401) {
+      openAuth('login');
+    } else {
+      toast(error.message || t('toast.synthesisFailed'), 'error');
+    }
+  } finally {
+    synthesisLoading.value = false;
   }
 }
 
@@ -3630,11 +3788,13 @@ async function sendAiMessage() {
   const threadKey = aiThreadKey(type, conversationId);
   aiSending.value = true;
   aiMessage.value = '';
+  synthesisAssessment.value = null;
   aiThreads[threadKey] = [
     ...getAiThread(type, conversationId),
     { role: 'user', content: message, client_message_id: clientMessageId },
   ];
   let streamMessageIndex = -1;
+  let streamedAssessment = null;
   const appendStreamDelta = (content) => {
     if (!content) return;
     if (streamMessageIndex < 0) {
@@ -3658,11 +3818,15 @@ async function sendAiMessage() {
     const result = await AIAPI.chatStream(message, type, productId, conversationId, clientMessageId, {
       signal: controller.signal,
       onDelta: appendStreamDelta,
+      onDone: (data) => {
+        streamedAssessment = data.assessment || null;
+      },
     });
     if (streamMessageIndex < 0) appendStreamDelta(String(result.response || ''));
     if (streamMessageIndex >= 0) {
       const streamedMessage = getAiThread(type, conversationId)[streamMessageIndex];
       streamedMessage.content = String(result.response || streamedMessage.content);
+      streamedMessage.assessment = streamedAssessment || result.assessment || null;
       streamedMessage.streaming = false;
     }
     await nextTick();
@@ -3700,6 +3864,7 @@ async function clearAiHistory() {
   try {
     await AIAPI.clearHistory(type, conversationId);
     aiThreads[aiThreadKey(type, conversationId)] = [];
+    synthesisAssessment.value = null;
     aiMessage.value = '';
     toast(t('toast.chatHistoryCleared'));
     await nextTick();

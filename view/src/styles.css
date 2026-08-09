@@ -1362,6 +1362,12 @@ img {
   transform: translateY(-1px);
 }
 
+.unified-view {
+  width: 100%;
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+}
+
 .agent-view-card > svg {
   margin-top: 2px;
 }
@@ -2633,10 +2639,52 @@ img {
 
 .ai-drawer {
   width: min(680px, calc(100vw - 18px));
-  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto auto auto auto minmax(0, 1fr) auto;
   gap: 12px;
   padding: 0;
   overflow: hidden;
+}
+
+.pressure-drawer {
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+}
+
+.synthesis-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 18px;
+  padding: 10px;
+  border: 1px solid var(--accent-border);
+  border-radius: 8px;
+  background: var(--accent-soft);
+}
+
+.synthesis-toolbar > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.synthesis-toolbar span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.synthesis-assessment {
+  margin: 0 18px;
+  width: auto;
+}
+
+.synthesis-assessment-placeholder {
+  min-height: 0;
+}
+
+.synthesis-summary {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
 }
 
 .auth-drawer {
@@ -2994,6 +3042,131 @@ img {
   border-color: var(--accent);
   color: #fff;
   border-radius: 8px 8px 2px 8px;
+}
+
+.decision-assessment {
+  display: grid;
+  gap: 10px;
+  width: min(100%, 620px);
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-soft);
+}
+
+.decision-recommendation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--accent-border);
+  border-radius: 8px;
+  background: var(--accent-soft);
+}
+
+.decision-recommendation.recommendation-buy_now {
+  border-color: var(--status-completed-text);
+  background: var(--status-completed-bg);
+}
+
+.decision-recommendation.recommendation-do_not_buy {
+  border-color: var(--toast-error-text);
+  background: var(--toast-error-bg);
+}
+
+.decision-recommendation > div,
+.decision-perspective,
+.decision-section {
+  display: grid;
+  gap: 6px;
+}
+
+.decision-recommendation strong {
+  display: block;
+  font-size: 1.1rem;
+}
+
+.decision-kicker {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.decision-readiness {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-align: right;
+}
+
+.decision-perspective-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.decision-perspective,
+.decision-section {
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--button-bg);
+}
+
+.decision-perspective p,
+.decision-evidence-item p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.decision-perspective ul,
+.decision-section ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.decision-perspective li + li,
+.decision-section li + li {
+  margin-top: 4px;
+}
+
+.decision-evidence-list {
+  display: grid;
+  gap: 7px;
+}
+
+.decision-evidence-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+}
+
+.decision-evidence-item > span {
+  padding: 3px 6px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.evidence-status-confirmed {
+  color: var(--status-completed-text);
+  background: var(--status-completed-bg);
+}
+
+.evidence-status-unverified {
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+}
+
+.evidence-status-missing {
+  color: var(--toast-error-text);
+  background: var(--toast-error-bg);
 }
 
 .markdown-body {
@@ -3387,6 +3560,7 @@ textarea:focus-visible {
   .stats-grid,
   .intervention-grid,
   .agent-view-grid,
+  .decision-perspective-grid,
   .decision-tool-grid,
   .game-launch-grid,
   .pressure-cue-grid,
