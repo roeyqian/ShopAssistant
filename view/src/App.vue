@@ -40,23 +40,54 @@
             {{ item.label }}
           </button>
         </div>
-        <button class="nav-chip" type="button" @click="go('products')">
+        <button class="nav-chip primary-nav-chip" type="button" @click="go('products')">
           <Package2 :size="16" />
           {{ t('common.products') }}
         </button>
-        <button v-if="!isAdminUser" class="nav-chip cart-chip" type="button" @click="go('cart')">
+        <button v-if="!isAdminUser" class="nav-chip cart-chip primary-nav-chip" type="button" @click="go('cart')">
           <ShoppingCart :size="16" />
           {{ t('cart.title') }}
           <span class="badge">{{ cartCount }}</span>
         </button>
-        <button v-if="!isAdminUser" class="nav-chip" type="button" @click="go('orders')">
+        <button v-if="!isAdminUser" class="nav-chip primary-nav-chip" type="button" @click="go('orders')">
           <Clock3 :size="16" />
           {{ t('common.records') }}
         </button>
-        <button v-if="!isAdminUser" class="nav-chip" type="button" @click="openGame(activeGame, 'topbar')">
+        <button v-if="!isAdminUser" class="nav-chip primary-nav-chip" type="button" @click="openGame(activeGame, 'topbar')">
           <Layers3 :size="16" />
           {{ t('common.games') }}
         </button>
+        <div v-if="!isAdminUser" class="mobile-nav-menu">
+          <button
+            class="nav-chip mobile-nav-toggle"
+            type="button"
+            :aria-label="t('common.navigation')"
+            :aria-expanded="mobileNavOpen"
+            aria-haspopup="menu"
+            @click="mobileNavOpen = !mobileNavOpen"
+          >
+            <Menu :size="20" />
+          </button>
+          <div v-if="mobileNavOpen" class="mobile-nav-dropdown" role="menu" :aria-label="t('common.navigation')">
+            <button type="button" role="menuitem" @click="navigateFromMobileMenu('products')">
+              <Package2 :size="16" />
+              {{ t('common.products') }}
+            </button>
+            <button type="button" role="menuitem" @click="navigateFromMobileMenu('cart')">
+              <ShoppingCart :size="16" />
+              {{ t('cart.title') }}
+              <span class="badge">{{ cartCount }}</span>
+            </button>
+            <button type="button" role="menuitem" @click="navigateFromMobileMenu('orders')">
+              <Clock3 :size="16" />
+              {{ t('common.records') }}
+            </button>
+            <button type="button" role="menuitem" @click="openGameFromMobileMenu">
+              <Layers3 :size="16" />
+              {{ t('common.games') }}
+            </button>
+          </div>
+        </div>
         <button v-if="isAdminUser" class="nav-chip" type="button" @click="go('admin')">
           <Settings2 :size="16" />
           {{ t('common.research') }}
@@ -1841,6 +1872,7 @@ import {
   LogIn,
   LogOut,
   MessageSquareMore,
+  Menu,
   Minus,
   Moon,
   Package2,
@@ -2033,6 +2065,7 @@ const filters = reactive({
 
 const authOpen = ref(false);
 const authMode = ref('login');
+const mobileNavOpen = ref(false);
 const authForm = reactive({
   email: '',
   username: '',
@@ -2689,6 +2722,16 @@ function go(pageName) {
   }
   window.location.hash = `/${pageName}`;
   syncRoute();
+}
+
+function navigateFromMobileMenu(pageName) {
+  mobileNavOpen.value = false;
+  go(pageName);
+}
+
+function openGameFromMobileMenu() {
+  mobileNavOpen.value = false;
+  openGame(activeGame.value, 'mobile-menu');
 }
 
 function setPage(pageName) {

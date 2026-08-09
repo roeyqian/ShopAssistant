@@ -339,6 +339,54 @@ img {
   position: relative;
 }
 
+.mobile-nav-menu {
+  position: relative;
+  display: none;
+}
+
+.mobile-nav-toggle {
+  width: 40px;
+  padding: 0;
+}
+
+.mobile-nav-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 30;
+  display: grid;
+  min-width: 176px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  box-shadow: var(--shadow);
+  animation: riseIn var(--motion-fast) var(--ease-out) both;
+}
+
+.mobile-nav-dropdown button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 42px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+
+.mobile-nav-dropdown button:hover,
+.mobile-nav-dropdown button:focus-visible {
+  background: var(--accent-soft);
+}
+
+.mobile-nav-dropdown .badge {
+  margin-left: auto;
+}
+
 .badge {
   display: inline-grid;
   place-items: center;
@@ -3156,14 +3204,24 @@ textarea:focus-visible {
   }
 
   .nav-actions {
-    overflow-x: auto;
-    flex-wrap: nowrap;
-    justify-content: flex-start;
-    padding-bottom: 2px;
+    position: relative;
+    overflow: visible;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    padding-bottom: 0;
   }
 
   .nav-chip,
   .language-switch {
+    flex: 0 0 auto;
+  }
+
+  .primary-nav-chip {
+    display: none;
+  }
+
+  .mobile-nav-menu {
+    display: block;
     flex: 0 0 auto;
   }
 
