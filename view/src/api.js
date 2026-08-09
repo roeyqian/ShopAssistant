@@ -214,8 +214,8 @@ export const AIAPI = {
       body: JSON.stringify({ message, aiType, productId, conversationId, clientMessageId }),
       signal: options.signal,
     }, options),
-  promotionalNudgeStream: (productId, dwellMs, conversationId, options = {}) =>
-    requestEventStream('/ai/promotional-nudge', {
+  sellerNudgeStream: (productId, dwellMs, conversationId, options = {}) =>
+    requestEventStream('/ai/seller-nudge', {
       method: 'POST',
       body: JSON.stringify({
         productId,

@@ -4,7 +4,7 @@
 
 ShopAssistant 将直播电商中的高刺激购买场景转化为可运行、可记录的 Web 实验环境。它关注的不是替用户决定“该不该买”，而是在限时、稀缺、从众和价格锚定等压力出现时，为用户提供暂停、核验、比较和反思的机会。
 
-项目以 BuyMate 的理性消费干预理念为设计来源，并在此基础上扩展了促销型 AI 对照、压力画像、冷静小游戏和研究数据后台。前端位于 `view/`，后端 API 位于 `worker/src/`。
+项目以 BuyMate 的理性消费干预理念为设计来源，并在此基础上扩展了卖家 AI 对照、压力画像、冷静小游戏和研究数据后台。前端位于 `view/`，后端 API 位于 `worker/src/`。
 
 ## 核心理念
 
@@ -13,7 +13,7 @@ BuyMate 的启发在于：干预应当在消费决策的关键时刻出现，并
 - **赋能而非替代**：管家 AI 提供检查路径和信息框架，不替用户下结论。
 - **识别压力而非制造压力**：将紧迫、稀缺、社交证明和价格锚定作为可观察的情境线索。
 - **让干预可追踪**：记录浏览、AI 对话、加购、撤回、干预使用和最终模拟决策。
-- **支持实验比较**：提供促销型 AI 与管家 AI 两种角色，以及非 AI 冷静任务。
+- **支持实验比较**：提供卖家 AI 与管家 AI 两种角色，以及非 AI 冷静任务。
 
 ## AI 干预闭环
 
@@ -31,7 +31,7 @@ BuyMate 的启发在于：干预应当在消费决策的关键时刻出现，并
 研究后台记录事件、AI 对话、压力画像与会话路径
 ```
 
-促销型 AI 作为研究对照条件，可在用户停留于商品页一段时间后主动发起需求导向的对话；管家 AI 则强调核验信息、识别诱导表达和恢复审慎判断。
+卖家 AI 作为研究对照条件，可在用户停留于商品页一段时间后主动发起需求导向的对话；管家 AI 则强调核验信息、识别诱导表达和恢复审慎判断。
 
 ## 已实现功能
 
@@ -39,7 +39,7 @@ BuyMate 的启发在于：干预应当在消费决策的关键时刻出现，并
 
 - 商品样本浏览、分类筛选、搜索、待购清单与模拟决策提交。
 - **管家 AI**：需求反思、预算校准、同类商品比较、销售话术中性重构和冷静延迟建议。
-- **促销型 AI**：以需求与商品价值连接为主的研究对照，不使用催单、稀缺或从众表达。
+- **卖家 AI**：以需求与商品价值连接为主的研究对照，不使用催单、稀缺或从众表达。
 - BuyMate 风格的理性消费支持面板：理性支持模式、五类诱导话术提示和三项同类商品短名单。
 - 情境压力探针：记录限时紧迫、库存稀缺、社交证明和价格锚定等线索，生成压力分和压力等级。
 - 冷静小游戏：小恐龙跑酷、华容道和 15 数码，作为可记录的非 AI 注意力切换任务。
@@ -87,7 +87,7 @@ ShopAssistant 是受 BuyMate 启发的研究平台与工程原型，**不是论�
 ```text
 view/                         Vue 前端：商品浏览、AI 干预、压力探针、小游戏与后台界面
 worker/src/app/               Worker 入口、HTTP 工具与路由注册
-worker/src/modules/ai/        促销型 / 管家 AI、流式模型调用与对话记录
+worker/src/modules/ai/        卖家 / 管家 AI、流式模型调用与对话记录
 worker/src/modules/shop/      商品样本、同类商品和样本洞察
 worker/src/modules/research/  行为追踪与研究汇总
 worker/src/modules/*/         认证、待购清单、模拟决策与后台管理
@@ -136,13 +136,13 @@ npm run db:more-product-i18n
 
 ## AI 配置
 
-以管理员身份登录后，在研究后台填写 DeepSeek API Key、Base URL 和模型名，并按实验条件启用或停用促销型 AI 与管家 AI。请在正式数据收集前记录模型、提示词、参数、样本材料和项目版本。
+以管理员身份登录后，在研究后台填写 DeepSeek API Key、Base URL 和模型名，并按实验条件启用或停用卖家 AI 与管家 AI。请在正式数据收集前记录模型、提示词、参数、样本材料和项目版本。
 
 ## API 概览
 
 - `GET /api/products`、`GET /api/products/:id/insights`、`GET /api/categories`
 - `GET /api/cart`、`GET /api/orders`
-- `POST /api/ai/chat`、`POST /api/ai/promotional-nudge`、`GET /api/ai/history`
+- `POST /api/ai/chat`、`POST /api/ai/seller-nudge`、`GET /api/ai/history`
 - `POST /api/research/track`、`GET /api/research/summary`
 - `GET /api/admin/ai-config`、`GET /api/admin/orders`、`PUT /api/admin/orders/:id/status`
 

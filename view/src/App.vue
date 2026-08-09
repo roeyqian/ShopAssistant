@@ -117,7 +117,7 @@
               </button>
               <button v-if="!isAdminUser" class="secondary-btn" type="button" @click="openAi('seller')">
                 <Bot :size="16" />
-                {{ t('hero.openPromotional') }}
+                {{ t('hero.openSeller') }}
               </button>
               <button v-if="!isAdminUser" class="secondary-btn" type="button" @click="openAi('guardian')">
                 <ShieldCheck :size="16" />

@@ -48,7 +48,7 @@ export async function chat({ request, env, url }) {
   }
 
   if (aiType === 'seller' && !config.seller_ai_enabled) {
-    throw { status: 503, message: "Promotional AI is currently disabled" };
+    throw { status: 503, message: "Seller AI is currently disabled" };
   }
 
   if (aiType === 'guardian' && !config.guardian_ai_enabled) {
@@ -151,7 +151,7 @@ export async function chat({ request, env, url }) {
   });
 }
 
-export async function promotionalNudge({ request, env, url }) {
+export async function sellerNudge({ request, env, url }) {
   const { token, session } = await requireStandardUser(request, env);
   const locale = getLocaleFromRequest(request, url);
   const { productId, dwellMs, source, conversationId: rawConversationId } = await readJsonBody(request);
@@ -172,7 +172,7 @@ export async function promotionalNudge({ request, env, url }) {
   }
 
   if (!config.seller_ai_enabled) {
-    throw { status: 503, message: "Promotional AI is currently disabled" };
+    throw { status: 503, message: "Seller AI is currently disabled" };
   }
 
   const product = await env.db.prepare("SELECT * FROM products WHERE id = ?").bind(productId).first();
@@ -207,7 +207,7 @@ export async function promotionalNudge({ request, env, url }) {
     .map(({ role, content }) => ({ role, content }));
 
   const promotionalNudgeStep = consecutiveAutomaticPromotions + 1;
-  const nudgeInstruction = buildPromotionalNudgePrompt(productInfo, locale, promotionalNudgeStep);
+  const nudgeInstruction = buildSellerNudgePrompt(productInfo, locale, promotionalNudgeStep);
 
   return streamAiResponse(async (sendDelta) => {
     const userTimestamp = new Date().toISOString();
@@ -453,7 +453,7 @@ function createLaterIsoTimestamp(previousTimestamp) {
   return new Date(nextTime).toISOString();
 }
 
-function buildPromotionalNudgePrompt(productInfo, locale, step) {
+function buildSellerNudgePrompt(productInfo, locale, step) {
   const productName = productInfo.name || (locale === 'en-US' ? 'this item' : '这个商品');
   const nudgeStage = Math.min(Math.max(step, 1), MAX_CONSECUTIVE_AUTOMATIC_PROMOTIONS);
 
@@ -465,7 +465,7 @@ function buildPromotionalNudgePrompt(productInfo, locale, step) {
     ];
 
     return [
-      `The user has been viewing "${productName}" for at least 10 seconds. As the Promotional AI, proactively send one short message to the user.`,
+      `The user has been viewing "${productName}" for at least 10 seconds. As the Seller AI, proactively send one short message to the user.`,
       stageInstructions[nudgeStage - 1],
       'Review the earlier automatic messages in the conversation before writing. Each message in this three-message sequence must have a distinct purpose and must not reuse the same product angle.',
       'Do not use urgency, scarcity, discounts, popularity, social proof, hype, or pressure to purchase. Do not present a market trend or user need as a fact unless it is provided in the product information.',
@@ -481,7 +481,7 @@ function buildPromotionalNudgePrompt(productInfo, locale, step) {
   ];
 
   return [
-    `用户正在查看"${productName}"至少10秒，请你作为促销型 AI 主动向用户发一条简短消息。`,
+    `用户正在查看"${productName}"至少10秒，请你作为卖家 AI 主动向用户发一条简短消息。`,
     stageInstructions[nudgeStage - 1],
     '写作前先查看对话中已有的自动消息。这三条消息必须各有不同目的，且不得重复相同的商品切入角度。',
     '不要使用紧迫感、稀缺、折扣、热销、从众、夸张或催单表达；没有商品信息支撑时，也不要把市场趋势或用户需求说成事实。',
