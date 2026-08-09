@@ -91,7 +91,7 @@ worker/src/modules/ai/        促销型 / 守护型 AI、流式模型调用与�
 worker/src/modules/shop/      商品样本、同类商品和样本洞察
 worker/src/modules/research/  行为追踪与研究汇总
 worker/src/modules/*/         认证、待购清单、模拟决策与后台管理
-worker/src/migrations/        D1 表结构、迁移与种子数据
+worker/store/migrations/      D1 表结构、迁移与种子数据
 ```
 
 ## 本地运行
@@ -132,7 +132,7 @@ npm run db:more-product-i18n
 
 当前脚本使用的数据库名为 `zero-1-base`。如使用其他数据库名，请同步更新 `worker/package.json` 中的脚本。
 
-已有旧数据库时，请补跑 `worker/src/migrations/0003_order_events.sql`、`worker/src/migrations/0004_product_i18n.sql`、`worker/src/migrations/0006_intervention_behavior.sql`、`worker/src/migrations/0007_ai_conversation_safety.sql`、`worker/src/migrations/0008_product_chat_history.sql`、`worker/src/migrations/0009_add_more_products.sql` 和 `worker/src/migrations/0010_more_product_i18n.sql`。
+已有旧数据库时，请补跑 `worker/store/migrations/0003_order_events.sql`、`worker/store/migrations/0004_product_i18n.sql`、`worker/store/migrations/0006_intervention_behavior.sql`、`worker/store/migrations/0007_ai_conversation_safety.sql`、`worker/store/migrations/0008_product_chat_history.sql`、`worker/store/migrations/0009_add_more_products.sql` 和 `worker/store/migrations/0010_more_product_i18n.sql`。
 
 ## AI 配置
 

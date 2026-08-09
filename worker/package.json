@@ -6,15 +6,15 @@
     "dev": "wrangler dev",
     "build:view": "npm --prefix ../view run build",
     "deploy": "npm run build:view && wrangler deploy",
-    "db:init": "wrangler d1 execute zero-1-base --file=src/migrations/0001_init.sql --remote",
-    "db:seed": "wrangler d1 execute zero-1-base --file=src/migrations/0002_seed.sql --remote",
-    "db:events": "wrangler d1 execute zero-1-base --file=src/migrations/0003_order_events.sql --remote",
-    "db:i18n": "wrangler d1 execute zero-1-base --file=src/migrations/0004_product_i18n.sql --remote",
-    "db:interventions": "wrangler d1 execute zero-1-base --file=src/migrations/0006_intervention_behavior.sql --remote",
-    "db:ai-safety": "wrangler d1 execute zero-1-base --file=src/migrations/0007_ai_conversation_safety.sql --remote",
-    "db:product-chat-history": "wrangler d1 execute zero-1-base --file=src/migrations/0008_product_chat_history.sql --remote",
-    "db:add-products": "wrangler d1 execute zero-1-base --file=src/migrations/0009_add_more_products.sql --remote",
-    "db:more-product-i18n": "wrangler d1 execute zero-1-base --file=src/migrations/0010_more_product_i18n.sql --remote"
+    "db:init": "wrangler d1 execute zero-1-base --file=store/migrations/0001_init.sql --remote",
+    "db:seed": "wrangler d1 execute zero-1-base --file=store/migrations/0002_seed.sql --remote",
+    "db:events": "wrangler d1 execute zero-1-base --file=store/migrations/0003_order_events.sql --remote",
+    "db:i18n": "wrangler d1 execute zero-1-base --file=store/migrations/0004_product_i18n.sql --remote",
+    "db:interventions": "wrangler d1 execute zero-1-base --file=store/migrations/0006_intervention_behavior.sql --remote",
+    "db:ai-safety": "wrangler d1 execute zero-1-base --file=store/migrations/0007_ai_conversation_safety.sql --remote",
+    "db:product-chat-history": "wrangler d1 execute zero-1-base --file=store/migrations/0008_product_chat_history.sql --remote",
+    "db:add-products": "wrangler d1 execute zero-1-base --file=store/migrations/0009_add_more_products.sql --remote",
+    "db:more-product-i18n": "wrangler d1 execute zero-1-base --file=store/migrations/0010_more_product_i18n.sql --remote"
   },
   "devDependencies": {
     "wrangler": "^4.114.0"

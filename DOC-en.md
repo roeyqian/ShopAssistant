@@ -207,7 +207,7 @@ The current repository provides:
 | `worker/src/modules/ai/` | Seller and steward agents |
 | `worker/src/modules/research/` | Behavioral tracking, pressure profiles, and research aggregation |
 | `worker/src/modules/admin/` | Research dashboard and AI configuration |
-| `worker/src/migrations/` | Data schema and sample data |
+| `worker/store/migrations/` | Data schema and sample data |
 
 The technical implementation serves the research question of “when is it appropriate to buy?” Before formally collecting data, researchers should record the project version, sample materials, AI prompts, experimental conditions, purchase-appropriateness criteria, and analysis plan, and first verify that dual-agent outputs do not systematically promote impulse purchases or over-restraint.
 

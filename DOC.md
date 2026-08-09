@@ -207,7 +207,7 @@ ShopAssistant 是研究原型，不应被解释为真实、专业或个性化的
 | `worker/src/modules/ai/` | 卖家代理与管家代理 |
 | `worker/src/modules/research/` | 行为追踪、压力画像与研究汇总 |
 | `worker/src/modules/admin/` | 研究后台与 AI 配置 |
-| `worker/src/migrations/` | 数据结构与样本数据 |
+| `worker/store/migrations/` | 数据结构与样本数据 |
 
 技术实现服务于“何时适合购买”的研究问题。正式收集数据前，应记录项目版本、样本材料、AI 提示词、实验条件、购买适切性标准与分析方案，并先验证双代理输出不会系统性地推动冲动购买或过度克制。
 
