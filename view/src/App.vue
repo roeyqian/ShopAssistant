@@ -2,7 +2,7 @@
   <div class="app-shell">
     <header class="topbar">
       <div class="brand" @click="goHome">
-        <span class="brand-mark">SG</span>
+        <span class="brand-mark">$</span>
         <span class="brand-copy">
           <strong>ShopAssistant</strong>
           <small>{{ t('app.subtitle') }}</small>
@@ -12,9 +12,6 @@
       <form class="search-bar" @submit.prevent="applySearch">
         <Search class="search-icon" :size="16" />
         <input v-model="filters.q" type="search" :placeholder="t('common.searchPlaceholder')" />
-        <button class="icon-action" type="submit">
-          <ArrowRight :size="16" />
-        </button>
       </form>
 
       <nav class="nav-actions">
