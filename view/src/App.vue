@@ -209,7 +209,7 @@
 
             <div v-else class="product-grid">
               <button
-                v-for="product in filteredProducts"
+                v-for="product in paginatedProducts"
                 :key="product.id"
                 class="product-card"
                 :class="{ active: selectedProduct?.id === product.id }"
@@ -242,6 +242,46 @@
                 </div>
               </button>
             </div>
+
+            <nav
+              v-if="catalogPageCount > 1"
+              class="catalog-pagination"
+              :aria-label="t('catalog.paginationLabel')"
+            >
+              <button
+                class="secondary-btn pagination-control"
+                type="button"
+                :disabled="catalogPage === 1"
+                @click="setCatalogPage(catalogPage - 1)"
+              >
+                <ArrowLeft :size="16" />
+                {{ t('catalog.previousPage') }}
+              </button>
+
+              <div class="pagination-pages" :aria-label="t('catalog.pageStatus', { page: catalogPage, total: catalogPageCount })">
+                <button
+                  v-for="number in catalogPageNumbers"
+                  :key="number"
+                  class="pagination-page"
+                  :class="{ active: catalogPage === number }"
+                  type="button"
+                  :aria-current="catalogPage === number ? 'page' : undefined"
+                  @click="setCatalogPage(number)"
+                >
+                  {{ number }}
+                </button>
+              </div>
+
+              <button
+                class="secondary-btn pagination-control"
+                type="button"
+                :disabled="catalogPage === catalogPageCount"
+                @click="setCatalogPage(catalogPage + 1)"
+              >
+                {{ t('catalog.nextPage') }}
+                <ArrowRight :size="16" />
+              </button>
+            </nav>
           </section>
 
           <div
@@ -1740,6 +1780,7 @@ import {
 } from 'lucide-vue-next';
 
 const THEME_STORAGE_KEY = 'shopassistant_theme';
+const CATALOG_PAGE_SIZE = 30;
 const PRESSURE_PAGE_SIZE = 3;
 const PRESSURE_GROUPS_PER_RUN = 4;
 const DINO_GRAVITY = 0.00175;
@@ -1883,6 +1924,7 @@ const user = ref(TokenManager.getUser());
 const token = ref(TokenManager.get());
 
 const products = ref([]);
+const catalogPage = ref(1);
 const categories = ref([]);
 const cart = ref([]);
 const orders = ref([]);
@@ -2152,6 +2194,26 @@ const filteredProducts = computed(() => {
 
     return Number(b.rating || 0) - Number(a.rating || 0) || Number(b.sales || 0) - Number(a.sales || 0);
   });
+});
+
+const catalogPageCount = computed(() => Math.max(1, Math.ceil(filteredProducts.value.length / CATALOG_PAGE_SIZE)));
+const paginatedProducts = computed(() => {
+  const start = (catalogPage.value - 1) * CATALOG_PAGE_SIZE;
+  return filteredProducts.value.slice(start, start + CATALOG_PAGE_SIZE);
+});
+const catalogPageNumbers = computed(() =>
+  Array.from({ length: catalogPageCount.value }, (_, index) => index + 1),
+);
+
+watch(
+  () => [filters.q, filters.category, filters.sort],
+  () => {
+    catalogPage.value = 1;
+  },
+);
+
+watch(catalogPageCount, (count) => {
+  if (catalogPage.value > count) catalogPage.value = count;
 });
 
 const selectedOrder = computed(() => {
@@ -2485,6 +2547,10 @@ function resetFilters() {
   filters.q = '';
   filters.category = '';
   filters.sort = 'hot';
+}
+
+function setCatalogPage(nextPage) {
+  catalogPage.value = Math.min(Math.max(nextPage, 1), catalogPageCount.value);
 }
 
 function resetCheckoutReflection() {
