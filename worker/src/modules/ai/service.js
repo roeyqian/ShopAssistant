@@ -52,7 +52,7 @@ export async function chat({ request, env, url }) {
   }
 
   if (aiType === 'guardian' && !config.guardian_ai_enabled) {
-    throw { status: 503, message: "Guardian AI is currently disabled" };
+    throw { status: 503, message: "Butler AI is currently disabled" };
   }
 
   const { results: history } = await env.db.prepare(`
