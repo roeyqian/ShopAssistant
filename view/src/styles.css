@@ -986,6 +986,11 @@ img {
   border-bottom: 1px solid var(--line);
 }
 
+/* Keep the price close to the product visual while giving the two regions room to breathe. */
+.drawer.product-preview-modal .detail-price {
+  margin-top: 10px;
+}
+
 .detail-price strong {
   font-size: 1.45rem;
 }
@@ -1261,6 +1266,93 @@ img {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface-soft);
+}
+
+.decision-support-panel {
+  display: grid;
+  gap: 14px;
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background:
+    linear-gradient(135deg, rgba(37, 99, 235, 0.08), transparent 54%),
+    var(--surface-soft);
+}
+
+.agent-view-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.agent-view-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: inherit;
+  text-align: left;
+  background: var(--button-bg);
+}
+
+.agent-view-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.agent-view-card > svg {
+  margin-top: 2px;
+}
+
+.agent-view-card span {
+  display: grid;
+  gap: 4px;
+}
+
+.agent-view-card small,
+.decision-autonomy-note,
+.comparison-empty {
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.seller-view {
+  border-color: rgba(217, 119, 6, 0.34);
+}
+
+.guardian-view {
+  border-color: rgba(37, 99, 235, 0.34);
+}
+
+.decision-tool-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.compact-pressure-launch {
+  margin: 0;
+}
+
+.decision-comparison-module {
+  gap: 8px;
+}
+
+.decision-comparison-module h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.comparison-empty,
+.decision-autonomy-note {
+  margin: 0;
+}
+
+.decision-autonomy-note {
+  padding-top: 2px;
 }
 
 .game-panel {
@@ -3235,6 +3327,8 @@ textarea:focus-visible {
   .detail-metrics,
   .stats-grid,
   .intervention-grid,
+  .agent-view-grid,
+  .decision-tool-grid,
   .game-launch-grid,
   .pressure-cue-grid,
   .klotski-wrap {

@@ -329,115 +329,41 @@
                 {{ selectedProduct.description || selectedProduct.subtitle || t('detail.noDescription') }}
               </p>
 
-              <div v-if="!isAdminUser" class="detail-actions">
-                <button class="primary-btn" type="button" @click="addToCart(selectedProduct)">
-                  <ShoppingCart :size="16" />
-                  {{ t('detail.addToCart') }}
-                </button>
+              <div v-if="productSpecs(selectedProduct).length" class="spec-list">
+                <div v-for="item in productSpecs(selectedProduct)" :key="item.key" class="spec-row">
+                  <span>{{ item.key }}</span>
+                  <strong>{{ item.value }}</strong>
+                </div>
               </div>
 
-              <div v-if="!isAdminUser" class="buymate-live-panel" :class="{ active: rationalModeEnabled }">
+              <section v-if="!isAdminUser" class="decision-support-panel">
                 <div class="panel-head compact-head">
                   <div>
-                    <h2>{{ t('buyMate.modeTitle') }}</h2>
-                    <p>{{ t('buyMate.modeSubtitle') }}</p>
+                    <h2>{{ t('decisionSupport.title') }}</h2>
+                    <p>{{ t('decisionSupport.subtitle') }}</p>
                   </div>
-                  <button class="ghost-btn" type="button" @click="toggleRationalMode">
-                    <ShieldCheck :size="16" />
-                    {{ rationalModeEnabled ? t('buyMate.modeOn') : t('buyMate.modeOff') }}
+                </div>
+
+                <div class="agent-view-grid">
+                  <button class="agent-view-card seller-view" type="button" @click="openAi('seller', selectedProduct)">
+                    <MessageSquareMore :size="18" />
+                    <span>
+                      <strong>{{ t('decisionSupport.valueView') }}</strong>
+                      <small>{{ t('decisionSupport.valueViewBody') }}</small>
+                    </span>
+                  </button>
+                  <button class="agent-view-card guardian-view" type="button" @click="openAi('guardian', selectedProduct)">
+                    <ShieldCheck :size="18" />
+                    <span>
+                      <strong>{{ t('decisionSupport.guardianView') }}</strong>
+                      <small>{{ t('decisionSupport.guardianViewBody') }}</small>
+                    </span>
                   </button>
                 </div>
 
-                <div class="buymate-control-row">
-                  <span class="buy-mate-principle">{{ t('buyMate.principle') }}</span>
-                </div>
-
-                <template v-if="rationalModeEnabled">
-                  <div class="pitch-reframe-card">
-                    <span class="buy-mate-star" :class="{ pulsing: rationalModeEnabled }">
-                      <Sparkles :size="18" />
-                    </span>
-                    <div class="pitch-reframe-copy">
-                      <span class="pitch-detected">
-                        {{ t('buyMate.detectedKeyword', { keyword: buyMateActivePitch.keyword }) }}
-                      </span>
-                      <strong>{{ buyMateActivePitch.label }}</strong>
-                      <p>{{ buyMateActivePitch.advice }}</p>
-                    </div>
-                    <button
-                      class="ghost-btn compact-btn"
-                      type="button"
-                      :title="t('buyMate.nextPitch')"
-                      @click="nextSalesPitchCue"
-                    >
-                      <RefreshCcw :size="15" />
-                      {{ t('buyMate.nextPitch') }}
-                    </button>
-                  </div>
-
-                  <div class="comparison-module">
-                    <button class="comparison-trigger" type="button" @click="toggleComparisonPanel">
-                      <span>
-                        <BarChart3 :size="16" />
-                        {{ t('buyMate.similarComparison') }}
-                      </span>
-                      <ChevronRight :class="{ open: comparisonOpen }" :size="16" />
-                    </button>
-
-                    <div v-if="comparisonOpen" class="comparison-strip">
-                      <button
-                        v-for="item in similarComparisonProducts"
-                        :key="item.id"
-                        class="comparison-card"
-                        type="button"
-                        @click="pickProduct(item.id)"
-                      >
-                        <img v-if="productImage(item)" :src="productImage(item)" :alt="item.name" />
-                        <div v-else class="comparison-thumb">
-                          <Package2 :size="18" />
-                        </div>
-                        <div class="comparison-copy">
-                          <span>{{ comparisonPriceDelta(item) }}</span>
-                          <strong>{{ item.name }}</strong>
-                          <p>{{ comparisonReason(item) }}</p>
-                          <div class="comparison-meta">
-                            <span>{{ t('buyMate.salesVolume', { count: Number(item.sales_count || item.sales || 0) }) }}</span>
-                            <span>{{ t('detail.rating') }} {{ Number(item.rating || 0).toFixed(1) }}</span>
-                            <span>{{ returnPolicyLabel(item) }}</span>
-                          </div>
-                        </div>
-                      </button>
-
-                      <div v-if="!similarComparisonProducts.length" class="empty-state compact">
-                        <strong>{{ t('buyMate.noComparisonTitle') }}</strong>
-                        <span>{{ t('buyMate.noComparisonBody') }}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="buy-mate-action-row">
-                    <button class="secondary-btn" type="button" @click="askGuardianForPitch">
-                      <MessageSquareMore :size="16" />
-                      {{ t('buyMate.reframeWithGuardian') }}
-                    </button>
-                    <button class="secondary-btn" type="button" @click="startIntervention(interventionCards[1])">
-                      <BarChart3 :size="16" />
-                      {{ t('buyMate.compareWithGuardian') }}
-                    </button>
-                  </div>
-                </template>
-              </div>
-
-              <div v-if="!isAdminUser" class="intervention-panel">
-                <div class="panel-head compact-head">
-                  <div>
-                    <h2>{{ t('buyMate.title') }}</h2>
-                    <p>{{ t('buyMate.subtitle') }}</p>
-                  </div>
-                </div>
-                <div class="intervention-grid">
+                <div class="intervention-grid decision-tool-grid">
                   <button
-                    v-for="item in interventionCards"
+                    v-for="item in decisionSupportCards"
                     :key="item.key"
                     class="intervention-card"
                     type="button"
@@ -450,68 +376,48 @@
                     <span>{{ item.body }}</span>
                   </button>
                 </div>
-              </div>
 
-              <div v-if="!isAdminUser" class="pressure-panel">
-                <div class="panel-head compact-head">
-                  <div>
-                    <h2>{{ t('pressure.title') }}</h2>
-                    <p>{{ t('pressure.subtitle') }}</p>
-                  </div>
-                  <span class="pressure-level" :class="`level-${pressureLevel}`">
-                    {{ pressureLevelLabel }}
-                  </span>
-                </div>
-
-                <button class="pressure-launch-card" type="button" @click="openPressureProbe">
-                  <span class="pressure-launch-icon">
-                    <MessageSquareMore :size="20" />
-                  </span>
+                <button class="pressure-launch-card compact-pressure-launch" type="button" @click="openPressureProbe">
+                  <span class="pressure-launch-icon"><ShieldCheck :size="20" /></span>
                   <span class="pressure-launch-copy">
-                    <strong>{{ t('pressure.launchTitle') }}</strong>
-                    <span>
-                      {{ t('pressure.launchBody', {
-                        answered: pressureAnsweredCount,
-                        total: pressureQuestionCount,
-                      }) }}
-                    </span>
+                    <strong>{{ t('decisionSupport.pressureCheck') }}</strong>
+                    <span>{{ t('decisionSupport.pressureCheckBody') }}</span>
                   </span>
-                  <span class="pressure-launch-score">
-                    <strong>{{ pressureScore }}</strong>
-                    <span>{{ t('pressure.score') }}</span>
-                  </span>
+                  <span class="pressure-level" :class="`level-${pressureLevel}`">{{ pressureLevelLabel }}</span>
                 </button>
 
-                <div class="pressure-signal-strip">
-                  <span v-if="!activePressureCues.length" class="pressure-signal-empty">{{ t('pressure.noCue') }}</span>
-                  <span v-for="item in activePressureCues" v-else :key="item.key" class="pressure-signal-pill">
-                    {{ item.label }} · {{ item.count }}
-                  </span>
-                </div>
-              </div>
-
-              <div v-if="!isAdminUser" class="game-panel">
-                <div class="panel-head compact-head">
-                  <div>
-                    <h2>{{ t('games.panelTitle') }}</h2>
-                    <p>{{ t('games.panelSubtitle') }}</p>
+                <div class="comparison-module decision-comparison-module">
+                  <h3>{{ t('decisionSupport.comparisons') }}</h3>
+                  <div v-if="comparableProducts.length" class="comparison-strip">
+                    <button
+                      v-for="item in comparableProducts"
+                      :key="item.id"
+                      class="comparison-card"
+                      type="button"
+                      @click="pickProduct(item.id)"
+                    >
+                      <img v-if="productImage(item)" :src="productImage(item)" :alt="item.name" />
+                      <div v-else class="comparison-thumb"><Package2 :size="18" /></div>
+                      <div class="comparison-copy">
+                        <strong>{{ item.name }}</strong>
+                        <p>{{ formatMoney(item.price) }} · {{ t('detail.rating') }} {{ Number(item.rating || 0).toFixed(1) }}</p>
+                      </div>
+                    </button>
                   </div>
+                  <p v-else class="comparison-empty">{{ t('decisionSupport.noComparisons') }}</p>
                 </div>
-                <div class="game-launch-grid">
-                  <button
-                    v-for="game in gameCards"
-                    :key="game.key"
-                    class="game-launch-card"
-                    type="button"
-                    @click="openGame(game.key, 'product-detail')"
-                  >
-                    <span class="intervention-icon">
-                      <component :is="game.icon" :size="16" />
-                    </span>
-                    <strong>{{ game.label }}</strong>
-                    <span>{{ game.body }}</span>
-                  </button>
-                </div>
+
+                <p class="decision-autonomy-note">{{ t('decisionSupport.autonomy') }}</p>
+              </section>
+
+              <div v-if="!isAdminUser" class="detail-actions">
+                <button class="primary-btn" type="button" @click="addToCart(selectedProduct)">
+                  <ShoppingCart :size="16" />
+                  {{ t('detail.addToCart') }}
+                </button>
+                <button class="secondary-btn" type="button" @click="closeProductPreview">
+                  {{ t('decisionSupport.reviewLater') }}
+                </button>
               </div>
 
               <div v-else class="detail-actions">
@@ -519,72 +425,8 @@
                   <BarChart3 :size="16" />
                   {{ t('detail.adminAnalyze') }}
                 </button>
-                <button class="secondary-btn" type="button" @click="loadProductInsights(selectedProduct.id)">
-                  <RefreshCcw :size="16" />
-                  {{ t('detail.refreshInsights') }}
-                </button>
               </div>
 
-              <div v-if="productSpecs(selectedProduct).length" class="spec-list">
-                <div v-for="item in productSpecs(selectedProduct)" :key="item.key" class="spec-row">
-                  <span>{{ item.key }}</span>
-                  <strong>{{ item.value }}</strong>
-                </div>
-              </div>
-
-              <div class="insight-panel">
-                <div class="panel-head">
-                  <div>
-                    <h2>{{ t('insights.title') }}</h2>
-                    <p>{{ productInsightsLoading ? t('insights.calculating') : t('insights.basedOnSignals') }}</p>
-                  </div>
-                  <button class="ghost-btn" type="button" @click="loadProductInsights(selectedProduct.id)">
-                    <RefreshCcw :size="16" />
-                    {{ t('common.refresh') }}
-                  </button>
-                </div>
-
-                <div v-if="productInsightsLoading" class="empty-state compact">
-                  <strong>{{ t('common.loading') }}</strong>
-                  <span>{{ t('insights.loadingBody') }}</span>
-                </div>
-
-                <template v-else-if="productInsightSummary">
-                  <div class="insight-grid">
-                    <div class="insight-stat">
-                      <strong>{{ productInsightSummary.views }}</strong>
-                      <span>{{ t('common.views') }}</span>
-                    </div>
-                    <div class="insight-stat">
-                      <strong>{{ productInsightSummary.addToCart }}</strong>
-                      <span>{{ t('insights.addToCart') }}</span>
-                    </div>
-                    <div class="insight-stat">
-                      <strong>{{ productInsightSummary.orders }}</strong>
-                      <span>{{ t('insights.orders') }}</span>
-                    </div>
-                    <div class="insight-stat">
-                      <strong>{{ formatMoney(productInsightSummary.revenue) }}</strong>
-                      <span>{{ t('common.contribution') }}</span>
-                    </div>
-                    <div class="insight-stat">
-                      <strong>{{ productInsightSummary.recentSessions }}</strong>
-                      <span>{{ t('insights.recentSessions') }}</span>
-                    </div>
-                    <div class="insight-stat">
-                      <strong>{{ productInsightSummary.conversionRate }}%</strong>
-                      <span>{{ t('insights.conversion') }}</span>
-                    </div>
-                  </div>
-
-                  <div class="insight-chips">
-                    <span v-for="item in productInsightSummary.aiUsage" :key="item.aiType" class="status pending">
-                      {{ aiTypeLabel(item.aiType) }} {{ item.value }}
-                    </span>
-                  </div>
-
-                </template>
-              </div>
             </template>
 
             <div v-else class="empty-state tall">
@@ -1861,7 +1703,6 @@ import {
   ArrowRight,
   BarChart3,
   Bot,
-  ChevronRight,
   ClipboardCheck,
   Clock3,
   Filter,
@@ -1889,7 +1730,6 @@ import {
 } from 'lucide-vue-next';
 
 const THEME_STORAGE_KEY = 'shopassistant_theme';
-const PROMOTIONAL_DWELL_MS = 10_000;
 const PRESSURE_PAGE_SIZE = 3;
 const PRESSURE_GROUPS_PER_RUN = 4;
 const DINO_GRAVITY = 0.00175;
@@ -2042,15 +1882,12 @@ const selectedOrderId = ref('');
 const selectedOrderDetail = ref(null);
 const selectedAdminOrderId = ref('');
 const selectedAdminOrderDetail = ref(null);
-const productInsights = ref(null);
-const productInsightsLoading = ref(false);
 const researchSummary = ref(null);
 const adminOrders = ref([]);
 const loading = reactive({
   products: true,
   orders: false,
   admin: false,
-  productInsights: false,
   adminOrderDetail: false,
 });
 
@@ -2083,13 +1920,6 @@ const aiMessagesEl = ref(null);
 const aiInputEl = ref(null);
 const productPreviewDialog = ref(null);
 const aiThreads = reactive({});
-const rationalModeEnabled = ref(true);
-const activePitchIndex = ref(0);
-const comparisonOpen = ref(false);
-const promotionalDwellTimer = ref(null);
-const promotionalDwellProductId = ref('');
-const promotionalNudgeSending = ref(false);
-const promotionalNudgePausedProductIds = reactive(new Set());
 
 const adminConfig = ref(null);
 const adminStats = ref(null);
@@ -2174,9 +2004,6 @@ watch(
     if (next !== 'products') {
       closeProductPreview();
     }
-    if (next !== 'products') {
-      clearPromotionalDwellTimer();
-    }
     if (next !== 'games') {
       stopDino();
     }
@@ -2216,23 +2043,6 @@ watch(
     if (!selectedProductId.value && products.value.length) {
       selectedProductId.value = products.value[0].id;
     }
-  },
-  { immediate: true },
-);
-
-watch(
-  () => selectedProductId.value,
-  async (next) => {
-    if (promotionalDwellProductId.value && promotionalDwellProductId.value !== next) {
-      clearPromotionalDwellTimer();
-    }
-    activePitchIndex.value = 0;
-    comparisonOpen.value = false;
-    if (!next) {
-      productInsights.value = null;
-      return;
-    }
-    await loadProductInsights(next);
   },
   { immediate: true },
 );
@@ -2362,7 +2172,6 @@ const adminStatCards = computed(() => [
   { label: t('common.ai'), value: adminStats.value?.total_conversations ?? 0 },
   { label: t('hero.behaviors'), value: adminStats.value?.total_behaviors ?? 0 },
 ]);
-const productInsightSummary = computed(() => productInsights.value?.summary || null);
 const researchTotals = computed(() => researchSummary.value?.totals || {});
 const researchTopProducts = computed(() => researchSummary.value?.topProducts || []);
 const researchDailyBehavior = computed(() => researchSummary.value?.dailyBehavior || []);
@@ -2376,36 +2185,36 @@ const pressureAdminTopCue = computed(() => {
 });
 const adminOrderDetailView = computed(() => selectedAdminOrderDetail.value || null);
 
-const interventionCards = computed(() => {
+const decisionSupportCards = computed(() => {
   const productName = selectedProduct.value?.name || t('common.product');
   return [
     {
       key: 'need_reflection',
       icon: ShieldCheck,
-      label: t('buyMate.needReflection'),
-      body: t('buyMate.needReflectionBody'),
-      prompt: t('buyMate.needReflectionPrompt', { name: productName }),
+      label: t('decisionSupport.needCheck'),
+      body: t('decisionSupport.needCheckBody'),
+      prompt: t('decisionSupport.needCheckPrompt', { name: productName }),
     },
     {
       key: 'comparison',
       icon: BarChart3,
-      label: t('buyMate.comparison'),
-      body: t('buyMate.comparisonBody'),
-      prompt: t('buyMate.comparisonPrompt', { name: productName }),
+      label: t('decisionSupport.verify'),
+      body: t('decisionSupport.verifyBody'),
+      prompt: t('decisionSupport.verifyPrompt', { name: productName }),
     },
     {
       key: 'persuasion_reframe',
       icon: MessageSquareMore,
-      label: t('buyMate.reframe'),
-      body: t('buyMate.reframeBody'),
-      prompt: t('buyMate.reframePrompt', { name: productName }),
+      label: t('decisionSupport.reframe'),
+      body: t('decisionSupport.reframeBody'),
+      prompt: t('decisionSupport.reframePrompt', { name: productName }),
     },
     {
       key: 'delay',
       icon: Clock3,
-      label: t('buyMate.delay'),
-      body: t('buyMate.delayBody'),
-      prompt: t('buyMate.delayPrompt', { name: productName }),
+      label: t('decisionSupport.review'),
+      body: t('decisionSupport.reviewBody'),
+      prompt: t('decisionSupport.reviewPrompt', { name: productName }),
     },
   ];
 });
@@ -2437,96 +2246,16 @@ const klotskiSolved = computed(() => {
 const sliderSolved = computed(() =>
   sliderTiles.value.every((tile, index) => tile === (index === sliderTiles.value.length - 1 ? 0 : index + 1)),
 );
-const buyMatePitchCategories = computed(() => {
-  const productName = selectedProduct.value?.name || t('common.product');
-  return [
-    {
-      key: 'absolute_description',
-      icon: Sparkles,
-      keyword: t('buyMate.keyword.absolute'),
-      label: t('buyMate.pitch.absolute'),
-      advice: t('buyMate.pitch.absoluteAdvice'),
-      prompt: t('buyMate.pitchPrompt.absolute', { name: productName }),
-    },
-    {
-      key: 'emotional_manipulation',
-      icon: MessageSquareMore,
-      keyword: t('buyMate.keyword.emotion'),
-      label: t('buyMate.pitch.emotion'),
-      advice: t('buyMate.pitch.emotionAdvice'),
-      prompt: t('buyMate.pitchPrompt.emotion', { name: productName }),
-    },
-    {
-      key: 'urgency',
-      icon: Clock3,
-      keyword: t('buyMate.keyword.urgency'),
-      label: t('buyMate.pitch.urgency'),
-      advice: t('buyMate.pitch.urgencyAdvice'),
-      prompt: t('buyMate.pitchPrompt.urgency', { name: productName }),
-    },
-    {
-      key: 'group_pressure',
-      icon: UserRound,
-      keyword: t('buyMate.keyword.group'),
-      label: t('buyMate.pitch.group'),
-      advice: t('buyMate.pitch.groupAdvice'),
-      prompt: t('buyMate.pitchPrompt.group', { name: productName }),
-    },
-    {
-      key: 'vague_logic',
-      icon: Filter,
-      keyword: t('buyMate.keyword.logic'),
-      label: t('buyMate.pitch.logic'),
-      advice: t('buyMate.pitch.logicAdvice'),
-      prompt: t('buyMate.pitchPrompt.logic', { name: productName }),
-    },
-  ];
-});
-const buyMateActivePitch = computed(() => {
-  const pitches = buyMatePitchCategories.value;
-  return pitches[activePitchIndex.value % pitches.length] || pitches[0];
-});
-const similarComparisonProducts = computed(() => {
+const comparableProducts = computed(() => {
   const product = selectedProduct.value;
   if (!product) return [];
-
-  const currentPrice = Number(product.price || 0);
-  const currentBrand = getProductBrand(product);
-  const candidates = products.value
+  return products.value
     .filter((item) => item.id !== product.id && item.category_id === product.category_id)
-    .map((item) => {
-      const price = Number(item.price || 0);
-      const priceSimilarity = currentPrice ? 1 - Math.min(1, Math.abs(price - currentPrice) / currentPrice) : 0;
-      const salesScore = Math.min(1, Number(item.sales_count || item.sales || 0) / 9000);
-      const ratingScore = Number(item.rating || 0) / 5;
-      const diversityBonus = getProductBrand(item) !== currentBrand ? 0.12 : 0;
-      return {
-        item,
-        score: salesScore * 0.42 + ratingScore * 0.28 + priceSimilarity * 0.18 + diversityBonus,
-      };
-    })
-    .sort((a, b) => b.score - a.score);
-
-  const shortlist = [];
-  const seenBrands = new Set();
-  candidates.forEach(({ item }) => {
-    const brand = getProductBrand(item);
-    if (shortlist.length < 3 && !seenBrands.has(brand)) {
-      shortlist.push(item);
-      seenBrands.add(brand);
-    }
-  });
-
-  candidates.forEach(({ item }) => {
-    if (shortlist.length < 3 && !shortlist.some((entry) => entry.id === item.id)) {
-      shortlist.push(item);
-    }
-  });
-
-  return shortlist.slice(0, 3);
+    .sort((a, b) => Number(a.price || 0) - Number(b.price || 0))
+    .slice(0, 3);
 });
 const checkoutChecklist = computed(() =>
-  interventionCards.value.map((item) => ({
+  decisionSupportCards.value.map((item) => ({
     key: item.key,
     label: item.label,
   })),
@@ -2620,7 +2349,6 @@ watch(
 
 onMounted(async () => {
   window.addEventListener('hashchange', syncRoute);
-  document.addEventListener('visibilitychange', handleVisibilityChange);
   document.addEventListener('keydown', handleGameKeydown);
   await bootstrap();
   if (page.value === 'products' && !selectedProductId.value && products.value.length) {
@@ -2630,10 +2358,8 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('hashchange', syncRoute);
-  document.removeEventListener('visibilitychange', handleVisibilityChange);
   document.removeEventListener('keydown', handleGameKeydown);
   document.body.classList.remove('modal-open');
-  clearPromotionalDwellTimer();
   stopDino();
 });
 
@@ -2686,9 +2412,6 @@ async function refreshLocalizedData() {
     if (page.value === 'orders') tasks.push(loadOrders());
   }
   await Promise.all(tasks);
-  if (selectedProductId.value) {
-    await loadProductInsights(selectedProductId.value);
-  }
   if (selectedOrderId.value && page.value === 'orders') {
     await loadOrderDetail(selectedOrderId.value);
   }
@@ -2769,7 +2492,6 @@ function pickProduct(id) {
       query: filters.q,
       category: filters.category,
     });
-    schedulePromotionalDwellNudge(id);
   }
   if (page.value !== 'products') {
     go('products');
@@ -2789,115 +2511,6 @@ function closeProductPreview() {
   productPreviewOpen.value = false;
 }
 
-function schedulePromotionalDwellNudge(productId) {
-  clearPromotionalDwellTimer();
-  if (!token.value || isAdminUser.value) return;
-  if (document.visibilityState === 'hidden') return;
-  if (promotionalNudgePausedProductIds.has(productId)) return;
-
-  promotionalDwellProductId.value = productId;
-  promotionalDwellTimer.value = window.setTimeout(() => {
-    void triggerPromotionalDwellNudge(productId);
-  }, PROMOTIONAL_DWELL_MS);
-}
-
-function clearPromotionalDwellTimer() {
-  if (promotionalDwellTimer.value) {
-    window.clearTimeout(promotionalDwellTimer.value);
-  }
-  promotionalDwellTimer.value = null;
-  promotionalDwellProductId.value = '';
-}
-
-function handleVisibilityChange() {
-  if (document.visibilityState === 'hidden') {
-    clearPromotionalDwellTimer();
-  }
-}
-
-async function triggerPromotionalDwellNudge(productId) {
-  const product = products.value.find((item) => item.id === productId);
-  clearPromotionalDwellTimer();
-
-  if (!product) return;
-  if (!token.value || isAdminUser.value || page.value !== 'products') return;
-  if (selectedProductId.value !== productId || document.visibilityState === 'hidden') return;
-  if (aiSending.value || promotionalNudgeSending.value) {
-    schedulePromotionalDwellNudge(productId);
-    return;
-  }
-
-  promotionalNudgeSending.value = true;
-  aiType.value = 'seller';
-  aiProductId.value = productId;
-  aiConversationId.value = getAiConversationId('seller', productId);
-  aiSending.value = true;
-  const conversationId = aiConversationId.value;
-  const threadKey = aiThreadKey('seller', conversationId);
-  let streamMessageIndex = -1;
-
-  const ensureStreamMessage = () => {
-    if (streamMessageIndex < 0) {
-      aiThreads[threadKey] = [
-        ...getAiThread('seller', conversationId),
-        { role: 'assistant', content: '', streaming: true, product_id: productId },
-      ];
-      streamMessageIndex = getAiThread('seller', conversationId).length - 1;
-    }
-  };
-  const appendStreamDelta = (content) => {
-    if (!content) return;
-    ensureStreamMessage();
-    getAiThread('seller', conversationId)[streamMessageIndex].content += content;
-  };
-
-  try {
-    await loadAiHistory('seller', conversationId);
-    if (selectedProductId.value !== productId || page.value !== 'products' || document.visibilityState === 'hidden') return;
-
-    ensureStreamMessage();
-    const result = await AIAPI.promotionalNudgeStream(productId, PROMOTIONAL_DWELL_MS, conversationId, {
-      onDelta: appendStreamDelta,
-    });
-    if (result.skipped) {
-      if (streamMessageIndex >= 0) {
-        aiThreads[threadKey] = getAiThread('seller', conversationId).filter((_, index) => index !== streamMessageIndex);
-      }
-      if (result.reason === 'consecutive_automatic_promotions_limit') {
-        promotionalNudgePausedProductIds.add(productId);
-      }
-      return;
-    }
-
-    void trackBehavior('view_product', {
-      productId,
-      durationMs: PROMOTIONAL_DWELL_MS,
-      source: 'product-dwell',
-      trigger: 'promotional_ai',
-    });
-
-    if (streamMessageIndex < 0) appendStreamDelta(String(result.response || ''));
-    if (streamMessageIndex >= 0) {
-      const streamedMessage = getAiThread('seller', conversationId)[streamMessageIndex];
-      streamedMessage.content = String(result.response || streamedMessage.content);
-      streamedMessage.streaming = false;
-    }
-    await nextTick();
-    showAiDrawer();
-  } catch (error) {
-    if (error.status === 401) {
-      openAuth('login');
-    } else {
-      toast(error.message || t('toast.aiFailed'), 'error');
-    }
-  } finally {
-    aiSending.value = false;
-    promotionalNudgeSending.value = false;
-    if (selectedProductId.value && page.value === 'products' && document.visibilityState !== 'hidden') {
-      schedulePromotionalDwellNudge(selectedProductId.value);
-    }
-  }
-}
 
 function pickOrder(id) {
   selectedOrderId.value = id;
@@ -2995,56 +2608,6 @@ function activateAiThread(type, productId = '') {
 function createClientId(prefix) {
   if (globalThis.crypto?.randomUUID) return `${prefix}-${globalThis.crypto.randomUUID()}`;
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 14)}`;
-}
-
-function toggleRationalMode() {
-  rationalModeEnabled.value = !rationalModeEnabled.value;
-  void trackBehavior('intervention_check', {
-    productId: selectedProduct.value?.id || null,
-    strategy: 'rational_support_mode',
-    enabled: rationalModeEnabled.value,
-    source: page.value,
-  });
-}
-
-function toggleComparisonPanel() {
-  comparisonOpen.value = !comparisonOpen.value;
-  void trackBehavior('intervention_check', {
-    productId: selectedProduct.value?.id || null,
-    strategy: 'similar_product_comparison',
-    expanded: comparisonOpen.value,
-    shortlistCount: similarComparisonProducts.value.length,
-    source: page.value,
-  });
-}
-
-function nextSalesPitchCue() {
-  activePitchIndex.value = (activePitchIndex.value + 1) % buyMatePitchCategories.value.length;
-  void trackBehavior('intervention_check', {
-    productId: selectedProduct.value?.id || null,
-    strategy: 'sales_pitch_reframe',
-    pitchType: buyMateActivePitch.value.key,
-    keyword: buyMateActivePitch.value.keyword,
-    source: page.value,
-  });
-}
-
-function askGuardianForPitch() {
-  if (!ensureStandardUser(t('toast.adminAiBlocked'))) return;
-  const pitch = buyMateActivePitch.value;
-  const productId = selectedProduct.value?.id || null;
-  void trackBehavior('intervention_check', {
-    productId,
-    strategy: 'sales_pitch_reframe_guardian',
-    pitchType: pitch.key,
-    keyword: pitch.keyword,
-    source: page.value,
-  });
-  activateAiThread('guardian', productId || '');
-  aiMessage.value = pitch.prompt;
-  showAiDrawer();
-  void loadAiHistory('guardian', aiConversationId.value);
-  void nextTick(() => aiInputEl.value?.focus());
 }
 
 function startIntervention(item, product = selectedProduct.value) {
@@ -3454,41 +3017,6 @@ function productSpecs(product) {
   }));
 }
 
-function getProductBrand(product) {
-  return String(product?.name || '')
-    .trim()
-    .split(/\s+/)[0]
-    .toLowerCase() || product?.id || 'unknown';
-}
-
-function comparisonPriceDelta(product) {
-  const currentPrice = Number(selectedProduct.value?.price || 0);
-  const price = Number(product?.price || 0);
-  if (!currentPrice || !price) return formatMoney(price);
-  const delta = price - currentPrice;
-  if (Math.abs(delta) < 0.01) return t('buyMate.samePrice');
-  const amount = formatMoney(Math.abs(delta));
-  return delta > 0
-    ? t('buyMate.priceHigher', { amount })
-    : t('buyMate.priceLower', { amount });
-}
-
-function comparisonReason(product) {
-  const sales = Number(product?.sales_count || product?.sales || 0);
-  const rating = Number(product?.rating || 0).toFixed(1);
-  const stock = Number(product?.stock || 0);
-  return t('buyMate.comparisonReason', {
-    sales,
-    rating,
-    stock,
-  });
-}
-
-function returnPolicyLabel(product) {
-  const specs = product?.specs || {};
-  return specs.return_policy || specs.returnPolicy || t('buyMate.returnPolicyDefault');
-}
-
 function statusLabel(status) {
   const value = String(status || '').toLowerCase();
   if (value === 'paid') return t('status.paid');
@@ -3662,25 +3190,6 @@ async function loadProducts() {
     toast(error.message || t('toast.productsLoadFailed'), 'error');
   } finally {
     loading.products = false;
-  }
-}
-
-async function loadProductInsights(productId) {
-  if (!productId) {
-    productInsights.value = null;
-    return;
-  }
-
-  productInsightsLoading.value = true;
-  try {
-    const result = await ProductAPI.getInsights(productId);
-    productInsights.value = result;
-  } catch (error) {
-    if (error.status !== 401) {
-      toast(error.message || t('toast.productInsightsLoadFailed'), 'error');
-    }
-  } finally {
-    productInsightsLoading.value = false;
   }
 }
 
@@ -4068,9 +3577,6 @@ async function sendAiMessage() {
       signal: controller.signal,
       onDelta: appendStreamDelta,
     });
-    if (type === 'seller' && productId) {
-      promotionalNudgePausedProductIds.delete(productId);
-    }
     if (streamMessageIndex < 0) appendStreamDelta(String(result.response || ''));
     if (streamMessageIndex >= 0) {
       const streamedMessage = getAiThread(type, conversationId)[streamMessageIndex];
@@ -4155,7 +3661,6 @@ async function submitAuth() {
 }
 
 async function logout() {
-  clearPromotionalDwellTimer();
   try {
     await AuthAPI.logout();
   } catch {
@@ -4170,7 +3675,6 @@ async function logout() {
   selectedOrderDetail.value = null;
   selectedAdminOrderId.value = '';
   selectedAdminOrderDetail.value = null;
-  productInsights.value = null;
   researchSummary.value = null;
   adminOrders.value = [];
   adminOrderForm.status = 'completed';
