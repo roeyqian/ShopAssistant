@@ -468,9 +468,20 @@ img {
 .hero-copy h1,
 .page-header h1 {
   margin: 0;
-  max-width: 13ch;
+  max-width: 15ch;
   font-size: clamp(1.85rem, 3.1vw, 3rem);
   line-height: 1.1;
+}
+
+@media (min-width: 1121px) {
+  .hero-copy {
+    max-width: none;
+  }
+
+  .hero-copy h1 {
+    max-width: none;
+    white-space: nowrap;
+  }
 }
 
 .page-header h1 {
