@@ -3300,8 +3300,8 @@ textarea:focus-visible {
   .nav-actions {
     position: relative;
     overflow: visible;
-    flex-wrap: wrap;
-    justify-content: space-between;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
     padding-bottom: 0;
   }
 
@@ -3317,6 +3317,7 @@ textarea:focus-visible {
   .mobile-nav-menu {
     display: block;
     flex: 0 0 auto;
+    margin-left: auto;
   }
 
   .product-grid {
