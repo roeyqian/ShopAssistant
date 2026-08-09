@@ -1,4 +1,4 @@
--- ShopGuard Database Schema
+-- ShopAssistant Database Schema
 -- 基于 BuyMate (CHI 2026) 的消费决策研究平台数据库
 
 -- 用户表

@@ -4,7 +4,7 @@
       <div class="brand" @click="goHome">
         <span class="brand-mark">SG</span>
         <span class="brand-copy">
-          <strong>ShopGuard</strong>
+          <strong>ShopAssistant</strong>
           <small>{{ t('app.subtitle') }}</small>
         </span>
       </div>
@@ -1848,7 +1848,7 @@ import {
   X,
 } from 'lucide-vue-next';
 
-const THEME_STORAGE_KEY = 'shopguard_theme';
+const THEME_STORAGE_KEY = 'shopassistant_theme';
 const PROMOTIONAL_DWELL_MS = 10_000;
 const PRESSURE_PAGE_SIZE = 3;
 const PRESSURE_GROUPS_PER_RUN = 4;

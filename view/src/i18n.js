@@ -1,5 +1,5 @@
 export const DEFAULT_LOCALE = 'zh-CN';
-export const LOCALE_STORAGE_KEY = 'shopguard_locale';
+export const LOCALE_STORAGE_KEY = 'shopassistant_locale';
 
 export const localeOptions = [
   { value: 'zh-CN', label: '中' },
@@ -9,7 +9,7 @@ export const localeOptions = [
 export const messages = {
   'zh-CN': {
     'app.lang': '中文',
-    'app.title': 'ShopGuard 决策研究台',
+    'app.title': 'ShopAssistant 决策研究台',
     'app.subtitle': '消费决策研究平台',
     'common.ai': 'AI',
     'common.allCategories': '全部分类',
@@ -429,7 +429,7 @@ export const messages = {
     'ai.title': '研究 AI',
     'ai.useCurrentProduct': '使用当前样本',
     'ai.you': '你',
-    'auth.account': 'ShopGuard 研究账户',
+    'auth.account': 'ShopAssistant 研究账户',
     'sort.hot': '综合',
     'sort.priceAsc': '价格 ↑',
     'sort.priceDesc': '价格 ↓',
@@ -497,7 +497,7 @@ export const messages = {
   },
   'en-US': {
     'app.lang': 'English',
-    'app.title': 'ShopGuard Decision Research Desk',
+    'app.title': 'ShopAssistant Decision Research Desk',
     'app.subtitle': 'Consumer decision research platform',
     'common.ai': 'AI',
     'common.allCategories': 'All categories',
@@ -917,7 +917,7 @@ export const messages = {
     'ai.title': 'Research AI',
     'ai.useCurrentProduct': 'Use current sample',
     'ai.you': 'You',
-    'auth.account': 'ShopGuard research account',
+    'auth.account': 'ShopAssistant research account',
     'sort.hot': 'Overall',
     'sort.priceAsc': 'Price ↑',
     'sort.priceDesc': 'Price ↓',

@@ -1,5 +1,5 @@
 const API_BASE = '/api';
-const LOCALE_STORAGE_KEY = 'shopguard_locale';
+const LOCALE_STORAGE_KEY = 'shopassistant_locale';
 
 function getRequestLocale() {
   return localStorage.getItem(LOCALE_STORAGE_KEY) || navigator.language || 'zh-CN';

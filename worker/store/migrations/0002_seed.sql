@@ -1,4 +1,4 @@
--- ShopGuard research seed data
+-- ShopAssistant research seed data
 
 DELETE FROM users WHERE id = 'admin_001';
 
