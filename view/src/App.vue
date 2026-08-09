@@ -1458,8 +1458,18 @@
       </aside>
     </div>
 
-    <div v-if="pressureOpen && !isAdminUser" class="overlay" @click.self="closePressureProbe">
-      <aside class="drawer ai-drawer pressure-drawer">
+    <div
+      v-if="pressureOpen && !isAdminUser"
+      class="overlay"
+      :class="{ 'ai-chat-overlay': true, 'ai-product-companion': productPreviewOpen }"
+      @click.self="closePressureProbe"
+    >
+      <aside
+        class="drawer ai-drawer pressure-drawer"
+        role="dialog"
+        aria-modal="true"
+        :aria-label="t('pressure.modalTitle')"
+      >
         <div class="drawer-head ai-head">
           <div class="ai-title-block">
             <span class="ai-avatar guardian">
@@ -2552,6 +2562,9 @@ function isMobileViewport() {
 }
 
 function showAiDrawer() {
+  if (pressureOpen.value) {
+    closePressureProbe();
+  }
   if (isMobileViewport() && productPreviewOpen.value) {
     closeProductPreview();
   }
@@ -3100,6 +3113,9 @@ function startPressureProbe() {
 
 function openPressureProbe() {
   if (!ensureStandardUser(t('toast.adminAiBlocked'))) return;
+  if (aiOpen.value) {
+    closeAi();
+  }
   startPressureProbe();
   pressureOpen.value = true;
 }
