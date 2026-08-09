@@ -44,6 +44,11 @@
           <Package2 :size="16" />
           {{ t('common.products') }}
         </button>
+        <button v-if="!isAdminUser" class="nav-chip cart-chip" type="button" @click="go('cart')">
+          <ShoppingCart :size="16" />
+          {{ t('cart.title') }}
+          <span class="badge">{{ cartCount }}</span>
+        </button>
         <button v-if="!isAdminUser" class="nav-chip" type="button" @click="go('orders')">
           <Clock3 :size="16" />
           {{ t('common.records') }}
@@ -55,11 +60,6 @@
         <button v-if="isAdminUser" class="nav-chip" type="button" @click="go('admin')">
           <Settings2 :size="16" />
           {{ t('common.research') }}
-        </button>
-        <button v-if="!isAdminUser" class="nav-chip cart-chip" type="button" @click="openCart">
-          <ShoppingCart :size="16" />
-          {{ t('cart.title') }}
-          <span class="badge">{{ cartCount }}</span>
         </button>
         <button v-if="user" class="nav-chip" type="button" @click="logout">
           <LogOut :size="16" />
@@ -1214,6 +1214,72 @@
         </div>
       </section>
 
+      <section v-else-if="page === 'cart'" class="page-band">
+        <div class="panel page-header">
+          <div>
+            <h1>{{ t('cart.title') }}</h1>
+            <p>{{ t('common.itemsCount', { count: cartCount }) }}</p>
+          </div>
+          <div class="drawer-actions">
+            <button class="ghost-btn" type="button" @click="loadCart">
+              <RefreshCcw :size="16" />
+              {{ t('common.refresh') }}
+            </button>
+            <button class="ghost-btn" type="button" @click="go('products')">
+              <Package2 :size="16" />
+              {{ t('common.backProducts') }}
+            </button>
+          </div>
+        </div>
+
+        <section class="panel cart-page-panel">
+          <div v-if="!cart.length" class="empty-state tall">
+            <strong>{{ t('cart.emptyTitle') }}</strong>
+            <span>{{ t('cart.emptyBody') }}</span>
+            <button class="primary-btn" type="button" @click="go('products')">
+              <Package2 :size="16" />
+              {{ t('checkout.goBrowse') }}
+            </button>
+          </div>
+
+          <template v-else>
+            <div class="cart-list">
+              <div v-for="item in cart" :key="item.id" class="cart-item">
+                <img v-if="item.image_url" :src="item.image_url" :alt="item.name || item.product_name" />
+                <div v-else class="cart-thumb">SG</div>
+                <div class="cart-copy">
+                  <strong>{{ item.name || item.product_name }}</strong>
+                  <span>{{ formatMoney(item.price) }}</span>
+                  <div class="qty-row">
+                    <button type="button" class="qty-btn" @click="changeCartQuantity(item, -1)">
+                      <Minus :size="14" />
+                    </button>
+                    <span>{{ item.quantity }}</span>
+                    <button type="button" class="qty-btn" @click="changeCartQuantity(item, 1)">
+                      <Plus :size="14" />
+                    </button>
+                    <button type="button" class="link-btn" @click="removeCartItem(item)">
+                      {{ t('cart.remove') }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="cart-page-footer">
+              <div class="detail-price total-line">
+                <strong>{{ formatMoney(cartTotal) }}</strong>
+                <span>{{ t('common.total') }}</span>
+              </div>
+              <button class="primary-btn" type="button" @click="openCheckout">
+                <ClipboardCheck :size="16" />
+                {{ t('cart.toCheckout') }}
+              </button>
+            </div>
+          </template>
+        </section>
+      </section>
+
       <section v-else-if="page === 'checkout'" class="page-band">
         <div class="panel page-header">
           <div>
@@ -1319,61 +1385,6 @@
         </div>
       </section>
     </main>
-
-    <div v-if="cartOpen && !isAdminUser" class="overlay" @click.self="closeCart">
-      <aside class="drawer">
-        <div class="drawer-head">
-          <div>
-            <strong>{{ t('cart.title') }}</strong>
-            <span>{{ t('common.itemsCount', { count: cartCount }) }}</span>
-          </div>
-          <button class="icon-close" type="button" @click="closeCart">
-            <X :size="18" />
-          </button>
-        </div>
-
-        <div class="drawer-body">
-          <div v-if="!cart.length" class="empty-state">
-            <strong>{{ t('cart.emptyTitle') }}</strong>
-            <span>{{ t('cart.emptyBody') }}</span>
-          </div>
-
-          <div v-else class="cart-list">
-            <div v-for="item in cart" :key="item.id" class="cart-item">
-              <img v-if="item.image_url" :src="item.image_url" :alt="item.name || item.product_name" />
-              <div v-else class="cart-thumb">SG</div>
-              <div class="cart-copy">
-                <strong>{{ item.name || item.product_name }}</strong>
-                <span>{{ formatMoney(item.price) }}</span>
-                <div class="qty-row">
-                  <button type="button" class="qty-btn" @click="changeCartQuantity(item, -1)">
-                    <Minus :size="14" />
-                  </button>
-                  <span>{{ item.quantity }}</span>
-                  <button type="button" class="qty-btn" @click="changeCartQuantity(item, 1)">
-                    <Plus :size="14" />
-                  </button>
-                  <button type="button" class="link-btn" @click="removeCartItem(item)">
-                    {{ t('cart.remove') }}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="drawer-foot">
-          <div class="detail-price total-line">
-            <strong>{{ formatMoney(cartTotal) }}</strong>
-            <span>{{ t('common.total') }}</span>
-          </div>
-          <button class="primary-btn" type="button" @click="openCheckout">
-            <ClipboardCheck :size="16" />
-            {{ t('cart.toCheckout') }}
-          </button>
-        </div>
-      </aside>
-    </div>
 
     <div
       v-if="aiOpen && !isAdminUser"
@@ -2028,7 +2039,6 @@ const authForm = reactive({
   password: '',
 });
 
-const cartOpen = ref(false);
 const aiOpen = ref(false);
 const aiType = ref('seller');
 const aiProductId = ref('');
@@ -2140,11 +2150,13 @@ watch(
     if (next !== 'games') {
       stopDino();
     }
-    if (isAdminUser.value && (next === 'orders' || next === 'checkout' || next === 'games')) {
+    if (isAdminUser.value && (next === 'cart' || next === 'orders' || next === 'checkout' || next === 'games')) {
       go('admin');
       return;
     }
-    if (next === 'orders') {
+    if (next === 'cart') {
+      await loadCart();
+    } else if (next === 'orders') {
       await loadOrders();
     } else if (next === 'admin') {
       await loadAdmin();
@@ -2545,7 +2557,7 @@ const pressureLevel = computed(() => {
 const pressureLevelLabel = computed(() => pressureLevelName(pressureLevel.value));
 const pressureRecommendation = computed(() => t(`pressure.recommendation.${pressureLevel.value}`));
 const isOverlayOpen = computed(
-  () => productPreviewOpen.value || cartOpen.value || aiOpen.value || pressureOpen.value || authOpen.value,
+  () => productPreviewOpen.value || aiOpen.value || pressureOpen.value || authOpen.value,
 );
 
 watch(
@@ -2667,11 +2679,11 @@ function syncRoute() {
 }
 
 function go(pageName) {
-  if ((pageName === 'orders' || pageName === 'admin' || pageName === 'checkout') && !token.value) {
+  if ((pageName === 'cart' || pageName === 'orders' || pageName === 'admin' || pageName === 'checkout') && !token.value) {
     openAuth('login');
     return;
   }
-  if (isAdminUser.value && (pageName === 'orders' || pageName === 'checkout')) {
+  if (isAdminUser.value && (pageName === 'cart' || pageName === 'orders' || pageName === 'checkout')) {
     toast(t('toast.adminStandardBlocked'), 'error');
     pageName = 'admin';
   }
@@ -2857,16 +2869,11 @@ function pickAdminOrder(id) {
 
 function openCart() {
   if (!ensureStandardUser()) return;
-  cartOpen.value = true;
-}
-
-function closeCart() {
-  cartOpen.value = false;
+  go('cart');
 }
 
 function openCheckout() {
   if (!ensureStandardUser()) return;
-  closeCart();
   go('checkout');
 }
 
@@ -3817,7 +3824,7 @@ async function changeCartQuantity(item, delta) {
       await CartAPI.remove(item.id);
       void trackBehavior('remove_cart', {
         productId: item.product_id,
-        source: 'cart-drawer',
+        source: 'cart-page',
       });
     } else {
       await CartAPI.update(item.id, nextQuantity);
@@ -3825,7 +3832,7 @@ async function changeCartQuantity(item, delta) {
         void trackBehavior('add_cart', {
           productId: item.product_id,
           quantity: delta,
-          source: 'cart-drawer',
+          source: 'cart-page',
         });
       }
     }
@@ -3846,7 +3853,7 @@ async function removeCartItem(item) {
     await loadCart();
     void trackBehavior('remove_cart', {
       productId: item.product_id,
-      source: 'cart-drawer',
+      source: 'cart-page',
     });
   } catch (error) {
     if (error.status === 401) {
@@ -3881,7 +3888,6 @@ async function submitOrder() {
     const result = await OrderAPI.create(items, shippingAddress);
     cart.value = [];
     resetCheckoutReflection();
-    closeCart();
     toast(t('toast.orderCreated', { orderNo: result.orderNo }));
     void trackBehavior('place_order', {
       orderNo: result.orderNo,
@@ -4131,7 +4137,6 @@ async function logout() {
   adminOrderForm.note = '';
   adminStats.value = null;
   adminConfig.value = null;
-  closeCart();
   closeAi();
   toast(t('toast.loggedOut'));
   go('products');

@@ -2457,6 +2457,24 @@ img {
   gap: 10px;
 }
 
+.cart-page-panel {
+  display: grid;
+  gap: 18px;
+}
+
+.cart-page-footer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  padding-top: 6px;
+}
+
+.cart-page-footer .detail-price {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
 .cart-item {
   display: grid;
   grid-template-columns: 64px minmax(0, 1fr);
@@ -3126,6 +3144,15 @@ textarea:focus-visible {
   .drawer-head {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .cart-page-footer {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .cart-page-footer .primary-btn {
+    width: 100%;
   }
 
   .nav-actions {
