@@ -1,5 +1,98 @@
-import { json, requireAdmin, requireAuth, getSession } from "../../app/http.js";
+import { json, readJsonBody, requireAdmin, requireAuth, requireStandardUser, getSession } from "../../app/http.js";
 import { getLocaleFromRequest } from "../shop/utils.js";
+import { normalizeProduct } from "../shop/utils.js";
+
+const RECOMMENDATION_LIMIT = 6;
+
+export async function getRecommendations({ request, env, url }) {
+  await requireStandardUser(request, env);
+  const locale = getLocaleFromRequest(request, url);
+  const body = await readJsonBody(request);
+  const profile = body?.profile && typeof body.profile === 'object' ? body.profile : {};
+  const { results } = await env.db.prepare(`
+    SELECT * FROM products
+    ORDER BY is_hot DESC, sales_count DESC, rating DESC, updated_at DESC
+    LIMIT 100
+  `).all();
+
+  const recommendations = results
+    .map((product) => scoreResearchProduct(normalizeProduct(product, locale), profile, locale))
+    .sort((left, right) => right.matchScore - left.matchScore || Number(right.rating || 0) - Number(left.rating || 0))
+    .slice(0, RECOMMENDATION_LIMIT);
+
+  return json({
+    products: recommendations,
+    source: 'product-database',
+    note: locale === 'en-US'
+      ? 'Candidates are selected from the local product database. Seller AI must only discuss the facts provided here.'
+      : '候选商品来自站内商品数据库。卖家 AI 只能依据这里提供的商品事实进行讨论。',
+  });
+}
+
+function scoreResearchProduct(product, profile, locale) {
+  const need = String(profile.currentNeed || '').trim().toLowerCase();
+  const target = String(profile.purchaseTarget || '').trim().toLowerCase();
+  const haystack = [
+    product.name,
+    product.subtitle,
+    product.description,
+    product.category_id,
+    ...(Array.isArray(product.tags) ? product.tags : []),
+    ...Object.values(product.specs || {}),
+  ].join(' ').toLowerCase();
+  const terms = splitSearchTerms(`${need} ${target}`);
+  const matchedTerms = terms.filter((term) => haystack.includes(term));
+  let matchScore = matchedTerms.length * 12;
+  const maxBudget = Number(profile.maxBudget || 0);
+  const price = Number(product.price || 0);
+
+  if (maxBudget > 0) {
+    if (price <= maxBudget) matchScore += 30;
+    else if (price <= maxBudget * 1.2) matchScore += 8;
+    else matchScore -= 24;
+  }
+
+  if (String(profile.urgency || '') === 'high' && Number(product.stock || 0) > 0) matchScore += 3;
+  if (String(profile.purchaseTarget || '') === 'gift' && /礼|gift|套装|节日|纪念/.test(haystack)) matchScore += 8;
+  if (String(profile.purchaseTarget || '') === 'self' && !/礼|gift/.test(haystack)) matchScore += 3;
+
+  const matchReasons = [];
+  if (matchedTerms.length) {
+    matchReasons.push(locale === 'en-US'
+      ? `Matches your stated need: ${matchedTerms.slice(0, 3).join(', ')}`
+      : `和你的需求关键词匹配：${matchedTerms.slice(0, 3).join('、')}`);
+  }
+  if (maxBudget > 0 && price <= maxBudget) {
+    matchReasons.push(locale === 'en-US' ? 'Within your stated budget' : '价格在你填写的预算内');
+  } else if (maxBudget > 0 && price > maxBudget) {
+    matchReasons.push(locale === 'en-US' ? 'Above your stated budget; verify affordability' : '价格超过你填写的预算，需要确认是否能承受');
+  }
+  if (!matchReasons.length) {
+    matchReasons.push(locale === 'en-US' ? 'Selected from the available product database' : '从当前商品数据库中筛选');
+  }
+
+  return {
+    ...product,
+    matchScore,
+    matchReasons,
+  };
+}
+
+function splitSearchTerms(value) {
+  const chunks = String(value || '')
+    .split(/[\s,，。；;、/\\|:：!?！？()（）\[\]【】]+/)
+    .map((term) => term.trim())
+    .filter((term) => term.length >= 2);
+  const chineseBigrams = [];
+  chunks.forEach((chunk) => {
+    if (!/[\u4e00-\u9fff]/.test(chunk)) return;
+    for (let index = 0; index < chunk.length - 1; index += 1) {
+      const pair = chunk.slice(index, index + 2);
+      if (/^[\u4e00-\u9fff]{2}$/.test(pair)) chineseBigrams.push(pair);
+    }
+  });
+  return Array.from(new Set([...chunks, ...chineseBigrams])).slice(0, 20);
+}
 
 export async function trackBehavior({ request, env }) {
   const token = requireAuth(request);

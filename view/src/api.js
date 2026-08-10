@@ -237,6 +237,11 @@ export const AIAPI = {
 };
 
 export const ResearchAPI = {
+  recommendations: (profile) =>
+    request('/research/recommendations', {
+      method: 'POST',
+      body: JSON.stringify({ profile }),
+    }),
   track: (behaviorType, payload = {}) =>
     request('/research/track', {
       method: 'POST',

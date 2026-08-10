@@ -4,7 +4,7 @@
 
 ShopAssistant 将直播电商中的高刺激购买场景转化为可运行、可记录的 Web 实验环境。它关注的不是替用户决定“该不该买”，而是在限时、稀缺、从众和价格锚定等压力出现时，为用户提供暂停、核验、比较和反思的机会。
 
-项目以 BuyMate 的理性消费干预理念为设计来源，并在此基础上扩展了卖家 AI 对照、压力画像、冷静小游戏和研究数据后台。前端位于 `view/`，后端 API 位于 `worker/src/`。
+项目以 BuyMate 的理性消费干预理念为设计来源，并在此基础上扩展了卖家 AI 对照、管家 AI、完整研究流程和研究数据后台。前端位于 `view/`，后端 API 位于 `worker/src/`。
 
 ## 核心理念
 
@@ -13,7 +13,7 @@ BuyMate 的启发在于：干预应当在消费决策的关键时刻出现，并
 - **赋能而非替代**：管家 AI 提供检查路径和信息框架，不替用户下结论。
 - **识别压力而非制造压力**：将紧迫、稀缺、社交证明和价格锚定作为可观察的情境线索。
 - **让干预可追踪**：记录浏览、AI 对话、加购、撤回、干预使用和最终模拟决策。
-- **支持实验比较**：提供卖家 AI 与管家 AI 两种角色，以及非 AI 冷静任务。
+- **支持实验比较**：在同一研究流程中依次提供卖家 AI 与管家 AI 两种角色，并记录用户最终选择。
 
 ## AI 干预闭环
 
@@ -42,7 +42,7 @@ BuyMate 的启发在于：干预应当在消费决策的关键时刻出现，并
 - **卖家 AI**：以需求与商品价值连接为主的研究对照，不使用催单、稀缺或从众表达。
 - BuyMate 风格的理性消费支持面板：理性支持模式、五类诱导话术提示和三项同类商品短名单。
 - 情境压力探针：记录限时紧迫、库存稀缺、社交证明和价格锚定等线索，生成压力分和压力等级。
-- 冷静小游戏：小恐龙跑酷、华容道和 15 数码，作为可记录的非 AI 注意力切换任务。
+- 研究页：知情同意、用户资料、数据库商品匹配、卖家 AI、管家 AI、最终三选一和双方倾向对比。
 - 结算前反思清单：在提交模拟决策前记录关键检查是否完成。
 
 ### 面向研究者
@@ -85,7 +85,7 @@ ShopAssistant 是受 BuyMate 启发的研究平台与工程原型，**不是论�
 ## 项目结构
 
 ```text
-view/                         Vue 前端：商品浏览、AI 干预、压力探针、小游戏与后台界面
+view/                         Vue 前端：商品浏览、研究流程、AI 交互、压力探针与后台界面
 worker/src/app/               Worker 入口、HTTP 工具与路由注册
 worker/src/modules/ai/        卖家 / 管家 AI、流式模型调用与对话记录
 worker/src/modules/shop/      商品样本、同类商品和样本洞察
@@ -143,7 +143,7 @@ npm run db:more-product-i18n
 - `GET /api/products`、`GET /api/products/:id/insights`、`GET /api/categories`
 - `GET /api/cart`、`GET /api/orders`
 - `POST /api/ai/chat`、`POST /api/ai/seller-nudge`、`GET /api/ai/history`
-- `POST /api/research/track`、`GET /api/research/summary`
+- `POST /api/research/recommendations`、`POST /api/research/track`、`GET /api/research/summary`
 - `GET /api/admin/ai-config`、`GET /api/admin/orders`、`PUT /api/admin/orders/:id/status`
 
 ## License

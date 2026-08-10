@@ -50,9 +50,9 @@
           <Clock3 :size="16" />
           {{ t('common.records') }}
         </button>
-        <button v-if="!isAdminUser" class="nav-chip primary-nav-chip" type="button" @click="openGame(activeGame, 'topbar')">
-          <Layers3 :size="16" />
-          {{ t('common.games') }}
+        <button v-if="!isAdminUser" class="nav-chip primary-nav-chip" type="button" @click="go('research')">
+          <ClipboardCheck :size="16" />
+          {{ t('common.researchPage') }}
         </button>
         <div v-if="!isAdminUser" class="mobile-nav-menu">
           <button
@@ -79,9 +79,9 @@
               <Clock3 :size="16" />
               {{ t('common.records') }}
             </button>
-            <button type="button" role="menuitem" @click="openGameFromMobileMenu">
-              <Layers3 :size="16" />
-              {{ t('common.games') }}
+            <button type="button" role="menuitem" @click="navigateFromMobileMenu('research')">
+              <ClipboardCheck :size="16" />
+              {{ t('common.researchPage') }}
             </button>
           </div>
         </div>
@@ -942,186 +942,296 @@
         </div>
       </section>
 
-      <section v-else-if="page === 'games'" class="page-band">
-        <div class="panel page-header games-header">
+      <section v-else-if="page === 'research'" class="page-band">
+        <div class="panel page-header research-header">
           <div>
-            <h1>{{ t('games.title') }}</h1>
-            <p>{{ t('games.subtitle') }}</p>
+            <span class="eyebrow">{{ t('research.eyebrow') }}</span>
+            <h1>{{ t('research.title') }}</h1>
+            <p>{{ t('research.subtitle') }}</p>
           </div>
-          <button class="ghost-btn" type="button" @click="go('products')">
-            <ArrowLeft :size="16" />
-            {{ t('common.backProducts') }}
-          </button>
+          <div class="research-header-actions">
+            <span class="research-progress-label">{{ researchProgressLabel }}</span>
+            <button class="ghost-btn" type="button" @click="exitResearch">
+              <X :size="16" />
+              {{ t('research.exit') }}
+            </button>
+          </div>
         </div>
 
-        <div class="games-layout">
-          <aside class="panel games-menu">
-            <div class="panel-head">
-              <div>
-                <h2>{{ t('games.menuTitle') }}</h2>
-                <p>{{ t('games.menuSubtitle') }}</p>
-              </div>
+        <section v-if="researchStage === 0" class="panel research-card consent-card">
+          <div class="research-intro-icon"><ClipboardCheck :size="28" /></div>
+          <h2>{{ t('research.consentTitle') }}</h2>
+          <p>{{ t('research.consentLead') }}</p>
+          <div class="consent-copy">
+            <h3>{{ t('research.consentPurposeTitle') }}</h3>
+            <p>{{ t('research.consentPurpose') }}</p>
+            <h3>{{ t('research.consentProcessTitle') }}</h3>
+            <p>{{ t('research.consentProcess') }}</p>
+            <h3>{{ t('research.consentDataTitle') }}</h3>
+            <p>{{ t('research.consentData') }}</p>
+            <h3>{{ t('research.consentAiTitle') }}</h3>
+            <p>{{ t('research.consentAi') }}</p>
+            <h3>{{ t('research.consentRightsTitle') }}</h3>
+            <p>{{ t('research.consentRights') }}</p>
+          </div>
+          <label class="consent-check">
+            <input v-model="researchConsentChecked" type="checkbox" />
+            <span>{{ t('research.consentCheck') }}</span>
+          </label>
+          <div class="form-actions research-actions">
+            <button class="primary-btn" type="button" :disabled="!researchConsentChecked" @click="startResearch">
+              <ArrowRight :size="16" />
+              {{ t('research.start') }}
+            </button>
+            <button v-if="researchDraftAvailable" class="ghost-btn" type="button" @click="resumeResearch">
+              {{ t('research.resume') }}
+            </button>
+          </div>
+        </section>
+
+        <section v-else-if="researchStage === 1" class="panel research-card">
+          <div class="research-card-heading">
+            <div>
+              <span class="eyebrow">{{ t('research.stepProfile') }}</span>
+              <h2>{{ t('research.profileTitle') }}</h2>
+              <p>{{ t('research.profileSubtitle') }}</p>
             </div>
-            <div class="game-choice-list">
-              <button
-                v-for="game in gameCards"
-                :key="game.key"
-                class="game-choice"
-                :class="{ active: activeGame === game.key }"
-                type="button"
-                @click="selectGame(game.key)"
-              >
-                <span class="intervention-icon">
-                  <component :is="game.icon" :size="16" />
-                </span>
-                <span>
-                  <strong>{{ game.label }}</strong>
-                  <small>{{ game.body }}</small>
-                </span>
-                <strong class="game-choice-status">{{ gameStatus(game.key) }}</strong>
+            <UserRound :size="28" />
+          </div>
+          <form class="research-form" @submit.prevent="submitResearchProfile">
+            <div class="research-form-grid">
+              <label class="field">
+                <span>{{ t('research.gender') }}</span>
+                <select v-model="researchProfile.gender" required>
+                  <option value="">{{ t('research.choose') }}</option>
+                  <option value="male">{{ t('research.male') }}</option>
+                  <option value="female">{{ t('research.female') }}</option>
+                  <option value="other">{{ t('research.other') }}</option>
+                  <option value="prefer_not_to_say">{{ t('research.preferNot') }}</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>{{ t('research.age') }}</span>
+                <input v-model.number="researchProfile.age" type="number" min="18" max="100" required :placeholder="t('research.agePlaceholder')" />
+              </label>
+              <label class="field">
+                <span>{{ t('research.education') }}</span>
+                <select v-model="researchProfile.education" required>
+                  <option value="">{{ t('research.choose') }}</option>
+                  <option value="high_school_or_below">{{ t('research.educationHighSchool') }}</option>
+                  <option value="college">{{ t('research.educationCollege') }}</option>
+                  <option value="bachelor">{{ t('research.educationBachelor') }}</option>
+                  <option value="graduate_or_above">{{ t('research.educationGraduate') }}</option>
+                  <option value="prefer_not_to_say">{{ t('research.preferNot') }}</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>{{ t('research.purchaseTarget') }}</span>
+                <select v-model="researchProfile.purchaseTarget" required>
+                  <option value="self">{{ t('research.targetSelf') }}</option>
+                  <option value="gift">{{ t('research.targetOther') }}</option>
+                  <option value="shared">{{ t('research.targetShared') }}</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>{{ t('research.budget') }}</span>
+                <select v-model.number="researchProfile.maxBudget">
+                  <option :value="0">{{ t('research.noBudget') }}</option>
+                  <option :value="500">¥500</option>
+                  <option :value="1000">¥1,000</option>
+                  <option :value="3000">¥3,000</option>
+                  <option :value="5000">¥5,000</option>
+                  <option :value="10000">¥10,000</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>{{ t('research.urgency') }}</span>
+                <select v-model="researchProfile.urgency">
+                  <option value="low">{{ t('research.urgencyLow') }}</option>
+                  <option value="medium">{{ t('research.urgencyMedium') }}</option>
+                  <option value="high">{{ t('research.urgencyHigh') }}</option>
+                </select>
+              </label>
+              <label class="field full">
+                <span>{{ t('research.currentNeed') }}</span>
+                <textarea v-model.trim="researchProfile.currentNeed" rows="4" required :placeholder="t('research.needPlaceholder')"></textarea>
+              </label>
+            </div>
+            <div class="research-note"><ShieldCheck :size="16" /> {{ t('research.profilePrivacy') }}</div>
+            <div class="form-actions">
+              <button class="primary-btn" type="submit" :disabled="researchProfileLoading">
+                <Sparkles :size="16" />
+                {{ researchProfileLoading ? t('research.loadingProducts') : t('research.findProducts') }}
               </button>
+            </div>
+          </form>
+        </section>
+
+        <section v-else-if="researchStage === 2 || researchStage === 3" class="research-flow-grid">
+          <aside class="panel research-context-card">
+            <div class="research-phase-badge" :class="researchStage === 2 ? 'seller' : 'guardian'">
+              <Bot v-if="researchStage === 2" :size="18" />
+              <ShieldCheck v-else :size="18" />
+              {{ researchStage === 2 ? t('research.sellerPhase') : t('research.guardianPhase') }}
+            </div>
+            <h2>{{ researchStage === 2 ? t('research.sellerTitle') : t('research.guardianTitle') }}</h2>
+            <p>{{ researchStage === 2 ? t('research.sellerSubtitle') : t('research.guardianSubtitle') }}</p>
+            <div v-if="researchStage === 2 && researchRecommendations.length" class="research-products">
+              <h3>{{ t('research.databaseProducts') }}</h3>
+              <button
+                v-for="product in researchRecommendations"
+                :key="product.id"
+                class="research-product-option"
+                :class="{ active: researchSelectedProductId === product.id }"
+                type="button"
+                @click="selectResearchProduct(product)"
+              >
+                <img v-if="product.image_url" :src="product.image_url" :alt="product.name" />
+                <span>
+                  <strong>{{ product.name }}</strong>
+                  <small>{{ formatMoney(product.price) }} · {{ product.matchReasons?.[0] }}</small>
+                </span>
+              </button>
+            </div>
+            <div v-if="researchSelectedProduct" class="research-selected-product">
+              <span>{{ t('research.currentProduct') }}</span>
+              <strong>{{ researchSelectedProduct.name }}</strong>
+              <small>{{ formatMoney(researchSelectedProduct.price) }}</small>
             </div>
           </aside>
 
-          <section class="panel game-stage-panel">
-            <template v-if="activeGame === 'dino'">
-              <div class="panel-head">
-                <div>
-                  <h2>{{ t('games.dinoTitle') }}</h2>
-                  <p>{{ t('games.dinoHint') }}</p>
-                </div>
-                <div class="game-stat-row">
-                  <span>{{ t('games.score') }} {{ dinoScore }}</span>
-                  <span>{{ t('games.best') }} {{ dino.best }}</span>
+          <section class="panel research-chat-card">
+            <div class="research-chat-head">
+              <div>
+                <span class="eyebrow">{{ researchStage === 2 ? t('research.sellerRound', { count: researchSellerTurns }) : t('research.guardianRound', { count: researchGuardianTurns }) }}</span>
+                <h2>{{ researchStage === 2 ? t('research.sellerChatTitle') : t('research.guardianChatTitle') }}</h2>
+              </div>
+              <span class="research-theory-note">{{ t('research.theoryNote') }}</span>
+            </div>
+            <div class="research-chat-list" aria-live="polite">
+              <div v-if="researchCurrentMessages.length === 0" class="empty-state">
+                <strong>{{ t('research.chatStarting') }}</strong>
+                <span>{{ t('research.chatStartingBody') }}</span>
+              </div>
+              <div v-for="(message, index) in researchCurrentMessages" :key="`${message.client_message_id || message.id || index}-${index}`" class="research-chat-row" :class="message.role">
+                <div class="research-chat-label">{{ message.role === 'user' ? t('research.you') : (researchStage === 2 ? t('common.sellerAi') : t('common.guardianAi')) }}</div>
+                <div class="research-chat-bubble" :class="{ markdown: message.role === 'assistant' }" v-html="message.role === 'assistant' ? renderMarkdown(message.content) : message.content"></div>
+                <div v-if="message.role === 'assistant' && message.assessment?.recommendation" class="research-mini-assessment">
+                  {{ t('research.aiDirection') }}：{{ researchDecisionLabel(message.assessment.recommendation) }}
                 </div>
               </div>
-
-              <button
-                class="dino-stage"
-                ref="dinoStageEl"
-                type="button"
-                :aria-label="t('games.jump')"
-                @click="jumpDino"
-              >
-                <span class="dino-skyline"></span>
-                <span
-                  class="dino-runner"
-                  :class="{ jumping: dino.y > 0 }"
-                  :style="{ bottom: `${28 + dino.y}px` }"
-                >
-                  SG
-                </span>
-                <span class="dino-obstacle" :style="{ left: `${dino.obstacleX}%` }"></span>
-                <span class="dino-ground"></span>
-                <span v-if="!dino.running && !dino.gameOver" class="game-overlay-label">
-                  {{ t('games.dinoReady') }}
-                </span>
-                <span v-if="dino.gameOver" class="game-overlay-label">
-                  {{ t('games.dinoGameOver') }}
-                </span>
+              <div v-if="researchAiSending" class="research-chat-row assistant">
+                <div class="research-chat-label">{{ researchStage === 2 ? t('common.sellerAi') : t('common.guardianAi') }}</div>
+                <div class="research-chat-bubble research-thinking">{{ t('research.thinking') }}</div>
+              </div>
+            </div>
+            <form class="research-chat-form" @submit.prevent="sendResearchMessage">
+              <textarea v-model.trim="researchMessage" rows="3" :disabled="researchAiSending" :placeholder="researchStage === 2 ? t('research.sellerPlaceholder') : t('research.guardianPlaceholder')"></textarea>
+              <div class="research-chat-actions">
+                <small>{{ t('research.chatHint') }}</small>
+                <button class="primary-btn" type="submit" :disabled="researchAiSending || !researchMessage.trim()">
+                  <SendHorizontal :size="16" />
+                  {{ t('research.send') }}
+                </button>
+              </div>
+            </form>
+            <div v-if="researchStage === 2 && researchSellerTurns >= 3" class="research-next-step">
+              <p>{{ t('research.sellerDone') }}</p>
+              <button class="secondary-btn" type="button" @click="beginGuardianResearch">
+                <ShieldCheck :size="16" />
+                {{ t('research.startGuardian') }}
               </button>
-
-              <div class="game-control-row">
-                <button class="primary-btn" type="button" @click="startDino">
-                  <Clock3 :size="16" />
-                  {{ dino.running ? t('games.restart') : t('games.play') }}
-                </button>
-                <button class="secondary-btn" type="button" @click="jumpDino">
-                  <ArrowRight :size="16" />
-                  {{ t('games.jump') }}
-                </button>
-                <button class="ghost-btn" type="button" @click="stopDino">
-                  <RefreshCcw :size="16" />
-                  {{ t('games.pause') }}
-                </button>
-              </div>
-            </template>
-
-            <template v-else-if="activeGame === 'klotski'">
-              <div class="panel-head">
-                <div>
-                  <h2>{{ t('games.klotskiTitle') }}</h2>
-                  <p>{{ t('games.klotskiHint') }}</p>
-                </div>
-                <div class="game-stat-row">
-                  <span>{{ t('games.moves') }} {{ klotskiMoves }}</span>
-                  <span>{{ klotskiSolved ? t('games.completed') : t('games.klotskiExit') }}</span>
-                </div>
-              </div>
-
-              <div class="klotski-wrap">
-                <div class="klotski-board">
-                  <button
-                    v-for="piece in klotskiPieces"
-                    :key="piece.id"
-                    class="klotski-piece"
-                    :class="[`size-${piece.w}x${piece.h}`, { active: selectedKlotskiPiece === piece.id }]"
-                    type="button"
-                    :style="klotskiPieceStyle(piece)"
-                    @click="selectKlotskiPiece(piece.id)"
-                  >
-                    {{ t(piece.labelKey) }}
-                  </button>
-                  <span class="klotski-exit">{{ t('games.exit') }}</span>
-                </div>
-
-                <div class="klotski-controls" :aria-label="t('games.klotskiControls')">
-                  <button class="ghost-btn" type="button" @click="moveKlotski('up')">
-                    <ArrowRight class="arrow-up" :size="16" />
-                  </button>
-                  <button class="ghost-btn" type="button" @click="moveKlotski('left')">
-                    <ArrowLeft :size="16" />
-                  </button>
-                  <button class="ghost-btn" type="button" @click="moveKlotski('right')">
-                    <ArrowRight :size="16" />
-                  </button>
-                  <button class="ghost-btn" type="button" @click="moveKlotski('down')">
-                    <ArrowRight class="arrow-down" :size="16" />
-                  </button>
-                  <button class="secondary-btn reset-puzzle-btn" type="button" @click="resetKlotski">
-                    <RefreshCcw :size="16" />
-                    {{ t('games.restart') }}
-                  </button>
-                </div>
-              </div>
-            </template>
-
-            <template v-else>
-              <div class="panel-head">
-                <div>
-                  <h2>{{ t('games.sliderTitle') }}</h2>
-                  <p>{{ t('games.sliderHint') }}</p>
-                </div>
-                <div class="game-stat-row">
-                  <span>{{ t('games.moves') }} {{ sliderMoves }}</span>
-                  <span>{{ sliderSolved ? t('games.completed') : t('games.steps') }}</span>
-                </div>
-              </div>
-
-              <div class="slider-game-wrap">
-                <div class="slider-board">
-                  <button
-                    v-for="(tile, index) in sliderTiles"
-                    :key="`${tile}-${index}`"
-                    class="slider-tile"
-                    :class="{ empty: tile === 0 }"
-                    type="button"
-                    :disabled="tile === 0"
-                    @click="moveSliderTile(index)"
-                  >
-                    {{ tile || '' }}
-                  </button>
-                </div>
-                <div class="game-control-row">
-                  <button class="primary-btn" type="button" @click="shuffleSlider">
-                    <RefreshCcw :size="16" />
-                    {{ t('games.shuffle') }}
-                  </button>
-                </div>
-              </div>
-            </template>
+            </div>
+            <div v-if="researchStage === 3 && researchGuardianTurns >= 3" class="research-next-step">
+              <p>{{ t('research.guardianDone') }}</p>
+              <button class="secondary-btn" type="button" @click="beginFinalResearch">
+                <ArrowRight :size="16" />
+                {{ t('research.finalChoice') }}
+              </button>
+            </div>
           </section>
-        </div>
+        </section>
+
+        <section v-else-if="researchStage === 4" class="panel research-card final-choice-card">
+          <div class="research-card-heading">
+            <div>
+              <span class="eyebrow">{{ t('research.stepFinal') }}</span>
+              <h2>{{ t('research.finalTitle') }}</h2>
+              <p>{{ t('research.finalSubtitle') }}</p>
+            </div>
+            <ClipboardCheck :size="28" />
+          </div>
+          <div class="research-summary-strip">
+            <span>{{ t('research.sellerOpinion') }} <strong>{{ researchDecisionLabel(researchSellerRecommendation) }}</strong></span>
+            <span>{{ t('research.guardianOpinion') }} <strong>{{ researchDecisionLabel(researchGuardianRecommendation) }}</strong></span>
+          </div>
+          <div class="research-choice-grid">
+            <button class="research-final-choice buy" type="button" @click="submitResearchDecision('buy')">
+              <strong>{{ t('research.buy') }}</strong><span>{{ t('research.buyHint') }}</span>
+            </button>
+            <button class="research-final-choice observe" type="button" @click="submitResearchDecision('observe')">
+              <strong>{{ t('research.observe') }}</strong><span>{{ t('research.observeHint') }}</span>
+            </button>
+            <button class="research-final-choice not-buy" type="button" @click="submitResearchDecision('not_buy')">
+              <strong>{{ t('research.notBuy') }}</strong><span>{{ t('research.notBuyHint') }}</span>
+            </button>
+          </div>
+        </section>
+
+        <section v-else class="panel research-card research-result-card">
+          <div class="research-result-icon"><ClipboardCheck :size="30" /></div>
+          <span class="eyebrow">{{ t('research.completed') }}</span>
+          <h2>{{ t('research.resultTitle') }}</h2>
+          <p>{{ t('research.resultSubtitle') }}</p>
+          <div class="research-comparison-table">
+            <div><span>{{ t('research.resultSeller') }}</span><strong :class="researchDecisionClass(researchSellerRecommendation)">{{ researchDecisionLabel(researchSellerRecommendation) }}</strong></div>
+            <div><span>{{ t('research.resultGuardian') }}</span><strong :class="researchDecisionClass(researchGuardianRecommendation)">{{ researchDecisionLabel(researchGuardianRecommendation) }}</strong></div>
+            <div><span>{{ t('research.resultUser') }}</span><strong :class="researchDecisionClass(researchFinalDecision)">{{ researchDecisionLabel(researchFinalDecision) }}</strong></div>
+          </div>
+          <p class="research-result-note">{{ researchAgreementLabel }}</p>
+          <form v-if="!researchFeedbackSubmitted" class="research-feedback" @submit.prevent="submitResearchFeedback">
+            <h3>{{ t('research.feedbackTitle') }}</h3>
+            <div class="research-feedback-grid">
+              <label class="field">
+                <span>{{ t('research.feedbackConfidence') }}</span>
+                <select v-model="researchFeedback.confidence" required>
+                  <option value="">{{ t('research.choose') }}</option>
+                  <option value="low">{{ t('research.feedbackLow') }}</option>
+                  <option value="medium">{{ t('research.feedbackMedium') }}</option>
+                  <option value="high">{{ t('research.feedbackHigh') }}</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>{{ t('research.feedbackHelpful') }}</span>
+                <select v-model="researchFeedback.helpful" required>
+                  <option value="">{{ t('research.choose') }}</option>
+                  <option value="no">{{ t('research.feedbackNo') }}</option>
+                  <option value="somewhat">{{ t('research.feedbackSomewhat') }}</option>
+                  <option value="yes">{{ t('research.feedbackYes') }}</option>
+                </select>
+              </label>
+              <label class="field full">
+                <span>{{ t('research.feedbackNote') }}</span>
+                <textarea v-model.trim="researchFeedback.note" rows="3"></textarea>
+              </label>
+            </div>
+            <button class="secondary-btn" type="submit">
+              <SendHorizontal :size="16" />
+              {{ t('research.feedbackSubmit') }}
+            </button>
+          </form>
+          <p v-else class="research-feedback-thanks">{{ t('research.feedbackThanks') }}</p>
+          <div class="form-actions research-actions">
+            <button class="primary-btn" type="button" @click="resetResearch">
+              <RefreshCcw :size="16" />
+              {{ t('research.startAgain') }}
+            </button>
+            <button class="ghost-btn" type="button" @click="go('products')">
+              <Package2 :size="16" />
+              {{ t('common.backProducts') }}
+            </button>
+          </div>
+        </section>
       </section>
 
       <section v-else-if="page === 'cart'" class="page-band">
@@ -1868,17 +1978,6 @@ const THEME_STORAGE_KEY = 'shopassistant_theme';
 const CATALOG_PAGE_SIZE = 30;
 const PRESSURE_PAGE_SIZE = 3;
 const PRESSURE_GROUPS_PER_RUN = 4;
-const DINO_GRAVITY = 0.00175;
-const DINO_JUMP_VELOCITY = 0.72;
-const DINO_BASE_SPEED = 0.035;
-const DINO_RUNNER_LEFT_RATIO = 0.11;
-const DINO_RUNNER_WIDTH = 46;
-const DINO_OBSTACLE_WIDTH = 22;
-const DINO_COLLISION_PADDING = 4;
-const DINO_CLEARANCE = 34;
-const KLOTSKI_BOARD_WIDTH = 4;
-const KLOTSKI_BOARD_HEIGHT = 5;
-const SLIDER_SIZE = 4;
 const themeOptions = new Set(['light', 'dark']);
 const markdown = new MarkdownIt({
   html: false,
@@ -2036,6 +2135,7 @@ const filters = reactive({
 
 const authOpen = ref(false);
 const authMode = ref('login');
+const authReturnPage = ref('products');
 const mobileNavOpen = ref(false);
 const authForm = reactive({
   email: '',
@@ -2059,6 +2159,35 @@ const productPreviewDialog = ref(null);
 const aiThreads = reactive({});
 const synthesisAssessment = ref(null);
 const synthesisLoading = ref(false);
+
+const RESEARCH_DRAFT_STORAGE_KEY = 'shopassistant_research_draft';
+const researchStage = ref(0);
+const researchConsentChecked = ref(false);
+const researchConsentGiven = ref(false);
+const researchRunId = ref('');
+const researchProfileLoading = ref(false);
+const researchRecommendations = ref([]);
+const researchSelectedProductId = ref('');
+const researchMessage = ref('');
+const researchAiSending = ref(false);
+const researchSellerTurns = ref(0);
+const researchGuardianTurns = ref(0);
+const researchSellerRecommendation = ref('verify');
+const researchGuardianRecommendation = ref('verify');
+const researchFinalDecision = ref('');
+const researchFeedbackSubmitted = ref(false);
+const researchFeedback = reactive({ confidence: '', helpful: '', note: '' });
+const researchThreads = reactive({ seller: [], guardian: [] });
+const researchDraftAvailable = ref(Boolean(localStorage.getItem(RESEARCH_DRAFT_STORAGE_KEY)));
+const researchProfile = reactive({
+  gender: '',
+  age: null,
+  education: '',
+  purchaseTarget: 'self',
+  maxBudget: 0,
+  urgency: 'medium',
+  currentNeed: '',
+});
 
 const adminConfig = ref(null);
 const adminStats = ref(null);
@@ -2095,30 +2224,6 @@ const pressureQuestionSpecs = ref(createPressureQuestionSet());
 const pressureAnswers = reactive({});
 initializePressureAnswers(pressureQuestionSpecs.value);
 
-const activeGame = ref('dino');
-const completedGames = reactive({
-  dino: false,
-  klotski: false,
-  slider: false,
-});
-const dino = reactive({
-  running: false,
-  gameOver: false,
-  score: 0,
-  best: 0,
-  y: 0,
-  velocity: 0,
-  obstacleX: 88,
-  frameId: 0,
-  lastTs: 0,
-});
-const dinoStageEl = ref(null);
-const klotskiPieces = ref(createKlotskiPieces());
-const selectedKlotskiPiece = ref('caocao');
-const klotskiMoves = ref(0);
-const sliderTiles = ref(createShuffledSlider());
-const sliderMoves = ref(0);
-
 const toasts = ref([]);
 
 const sortOptions = computed(() => [
@@ -2143,10 +2248,7 @@ watch(
     if (next !== 'products') {
       closeProductPreview();
     }
-    if (next !== 'games') {
-      stopDino();
-    }
-    if (isAdminUser.value && (next === 'cart' || next === 'orders' || next === 'checkout' || next === 'games')) {
+    if (isAdminUser.value && (next === 'cart' || next === 'orders' || next === 'checkout' || next === 'research')) {
       go('admin');
       return;
     }
@@ -2221,6 +2323,32 @@ const selectedProduct = computed(() => {
     products.value[0] ||
     null
   );
+});
+
+const researchSelectedProduct = computed(() =>
+  researchRecommendations.value.find((item) => item.id === researchSelectedProductId.value) || null,
+);
+const researchCurrentMessages = computed(() =>
+  researchThreads[researchStage.value === 3 ? 'guardian' : 'seller'] || [],
+);
+const researchProgressLabel = computed(() => {
+  const labels = [
+    t('research.progressConsent'),
+    t('research.progressProfile'),
+    t('research.progressSeller'),
+    t('research.progressGuardian'),
+    t('research.progressFinal'),
+    t('research.progressDone'),
+  ];
+  return labels[Math.min(researchStage.value, labels.length - 1)];
+});
+const researchAgreementLabel = computed(() => {
+  const seller = researchDecisionLabel(researchSellerRecommendation.value);
+  const guardian = researchDecisionLabel(researchGuardianRecommendation.value);
+  const userChoice = researchDecisionLabel(researchFinalDecision.value);
+  if (seller === userChoice && guardian === userChoice) return t('research.resultAllAgree', { choice: userChoice });
+  if (seller === guardian) return t('research.resultAgentsAgree', { choice: seller, user: userChoice });
+  return t('research.resultAgentsDiffer', { seller, guardian, user: userChoice });
 });
 
 const cartCount = computed(() => cart.value.reduce((sum, item) => sum + Number(item.quantity || 0), 0));
@@ -2383,34 +2511,6 @@ const decisionSupportCards = computed(() => {
     },
   ];
 });
-const gameCards = computed(() => [
-  {
-    key: 'dino',
-    icon: Clock3,
-    label: t('games.dinoTitle'),
-    body: t('games.dinoBody'),
-  },
-  {
-    key: 'klotski',
-    icon: Layers3,
-    label: t('games.klotskiTitle'),
-    body: t('games.klotskiBody'),
-  },
-  {
-    key: 'slider',
-    icon: Package2,
-    label: t('games.sliderTitle'),
-    body: t('games.sliderBody'),
-  },
-]);
-const dinoScore = computed(() => Math.floor(dino.score));
-const klotskiSolved = computed(() => {
-  const hero = klotskiPieces.value.find((piece) => piece.id === 'caocao');
-  return hero?.x === 1 && hero?.y === 3;
-});
-const sliderSolved = computed(() =>
-  sliderTiles.value.every((tile, index) => tile === (index === sliderTiles.value.length - 1 ? 0 : index + 1)),
-);
 const comparableProducts = computed(() => {
   const product = selectedProduct.value;
   if (!product) return [];
@@ -2514,7 +2614,8 @@ watch(
 
 onMounted(async () => {
   window.addEventListener('hashchange', syncRoute);
-  document.addEventListener('keydown', handleGameKeydown);
+  document.addEventListener('keydown', handleGlobalKeydown);
+  restoreResearchDraft();
   await bootstrap();
   if (page.value === 'products' && !selectedProductId.value && products.value.length) {
     selectedProductId.value = products.value[0].id;
@@ -2523,9 +2624,8 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('hashchange', syncRoute);
-  document.removeEventListener('keydown', handleGameKeydown);
+  document.removeEventListener('keydown', handleGlobalKeydown);
   document.body.classList.remove('modal-open');
-  stopDino();
 });
 
 async function bootstrap() {
@@ -2614,11 +2714,6 @@ function navigateFromMobileMenu(pageName) {
   go(pageName);
 }
 
-function openGameFromMobileMenu() {
-  mobileNavOpen.value = false;
-  openGame(activeGame.value, 'mobile-menu');
-}
-
 function setPage(pageName) {
   go(pageName);
 }
@@ -2640,6 +2735,327 @@ function resetFilters() {
   filters.q = '';
   filters.category = '';
   filters.sort = 'hot';
+}
+
+function researchConversationId(type) {
+  if (!researchRunId.value) researchRunId.value = createClientId('research');
+  return `research-${researchRunId.value}-${type}`;
+}
+
+function startResearch() {
+  if (!researchConsentChecked.value) return;
+  researchConsentGiven.value = true;
+  researchStage.value = 1;
+  saveResearchDraft();
+  if (token.value && !isAdminUser.value) {
+    void trackBehavior('intervention_check', {
+      strategy: 'research_consent',
+      metadata: { researchEvent: 'consent_agreed' },
+    });
+  }
+}
+
+function exitResearch() {
+  if (researchStage.value > 0 && researchStage.value < 5) {
+    saveResearchDraft();
+    researchDraftAvailable.value = true;
+    if (token.value && !isAdminUser.value) {
+      void trackBehavior('intervention_check', {
+        strategy: 'research_exit',
+        metadata: { researchEvent: 'exit_with_draft', stage: researchStage.value },
+      });
+    }
+    toast(t('research.savedExit'));
+  }
+  go('products');
+}
+
+function researchDraftPayload() {
+  return {
+    consentGiven: researchConsentGiven.value,
+    stage: researchStage.value,
+    runId: researchRunId.value,
+    profile: { ...researchProfile },
+    recommendations: researchRecommendations.value,
+    selectedProductId: researchSelectedProductId.value,
+    sellerTurns: researchSellerTurns.value,
+    guardianTurns: researchGuardianTurns.value,
+    sellerRecommendation: researchSellerRecommendation.value,
+    guardianRecommendation: researchGuardianRecommendation.value,
+    finalDecision: researchFinalDecision.value,
+    threads: {
+      seller: researchThreads.seller,
+      guardian: researchThreads.guardian,
+    },
+  };
+}
+
+function saveResearchDraft() {
+  try {
+    localStorage.setItem(RESEARCH_DRAFT_STORAGE_KEY, JSON.stringify(researchDraftPayload()));
+    researchDraftAvailable.value = true;
+  } catch {
+    // A draft is helpful but should never interrupt the research flow.
+  }
+}
+
+function restoreResearchDraft() {
+  try {
+    const raw = localStorage.getItem(RESEARCH_DRAFT_STORAGE_KEY);
+    if (!raw) return;
+    const draft = JSON.parse(raw);
+    if (!draft?.consentGiven) return;
+    researchConsentGiven.value = true;
+    researchConsentChecked.value = true;
+    researchStage.value = Number.isInteger(draft.stage) ? draft.stage : 1;
+    researchRunId.value = String(draft.runId || '');
+    Object.assign(researchProfile, draft.profile || {});
+    researchRecommendations.value = Array.isArray(draft.recommendations) ? draft.recommendations : [];
+    researchSelectedProductId.value = String(draft.selectedProductId || '');
+    researchSellerTurns.value = Number(draft.sellerTurns || 0);
+    researchGuardianTurns.value = Number(draft.guardianTurns || 0);
+    researchSellerRecommendation.value = draft.sellerRecommendation || 'verify';
+    researchGuardianRecommendation.value = draft.guardianRecommendation || 'verify';
+    researchFinalDecision.value = draft.finalDecision || '';
+    researchThreads.seller = Array.isArray(draft.threads?.seller) ? draft.threads.seller : [];
+    researchThreads.guardian = Array.isArray(draft.threads?.guardian) ? draft.threads.guardian : [];
+    researchDraftAvailable.value = true;
+  } catch {
+    localStorage.removeItem(RESEARCH_DRAFT_STORAGE_KEY);
+    researchDraftAvailable.value = false;
+  }
+}
+
+function resumeResearch() {
+  restoreResearchDraft();
+  if (researchStage.value >= 2 && token.value && !isAdminUser.value) {
+    void loadResearchHistory('seller');
+    void loadResearchHistory('guardian');
+  }
+}
+
+async function submitResearchProfile() {
+  if (!researchProfile.currentNeed.trim() || researchProfileLoading.value) return;
+  if (!ensureStandardUser(t('toast.researchLoginRequired'))) return;
+  researchProfileLoading.value = true;
+  try {
+    const result = await ResearchAPI.recommendations({ ...researchProfile });
+    researchRecommendations.value = result.products || [];
+    if (!researchRecommendations.value.length) {
+      throw new Error(t('research.noProducts'));
+    }
+    researchRunId.value = researchRunId.value || createClientId('research');
+    researchSelectedProductId.value = researchRecommendations.value[0].id;
+    researchSellerTurns.value = 0;
+    researchGuardianTurns.value = 0;
+    researchSellerRecommendation.value = 'verify';
+    researchGuardianRecommendation.value = 'verify';
+    researchFinalDecision.value = '';
+    researchThreads.seller = [];
+    researchThreads.guardian = [];
+    researchStage.value = 2;
+    saveResearchDraft();
+    void trackBehavior('intervention_check', {
+      strategy: 'research_profile',
+      metadata: {
+        researchEvent: 'profile_submitted',
+        profile: { ...researchProfile },
+        recommendationIds: researchRecommendations.value.map((item) => item.id),
+      },
+    });
+    await nextTick();
+    await sendResearchMessage(buildSellerOpening());
+  } catch (error) {
+    if (error.status === 401) openAuth('login');
+    else toast(error.message || t('research.recommendationFailed'), 'error');
+  } finally {
+    researchProfileLoading.value = false;
+  }
+}
+
+function buildSellerOpening() {
+  return [
+    '我正在参加购物决策研究。',
+    `我的基本信息：性别=${researchProfile.gender}，年龄=${researchProfile.age}，教育程度=${researchProfile.education}。`,
+    `购买对象=${researchProfile.purchaseTarget}，预算上限=${researchProfile.maxBudget ? `¥${researchProfile.maxBudget}` : '未设置'}，紧迫程度=${researchProfile.urgency}。`,
+    `我目前想买：${researchProfile.currentNeed}`,
+    '请先根据站内商品数据库里提供的商品，说明最匹配的商品和理由。只能使用商品数据库中的事实，不要虚构评价、参数或优惠；也请告诉我还需要了解什么。',
+  ].join('\n');
+}
+
+function buildGuardianOpening() {
+  const productName = researchSelectedProduct.value?.name || '当前候选商品';
+  return [
+    `现在请你作为管家 AI，帮我检查刚才讨论的${productName}。`,
+    `我的需求是：${researchProfile.currentNeed}；预算上限：${researchProfile.maxBudget ? `¥${researchProfile.maxBudget}` : '未设置'}；紧迫程度：${researchProfile.urgency}。`,
+    '请重点检查真实需求、预算压力、情绪或促销影响、商品适配性和信息缺口。请按 DOC.md 的研究原则给出买、观望或不买方向，但不要把不买当成固定答案，也不要替我做最终决定。',
+  ].join('\n');
+}
+
+async function loadResearchHistory(type) {
+  const conversationId = researchConversationId(type);
+  try {
+    const result = await AIAPI.getHistory(type, conversationId);
+    researchThreads[type] = (result.history || []).slice().reverse().map((message) => ({
+      ...message,
+      assessment: message.assessment || parseMetadataAssessment(message.metadata_json),
+    }));
+    const latestAssessment = researchThreads[type].slice().reverse().find((item) => item.role === 'assistant' && item.assessment);
+    if (latestAssessment?.assessment?.recommendation) {
+      if (type === 'seller') researchSellerRecommendation.value = latestAssessment.assessment.recommendation;
+      else researchGuardianRecommendation.value = latestAssessment.assessment.recommendation;
+    }
+  } catch (error) {
+    if (error.status !== 401) toast(error.message || t('toast.chatLoadFailed'), 'error');
+  }
+}
+
+function selectResearchProduct(product) {
+  if (researchSellerTurns.value > 0) {
+    toast(t('research.productLocked'), 'error');
+    return;
+  }
+  researchSelectedProductId.value = product.id;
+  saveResearchDraft();
+}
+
+async function sendResearchMessage(explicitMessage = '') {
+  if (!ensureStandardUser(t('toast.researchLoginRequired'))) return;
+  const type = researchStage.value === 3 ? 'guardian' : 'seller';
+  const message = String(explicitMessage || researchMessage.value).trim();
+  if (!message || researchAiSending.value) return;
+  if (type === 'seller' && researchSellerTurns.value >= 3) return;
+  if (type === 'guardian' && researchGuardianTurns.value >= 3) return;
+
+  const conversationId = researchConversationId(type);
+  const clientMessageId = createClientId('research-message');
+  researchAiSending.value = true;
+  researchMessage.value = '';
+  researchThreads[type].push({ role: 'user', content: message, client_message_id: clientMessageId });
+  let streamMessageIndex = -1;
+  let streamedAssessment = null;
+  const appendStreamDelta = (content) => {
+    if (!content) return;
+    if (streamMessageIndex < 0) {
+      researchThreads[type].push({ role: 'assistant', content: '', streaming: true });
+      streamMessageIndex = researchThreads[type].length - 1;
+    }
+    researchThreads[type][streamMessageIndex].content += content;
+  };
+  const controller = new AbortController();
+  void trackBehavior('chat_ai', {
+    aiType: type,
+    productId: researchSelectedProductId.value || null,
+    messageLength: message.length,
+    metadata: { researchEvent: 'research_phase_chat', researchRunId: researchRunId.value },
+  });
+
+  try {
+    const result = await AIAPI.chatStream(
+      message,
+      type,
+      researchSelectedProductId.value || null,
+      conversationId,
+      clientMessageId,
+      { signal: controller.signal, onDelta: appendStreamDelta, onDone: (data) => { streamedAssessment = data.assessment || null; } },
+    );
+    if (streamMessageIndex < 0) appendStreamDelta(String(result.response || ''));
+    if (streamMessageIndex >= 0) {
+      const response = researchThreads[type][streamMessageIndex];
+      response.content = String(result.response || response.content);
+      response.assessment = streamedAssessment || result.assessment || null;
+      response.streaming = false;
+      if (response.assessment?.recommendation) {
+        if (type === 'seller') researchSellerRecommendation.value = response.assessment.recommendation;
+        else researchGuardianRecommendation.value = response.assessment.recommendation;
+      }
+    }
+    if (type === 'seller') researchSellerTurns.value += 1;
+    else researchGuardianTurns.value += 1;
+    saveResearchDraft();
+    await nextTick();
+  } catch (error) {
+    if (error.status === 401) openAuth('login');
+    else toast(error.message || t('toast.aiFailed'), 'error');
+    if (streamMessageIndex >= 0) researchThreads[type].splice(streamMessageIndex, 1);
+  } finally {
+    researchAiSending.value = false;
+  }
+}
+
+async function beginGuardianResearch() {
+  if (researchSellerTurns.value < 3 || researchAiSending.value) return;
+  researchStage.value = 3;
+  researchGuardianTurns.value = 0;
+  researchThreads.guardian = [];
+  saveResearchDraft();
+  await nextTick();
+  await sendResearchMessage(buildGuardianOpening());
+}
+
+function beginFinalResearch() {
+  if (researchGuardianTurns.value < 3) return;
+  researchStage.value = 4;
+  saveResearchDraft();
+}
+
+function submitResearchDecision(decision) {
+  if (!['buy', 'observe', 'not_buy'].includes(decision)) return;
+  researchFinalDecision.value = decision;
+  researchStage.value = 5;
+  localStorage.removeItem(RESEARCH_DRAFT_STORAGE_KEY);
+  researchDraftAvailable.value = false;
+  void trackBehavior('intervention_check', {
+    strategy: 'research_final_decision',
+    productId: researchSelectedProductId.value || null,
+    metadata: {
+      researchEvent: 'final_decision',
+      researchRunId: researchRunId.value,
+      userDecision: decision,
+      sellerRecommendation: researchSellerRecommendation.value,
+      guardianRecommendation: researchGuardianRecommendation.value,
+      profile: { ...researchProfile },
+    },
+  });
+}
+
+function submitResearchFeedback() {
+  researchFeedbackSubmitted.value = true;
+  void trackBehavior('intervention_check', {
+    strategy: 'research_final_feedback',
+    productId: researchSelectedProductId.value || null,
+    metadata: {
+      researchEvent: 'final_feedback',
+      researchRunId: researchRunId.value,
+      confidence: researchFeedback.confidence,
+      helpful: researchFeedback.helpful,
+      note: researchFeedback.note,
+    },
+  });
+}
+
+function resetResearch() {
+  localStorage.removeItem(RESEARCH_DRAFT_STORAGE_KEY);
+  researchDraftAvailable.value = false;
+  researchStage.value = 0;
+  researchConsentChecked.value = false;
+  researchConsentGiven.value = false;
+  researchRunId.value = '';
+  researchRecommendations.value = [];
+  researchSelectedProductId.value = '';
+  researchMessage.value = '';
+  researchSellerTurns.value = 0;
+  researchGuardianTurns.value = 0;
+  researchSellerRecommendation.value = 'verify';
+  researchGuardianRecommendation.value = 'verify';
+  researchFinalDecision.value = '';
+  researchFeedbackSubmitted.value = false;
+  Object.assign(researchFeedback, { confidence: '', helpful: '', note: '' });
+  researchThreads.seller = [];
+  researchThreads.guardian = [];
+  Object.assign(researchProfile, {
+    gender: '', age: null, education: '', purchaseTarget: 'self', maxBudget: 0, urgency: 'medium', currentNeed: '',
+  });
 }
 
 function setCatalogPage(nextPage) {
@@ -2701,6 +3117,9 @@ function openCheckout() {
 
 function openAuth(mode = 'login') {
   authMode.value = mode;
+  if (page.value !== 'products' && page.value !== 'admin') {
+    authReturnPage.value = page.value;
+  }
   authOpen.value = true;
 }
 
@@ -2822,14 +3241,8 @@ function trackCheckoutReflection(item) {
   });
 }
 
-function openGame(gameKey = activeGame.value, source = page.value) {
-  if (isAdminUser.value) {
-    toast(t('toast.adminStandardBlocked'), 'error');
-    go('admin');
-    return;
-  }
-  selectGame(gameKey, source);
-  go('games');
+function openGame() {
+  go('research');
 }
 
 function selectGame(gameKey, source = 'games-menu') {
@@ -2946,7 +3359,7 @@ function isDinoCollision() {
   return horizontalOverlap && dino.y < DINO_CLEARANCE;
 }
 
-function handleGameKeydown(event) {
+function handleGlobalKeydown(event) {
   if (event.key === 'Escape') {
     if (aiOpen.value) {
       closeAi();
@@ -2955,24 +3368,6 @@ function handleGameKeydown(event) {
     if (productPreviewOpen.value) {
       closeProductPreview();
       return;
-    }
-  }
-  if (page.value !== 'games') return;
-  if (activeGame.value === 'dino' && (event.code === 'Space' || event.code === 'ArrowUp')) {
-    event.preventDefault();
-    jumpDino();
-  }
-  if (activeGame.value === 'klotski') {
-    const keyMap = {
-      ArrowUp: 'up',
-      ArrowDown: 'down',
-      ArrowLeft: 'left',
-      ArrowRight: 'right',
-    };
-    const direction = keyMap[event.code];
-    if (direction) {
-      event.preventDefault();
-      moveKlotski(direction);
     }
   }
 }
@@ -3239,6 +3634,16 @@ function parseMetadataAssessment(metadataJson) {
 
 function recommendationLabel(value) {
   return t(`ai.recommendation.${value || 'verify'}`);
+}
+
+function researchDecisionLabel(value) {
+  const normalized = value === 'buy_now' ? 'buy' : value === 'do_not_buy' ? 'not_buy' : value;
+  return t(`research.decision.${normalized || 'observe'}`);
+}
+
+function researchDecisionClass(value) {
+  const normalized = value === 'buy_now' ? 'buy' : value === 'do_not_buy' ? 'not_buy' : value;
+  return `research-decision-${normalized || 'observe'}`;
 }
 
 function evidenceStatusLabel(value) {
@@ -3900,7 +4305,9 @@ async function submitAuth() {
       go('admin');
     } else {
       await Promise.all([loadCart(), loadOrders()]);
-      go('products');
+      const returnPage = authReturnPage.value || 'products';
+      authReturnPage.value = 'products';
+      go(returnPage);
     }
   } catch (error) {
     toast(error.message || (authMode.value === 'login' ? t('toast.loginFailed') : t('toast.registerFailed')), 'error');
