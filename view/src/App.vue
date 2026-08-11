@@ -3003,7 +3003,7 @@ function selectResearchProduct(product) {
   saveResearchDraft();
 }
 
-async function sendResearchMessage(explicitMessage = '') {
+async function sendResearchMessage(explicitMessage) {
   if (!ensureStandardUser(t('toast.researchLoginRequired'))) return;
   const context = currentAccountContext();
   const type = researchStage.value === 3 ? 'guardian' : 'seller';
