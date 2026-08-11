@@ -1,5 +1,8 @@
 const API_BASE = '/api';
 const LOCALE_STORAGE_KEY = 'shopassistant_locale';
+const ACCOUNT_STATE_STORAGE_PREFIX = 'shopassistant.account';
+const LEGACY_UNSCOPED_STORAGE_KEYS = ['shopassistant_research_draft'];
+export const AUTH_EXPIRED_EVENT = 'shopassistant:auth-expired';
 
 function getRequestLocale() {
   return localStorage.getItem(LOCALE_STORAGE_KEY) || navigator.language || 'zh-CN';
@@ -29,6 +32,75 @@ export const TokenManager = {
   },
 };
 
+function accountIdFrom(value) {
+  if (value && typeof value === 'object') return String(value.id || '').trim();
+  return String(value || '').trim();
+}
+
+function accountStateKey(namespace, account) {
+  const accountId = accountIdFrom(account ?? TokenManager.getUser());
+  if (!accountId || !namespace) return '';
+  return `${ACCOUNT_STATE_STORAGE_PREFIX}:${encodeURIComponent(String(namespace))}:${encodeURIComponent(accountId)}`;
+}
+
+/**
+ * Persistent state that belongs to the signed-in account must go through this
+ * API. The active auth token remains global because only one session is active
+ * in a browser tab; user data is never stored under a shared key.
+ */
+export const AccountState = {
+  accountId: accountIdFrom,
+  has(namespace, account = TokenManager.getUser()) {
+    const key = accountStateKey(namespace, account);
+    try {
+      return Boolean(key && localStorage.getItem(key));
+    } catch {
+      return false;
+    }
+  },
+  read(namespace, account = TokenManager.getUser()) {
+    const key = accountStateKey(namespace, account);
+    if (!key) return null;
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      try {
+        localStorage.removeItem(key);
+      } catch {
+        // Ignore storage failures; account state is only a convenience cache.
+      }
+      return null;
+    }
+  },
+  write(namespace, value, account = TokenManager.getUser()) {
+    const key = accountStateKey(namespace, account);
+    if (!key) return false;
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+      return true;
+    } catch {
+      return false;
+    }
+  },
+  remove(namespace, account = TokenManager.getUser()) {
+    const key = accountStateKey(namespace, account);
+    if (!key) return;
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      // Ignore storage failures; account state is only a convenience cache.
+    }
+  },
+  clearLegacy() {
+    try {
+      LEGACY_UNSCOPED_STORAGE_KEYS.forEach((key) => localStorage.removeItem(key));
+    } catch {
+      // Local persistence is optional and must never block app startup.
+    }
+  },
+};
+
 async function request(url, options = {}) {
   const token = TokenManager.get();
   const headers = {
@@ -53,6 +125,7 @@ async function request(url, options = {}) {
   if (!response.ok) {
     if (response.status === 401) {
       TokenManager.clear();
+      window.dispatchEvent(new CustomEvent(AUTH_EXPIRED_EVENT));
     }
     const error = new Error(formatErrorMessage(data, response.status));
     error.status = response.status;
@@ -83,7 +156,10 @@ async function requestEventStream(url, options = {}, handlers = {}) {
     } catch {
       // Preserve the HTTP status even when the server response is not JSON.
     }
-    if (response.status === 401) TokenManager.clear();
+    if (response.status === 401) {
+      TokenManager.clear();
+      window.dispatchEvent(new CustomEvent(AUTH_EXPIRED_EVENT));
+    }
     const error = new Error(formatErrorMessage(data, response.status));
     error.status = response.status;
     error.detail = data.detail || '';

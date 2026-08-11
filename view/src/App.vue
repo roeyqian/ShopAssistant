@@ -1928,7 +1928,9 @@ import { computed, nextTick, onMounted, onBeforeUnmount, reactive, ref, watch } 
 import MarkdownIt from 'markdown-it';
 import {
   AIAPI,
+  AccountState,
   AdminAPI,
+  AUTH_EXPIRED_EVENT,
   AuthAPI,
   CartAPI,
   OrderAPI,
@@ -2106,6 +2108,7 @@ const theme = ref(readStoredTheme());
 
 const user = ref(TokenManager.getUser());
 const token = ref(TokenManager.get());
+const accountRevision = ref(0);
 
 const products = ref([]);
 const catalogPage = ref(1);
@@ -2160,7 +2163,7 @@ const aiThreads = reactive({});
 const synthesisAssessment = ref(null);
 const synthesisLoading = ref(false);
 
-const RESEARCH_DRAFT_STORAGE_KEY = 'shopassistant_research_draft';
+const RESEARCH_DRAFT_STATE_KEY = 'research_draft';
 const researchStage = ref(0);
 const researchConsentChecked = ref(false);
 const researchConsentGiven = ref(false);
@@ -2170,6 +2173,7 @@ const researchRecommendations = ref([]);
 const researchSelectedProductId = ref('');
 const researchMessage = ref('');
 const researchAiSending = ref(false);
+const researchAbortController = ref(null);
 const researchSellerTurns = ref(0);
 const researchGuardianTurns = ref(0);
 const researchSellerRecommendation = ref('verify');
@@ -2178,7 +2182,7 @@ const researchFinalDecision = ref('');
 const researchFeedbackSubmitted = ref(false);
 const researchFeedback = reactive({ confidence: '', helpful: '', note: '' });
 const researchThreads = reactive({ seller: [], guardian: [] });
-const researchDraftAvailable = ref(Boolean(localStorage.getItem(RESEARCH_DRAFT_STORAGE_KEY)));
+const researchDraftAvailable = ref(false);
 const researchProfile = reactive({
   gender: '',
   age: null,
@@ -2241,6 +2245,64 @@ const orderStatusOptions = computed(() => [
 
 const isAdminUser = computed(() => user.value?.role === 'admin');
 const isDarkTheme = computed(() => theme.value === 'dark');
+
+function currentAccountContext() {
+  return {
+    accountId: AccountState.accountId(user.value),
+    revision: accountRevision.value,
+  };
+}
+
+function isCurrentAccountContext(context) {
+  return Boolean(context)
+    && context.revision === accountRevision.value
+    && context.accountId === AccountState.accountId(user.value);
+}
+
+function setActiveSession(nextToken, nextUser) {
+  const previousUser = user.value;
+  const previousAccountId = AccountState.accountId(previousUser);
+  const nextAccountId = AccountState.accountId(nextUser);
+
+  if (previousAccountId) {
+    saveResearchDraft(previousUser);
+  }
+
+  accountRevision.value += 1;
+  token.value = nextToken || '';
+  user.value = nextUser || null;
+  if (nextToken && nextUser) {
+    TokenManager.set(nextToken);
+    TokenManager.setUser(nextUser);
+  } else {
+    TokenManager.clear();
+  }
+
+  // An account switch is a hard client-side data boundary. Preserve the
+  // previous account's scoped draft, but never keep its reactive state alive.
+  if (previousAccountId || !nextAccountId) {
+    resetAccountScopedState();
+  }
+
+  if (!nextAccountId) {
+    researchDraftAvailable.value = false;
+  } else if (previousAccountId) {
+    restoreResearchDraft(nextUser);
+  } else if (researchStage.value > 0) {
+    // Allow a guest who has just started the consent/profile flow to attach it
+    // to the account they have just authenticated as. It was never persisted
+    // in a shared guest key.
+    saveResearchDraft(nextUser);
+  } else {
+    restoreResearchDraft(nextUser);
+  }
+}
+
+function handleAuthExpired() {
+  if (!user.value && !token.value) return;
+  setActiveSession('', null);
+  openAuth('login');
+}
 
 watch(
   () => route.value.page,
@@ -2615,7 +2677,9 @@ watch(
 onMounted(async () => {
   window.addEventListener('hashchange', syncRoute);
   document.addEventListener('keydown', handleGlobalKeydown);
-  restoreResearchDraft();
+  window.addEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
+  AccountState.clearLegacy();
+  restoreResearchDraft(user.value);
   await bootstrap();
   if (page.value === 'products' && !selectedProductId.value && products.value.length) {
     selectedProductId.value = products.value[0].id;
@@ -2625,6 +2689,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   window.removeEventListener('hashchange', syncRoute);
   document.removeEventListener('keydown', handleGlobalKeydown);
+  window.removeEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
   document.body.classList.remove('modal-open');
 });
 
@@ -2790,21 +2855,34 @@ function researchDraftPayload() {
   };
 }
 
-function saveResearchDraft() {
+function saveResearchDraft(account = user.value) {
+  if (!AccountState.accountId(account)) {
+    researchDraftAvailable.value = false;
+    return;
+  }
   try {
-    localStorage.setItem(RESEARCH_DRAFT_STORAGE_KEY, JSON.stringify(researchDraftPayload()));
-    researchDraftAvailable.value = true;
+    researchDraftAvailable.value = AccountState.write(RESEARCH_DRAFT_STATE_KEY, researchDraftPayload(), account);
   } catch {
     // A draft is helpful but should never interrupt the research flow.
+    researchDraftAvailable.value = false;
   }
 }
 
-function restoreResearchDraft() {
+function restoreResearchDraft(account = user.value) {
+  if (!AccountState.accountId(account)) {
+    researchDraftAvailable.value = false;
+    return;
+  }
   try {
-    const raw = localStorage.getItem(RESEARCH_DRAFT_STORAGE_KEY);
-    if (!raw) return;
-    const draft = JSON.parse(raw);
-    if (!draft?.consentGiven) return;
+    const draft = AccountState.read(RESEARCH_DRAFT_STATE_KEY, account);
+    if (!draft) {
+      researchDraftAvailable.value = false;
+      return;
+    }
+    if (!draft?.consentGiven) {
+      researchDraftAvailable.value = false;
+      return;
+    }
     researchConsentGiven.value = true;
     researchConsentChecked.value = true;
     researchStage.value = Number.isInteger(draft.stage) ? draft.stage : 1;
@@ -2821,7 +2899,7 @@ function restoreResearchDraft() {
     researchThreads.guardian = Array.isArray(draft.threads?.guardian) ? draft.threads.guardian : [];
     researchDraftAvailable.value = true;
   } catch {
-    localStorage.removeItem(RESEARCH_DRAFT_STORAGE_KEY);
+    AccountState.remove(RESEARCH_DRAFT_STATE_KEY, account);
     researchDraftAvailable.value = false;
   }
 }
@@ -2837,9 +2915,11 @@ function resumeResearch() {
 async function submitResearchProfile() {
   if (!researchProfile.currentNeed.trim() || researchProfileLoading.value) return;
   if (!ensureStandardUser(t('toast.researchLoginRequired'))) return;
+  const context = currentAccountContext();
   researchProfileLoading.value = true;
   try {
     const result = await ResearchAPI.recommendations({ ...researchProfile });
+    if (!isCurrentAccountContext(context)) return;
     researchRecommendations.value = result.products || [];
     if (!researchRecommendations.value.length) {
       throw new Error(t('research.noProducts'));
@@ -2866,10 +2946,11 @@ async function submitResearchProfile() {
     await nextTick();
     await sendResearchMessage(buildSellerOpening());
   } catch (error) {
+    if (!isCurrentAccountContext(context)) return;
     if (error.status === 401) openAuth('login');
     else toast(error.message || t('research.recommendationFailed'), 'error');
   } finally {
-    researchProfileLoading.value = false;
+    if (isCurrentAccountContext(context)) researchProfileLoading.value = false;
   }
 }
 
@@ -2894,8 +2975,10 @@ function buildGuardianOpening() {
 
 async function loadResearchHistory(type) {
   const conversationId = researchConversationId(type);
+  const context = currentAccountContext();
   try {
     const result = await AIAPI.getHistory(type, conversationId);
+    if (!isCurrentAccountContext(context)) return;
     researchThreads[type] = (result.history || []).slice().reverse().map((message) => ({
       ...message,
       assessment: message.assessment || parseMetadataAssessment(message.metadata_json),
@@ -2906,6 +2989,7 @@ async function loadResearchHistory(type) {
       else researchGuardianRecommendation.value = latestAssessment.assessment.recommendation;
     }
   } catch (error) {
+    if (!isCurrentAccountContext(context)) return;
     if (error.status !== 401) toast(error.message || t('toast.chatLoadFailed'), 'error');
   }
 }
@@ -2921,6 +3005,7 @@ function selectResearchProduct(product) {
 
 async function sendResearchMessage(explicitMessage = '') {
   if (!ensureStandardUser(t('toast.researchLoginRequired'))) return;
+  const context = currentAccountContext();
   const type = researchStage.value === 3 ? 'guardian' : 'seller';
   const message = typeof explicitMessage === 'string'
     ? explicitMessage.trim()
@@ -2937,7 +3022,7 @@ async function sendResearchMessage(explicitMessage = '') {
   let streamMessageIndex = -1;
   let streamedAssessment = null;
   const appendStreamDelta = (content) => {
-    if (!content) return;
+    if (!content || !isCurrentAccountContext(context)) return;
     if (streamMessageIndex < 0) {
       researchThreads[type].push({ role: 'assistant', content: '', streaming: true });
       streamMessageIndex = researchThreads[type].length - 1;
@@ -2945,6 +3030,7 @@ async function sendResearchMessage(explicitMessage = '') {
     researchThreads[type][streamMessageIndex].content += content;
   };
   const controller = new AbortController();
+  researchAbortController.value = controller;
   void trackBehavior('chat_ai', {
     aiType: type,
     productId: researchSelectedProductId.value || null,
@@ -2961,6 +3047,7 @@ async function sendResearchMessage(explicitMessage = '') {
       clientMessageId,
       { signal: controller.signal, onDelta: appendStreamDelta, onDone: (data) => { streamedAssessment = data.assessment || null; } },
     );
+    if (!isCurrentAccountContext(context)) return;
     if (streamMessageIndex < 0) appendStreamDelta(String(result.response || ''));
     if (streamMessageIndex >= 0) {
       const response = researchThreads[type][streamMessageIndex];
@@ -2977,11 +3064,15 @@ async function sendResearchMessage(explicitMessage = '') {
     saveResearchDraft();
     await nextTick();
   } catch (error) {
+    if (!isCurrentAccountContext(context)) return;
     if (error.status === 401) openAuth('login');
     else toast(error.message || t('toast.aiFailed'), 'error');
     if (streamMessageIndex >= 0) researchThreads[type].splice(streamMessageIndex, 1);
   } finally {
-    researchAiSending.value = false;
+    if (researchAbortController.value === controller) {
+      researchAbortController.value = null;
+      researchAiSending.value = false;
+    }
   }
 }
 
@@ -3005,7 +3096,7 @@ function submitResearchDecision(decision) {
   if (!['buy', 'observe', 'not_buy'].includes(decision)) return;
   researchFinalDecision.value = decision;
   researchStage.value = 5;
-  localStorage.removeItem(RESEARCH_DRAFT_STORAGE_KEY);
+  AccountState.remove(RESEARCH_DRAFT_STATE_KEY);
   researchDraftAvailable.value = false;
   void trackBehavior('intervention_check', {
     strategy: 'research_final_decision',
@@ -3036,16 +3127,22 @@ function submitResearchFeedback() {
   });
 }
 
-function resetResearch() {
-  localStorage.removeItem(RESEARCH_DRAFT_STORAGE_KEY);
+function resetResearch({ clearDraft = true } = {}) {
+  researchAbortController.value?.abort();
+  researchAbortController.value = null;
+  if (clearDraft) {
+    AccountState.remove(RESEARCH_DRAFT_STATE_KEY);
+  }
   researchDraftAvailable.value = false;
   researchStage.value = 0;
   researchConsentChecked.value = false;
   researchConsentGiven.value = false;
   researchRunId.value = '';
+  researchProfileLoading.value = false;
   researchRecommendations.value = [];
   researchSelectedProductId.value = '';
   researchMessage.value = '';
+  researchAiSending.value = false;
   researchSellerTurns.value = 0;
   researchGuardianTurns.value = 0;
   researchSellerRecommendation.value = 'verify';
@@ -3058,6 +3155,59 @@ function resetResearch() {
   Object.assign(researchProfile, {
     gender: '', age: null, education: '', purchaseTarget: 'self', maxBudget: 0, urgency: 'medium', currentNeed: '',
   });
+}
+
+function resetAccountScopedState() {
+  stopAiGeneration();
+  aiAbortController.value = null;
+  aiHistoryRequestId.value += 1;
+  aiOpen.value = false;
+  aiType.value = 'seller';
+  aiProductId.value = '';
+  aiMessage.value = '';
+  aiSending.value = false;
+  aiClearing.value = false;
+  aiHistoryLoading.value = false;
+  aiConversationId.value = '';
+  synthesisAssessment.value = null;
+  synthesisLoading.value = false;
+  Object.keys(aiThreads).forEach((key) => delete aiThreads[key]);
+  productPreviewOpen.value = false;
+
+  resetResearch({ clearDraft: false });
+  closePressureProbe();
+  pressurePage.value = 0;
+  pressureQuestionSpecs.value = createPressureQuestionSet();
+  initializePressureAnswers(pressureQuestionSpecs.value);
+
+  cart.value = [];
+  orders.value = [];
+  selectedOrderId.value = '';
+  selectedOrderDetail.value = null;
+  selectedAdminOrderId.value = '';
+  selectedAdminOrderDetail.value = null;
+  researchSummary.value = null;
+  adminOrders.value = [];
+  adminStats.value = null;
+  adminConfig.value = null;
+  adminForm.deepseek_api_key = '';
+  adminForm.deepseek_base_url = 'https://api.deepseek.com';
+  adminForm.deepseek_model = 'deepseek-chat';
+  adminForm.seller_ai_enabled = true;
+  adminForm.guardian_ai_enabled = true;
+  adminOrderForm.status = 'completed';
+  adminOrderForm.note = '';
+
+  Object.assign(checkoutForm, { name: '', phone: '', address: '', remark: '' });
+  resetCheckoutReflection();
+  Object.assign(authForm, { email: '', username: '', password: '' });
+  filters.q = '';
+  filters.category = '';
+  filters.sort = 'hot';
+  catalogPage.value = 1;
+  authReturnPage.value = 'products';
+  mobileNavOpen.value = false;
+  toasts.value = [];
 }
 
 function setCatalogPage(nextPage) {
@@ -3809,15 +3959,16 @@ async function loadCart() {
     cart.value = [];
     return;
   }
+  const context = currentAccountContext();
   try {
     const result = await CartAPI.get();
+    if (!isCurrentAccountContext(context)) return;
     cart.value = result.items || [];
   } catch (error) {
+    if (!isCurrentAccountContext(context)) return;
     cart.value = [];
     if (error.status === 401) {
-      token.value = '';
-      user.value = null;
-      TokenManager.clear();
+      setActiveSession('', null);
       openAuth('login');
     } else {
       toast(error.message || t('toast.cartLoadFailed'), 'error');
@@ -3827,6 +3978,7 @@ async function loadCart() {
 
 async function loadOrders() {
   if (!ensureAuth()) return;
+  const context = currentAccountContext();
   if (isAdminUser.value) {
     orders.value = [];
     selectedOrderId.value = '';
@@ -3839,11 +3991,13 @@ async function loadOrders() {
   loading.orders = true;
   try {
     const result = await OrderAPI.getList();
+    if (!isCurrentAccountContext(context)) return;
     orders.value = result.orders || [];
     if (!selectedOrderId.value && orders.value.length) {
       selectedOrderId.value = orders.value[0].id;
     }
   } catch (error) {
+    if (!isCurrentAccountContext(context)) return;
     orders.value = [];
     if (error.status === 401) {
       openAuth('login');
@@ -3851,7 +4005,7 @@ async function loadOrders() {
       toast(error.message || t('toast.orderLoadFailed'), 'error');
     }
   } finally {
-    loading.orders = false;
+    if (isCurrentAccountContext(context)) loading.orders = false;
   }
 }
 
@@ -3861,10 +4015,13 @@ async function loadOrderDetail(orderId) {
     return;
   }
 
+  const context = currentAccountContext();
   try {
     const result = await OrderAPI.getById(orderId);
+    if (!isCurrentAccountContext(context)) return;
     selectedOrderDetail.value = result.order || null;
   } catch (error) {
+    if (!isCurrentAccountContext(context)) return;
     selectedOrderDetail.value = null;
     if (error.status === 401) {
       openAuth('login');
@@ -3880,12 +4037,14 @@ async function loadAdmin() {
     toast(t('toast.adminOnly'), 'error');
     return;
   }
+  const context = currentAccountContext();
   loading.admin = true;
   try {
     const stats = await AdminAPI.getStats();
     const config = await AdminAPI.getAiConfig();
     const summary = await ResearchAPI.getSummary();
     const ordersData = await AdminAPI.getOrders({ limit: 12 });
+    if (!isCurrentAccountContext(context)) return;
     adminStats.value = stats;
     adminConfig.value = config;
     researchSummary.value = summary;
@@ -3904,13 +4063,14 @@ async function loadAdmin() {
       await loadAdminOrderDetail(selectedAdminOrderId.value);
     }
   } catch (error) {
+    if (!isCurrentAccountContext(context)) return;
     if (error.status === 401) {
       openAuth('login');
     } else {
       toast(error.message || t('toast.researchLoadFailed'), 'error');
     }
   } finally {
-    loading.admin = false;
+    if (isCurrentAccountContext(context)) loading.admin = false;
   }
 }
 
@@ -3920,13 +4080,16 @@ async function loadAdminOrderDetail(orderId) {
     return;
   }
 
+  const context = currentAccountContext();
   loading.adminOrderDetail = true;
   try {
     const result = await AdminAPI.getOrderDetail(orderId);
+    if (!isCurrentAccountContext(context)) return;
     selectedAdminOrderDetail.value = result.order || null;
     adminOrderForm.status = editableOrderStatus(selectedAdminOrderDetail.value?.status);
     adminOrderForm.note = '';
   } catch (error) {
+    if (!isCurrentAccountContext(context)) return;
     selectedAdminOrderDetail.value = null;
     if (error.status === 401) {
       openAuth('login');
@@ -3934,7 +4097,7 @@ async function loadAdminOrderDetail(orderId) {
       toast(error.message || t('toast.orderStatusLoadFailed'), 'error');
     }
   } finally {
-    loading.adminOrderDetail = false;
+    if (isCurrentAccountContext(context)) loading.adminOrderDetail = false;
   }
 }
 
@@ -4127,18 +4290,20 @@ async function testAdminAi() {
 async function loadAiHistory(type, conversationId = aiConversationId.value) {
   if (!ensureStandardUser(t('toast.adminAiBlocked'))) return;
   if (!conversationId) return;
+  const context = currentAccountContext();
   const requestId = ++aiHistoryRequestId.value;
   const isActiveThread = () => aiType.value === type && aiConversationId.value === conversationId;
   if (isActiveThread()) aiHistoryLoading.value = true;
   try {
     const result = await AIAPI.getHistory(type, conversationId);
-    if (requestId === aiHistoryRequestId.value) {
+    if (isCurrentAccountContext(context) && requestId === aiHistoryRequestId.value) {
       aiThreads[aiThreadKey(type, conversationId)] = (result.history || []).slice().reverse().map((message) => ({
         ...message,
         assessment: message.assessment || parseMetadataAssessment(message.metadata_json),
       }));
     }
   } catch (error) {
+    if (!isCurrentAccountContext(context)) return;
     if (error.status !== 401) {
       toast(error.message || t('toast.chatLoadFailed'), 'error');
     }
@@ -4151,12 +4316,15 @@ async function loadAiHistory(type, conversationId = aiConversationId.value) {
 
 async function loadSynthesisHistory(productId = aiProductId.value) {
   if (!ensureStandardUser(t('toast.adminAiBlocked'))) return;
+  const context = currentAccountContext();
   const conversationId = getSynthesisConversationId(productId || '');
   try {
     const result = await AIAPI.getHistory('neutral', conversationId);
+    if (!isCurrentAccountContext(context)) return;
     const latest = (result.history || []).slice().reverse().find((item) => item.role === 'assistant' && item.assessment);
     synthesisAssessment.value = latest?.assessment || null;
   } catch (error) {
+    if (!isCurrentAccountContext(context)) return;
     if (error.status !== 401) synthesisAssessment.value = null;
   }
 }
@@ -4166,24 +4334,28 @@ async function generateSynthesis() {
   const productId = aiProductId.value || selectedProduct.value?.id || null;
   const sellerConversationId = getAiConversationId('seller', productId || '');
   const guardianConversationId = getAiConversationId('guardian', productId || '');
+  const context = currentAccountContext();
   synthesisLoading.value = true;
   try {
     const result = await AIAPI.synthesize(productId, sellerConversationId, guardianConversationId);
+    if (!isCurrentAccountContext(context)) return;
     synthesisAssessment.value = result.assessment || null;
     toast(t('toast.synthesisReady'));
   } catch (error) {
+    if (!isCurrentAccountContext(context)) return;
     if (error.status === 401) {
       openAuth('login');
     } else {
       toast(error.message || t('toast.synthesisFailed'), 'error');
     }
   } finally {
-    synthesisLoading.value = false;
+    if (isCurrentAccountContext(context)) synthesisLoading.value = false;
   }
 }
 
 async function sendAiMessage() {
   if (!ensureStandardUser(t('toast.adminAiBlocked'))) return;
+  const context = currentAccountContext();
   const message = aiMessage.value.trim();
   if (!message || aiSending.value || aiHistoryLoading.value) return;
 
@@ -4203,7 +4375,7 @@ async function sendAiMessage() {
   let streamMessageIndex = -1;
   let streamedAssessment = null;
   const appendStreamDelta = (content) => {
-    if (!content) return;
+    if (!content || !isCurrentAccountContext(context)) return;
     if (streamMessageIndex < 0) {
       aiThreads[threadKey] = [
         ...getAiThread(type, conversationId),
@@ -4229,6 +4401,7 @@ async function sendAiMessage() {
         streamedAssessment = data.assessment || null;
       },
     });
+    if (!isCurrentAccountContext(context)) return;
     if (streamMessageIndex < 0) appendStreamDelta(String(result.response || ''));
     if (streamMessageIndex >= 0) {
       const streamedMessage = getAiThread(type, conversationId)[streamMessageIndex];
@@ -4238,6 +4411,7 @@ async function sendAiMessage() {
     }
     await nextTick();
   } catch (error) {
+    if (!isCurrentAccountContext(context)) return;
     if (error.name === 'AbortError' || error.status === 499) {
       await loadAiHistory(type, conversationId);
     } else if (error.status === 401) {
@@ -4294,10 +4468,7 @@ async function submitAuth() {
         ? await AuthAPI.login(authForm.username, authForm.password)
         : await AuthAPI.register(authForm.email, authForm.password, authForm.username);
 
-    token.value = result.token;
-    user.value = result.user;
-    TokenManager.set(result.token);
-    TokenManager.setUser(result.user);
+    setActiveSession(result.token, result.user);
     closeAuth();
     toast(authMode.value === 'login' ? t('toast.loginSuccess') : t('toast.registerSuccess'));
     if (isAdminUser.value) {
@@ -4322,22 +4493,7 @@ async function logout() {
   } catch {
     // Ignore logout errors and clear locally.
   }
-  token.value = '';
-  user.value = null;
-  TokenManager.clear();
-  cart.value = [];
-  orders.value = [];
-  selectedOrderId.value = '';
-  selectedOrderDetail.value = null;
-  selectedAdminOrderId.value = '';
-  selectedAdminOrderDetail.value = null;
-  researchSummary.value = null;
-  adminOrders.value = [];
-  adminOrderForm.status = 'completed';
-  adminOrderForm.note = '';
-  adminStats.value = null;
-  adminConfig.value = null;
-  closeAi();
+  setActiveSession('', null);
   toast(t('toast.loggedOut'));
   go('products');
 }
