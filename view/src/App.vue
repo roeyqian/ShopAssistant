@@ -1125,7 +1125,7 @@
                 <div class="research-chat-bubble research-thinking">{{ t('research.thinking') }}</div>
               </div>
             </div>
-            <form class="research-chat-form" @submit.prevent="sendResearchMessage">
+            <form class="research-chat-form" @submit.prevent="sendResearchMessage()">
               <textarea v-model.trim="researchMessage" rows="3" :disabled="researchAiSending" :placeholder="researchStage === 2 ? t('research.sellerPlaceholder') : t('research.guardianPlaceholder')"></textarea>
               <div class="research-chat-actions">
                 <small>{{ t('research.chatHint') }}</small>
@@ -2922,7 +2922,9 @@ function selectResearchProduct(product) {
 async function sendResearchMessage(explicitMessage = '') {
   if (!ensureStandardUser(t('toast.researchLoginRequired'))) return;
   const type = researchStage.value === 3 ? 'guardian' : 'seller';
-  const message = String(explicitMessage || researchMessage.value).trim();
+  const message = typeof explicitMessage === 'string'
+    ? explicitMessage.trim()
+    : researchMessage.value.trim();
   if (!message || researchAiSending.value) return;
   if (type === 'seller' && researchSellerTurns.value >= 3) return;
   if (type === 'guardian' && researchGuardianTurns.value >= 3) return;
