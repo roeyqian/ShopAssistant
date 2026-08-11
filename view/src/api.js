@@ -292,7 +292,7 @@ export const AIAPI = {
   chatStream: (message, aiType, productId = null, conversationId, clientMessageId, options = {}) =>
     requestEventStream('/ai/chat', {
       method: 'POST',
-      body: JSON.stringify({ message, aiType, productId, conversationId, clientMessageId }),
+      body: JSON.stringify({ message, aiType, productId, conversationId, clientMessageId, scope: options.scope || null }),
       signal: options.signal,
     }, options),
   sellerNudgeStream: (productId, dwellMs, conversationId, options = {}) =>

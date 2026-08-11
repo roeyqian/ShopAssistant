@@ -23,6 +23,7 @@ export async function chat({ request, env, url }) {
   const body = await readJsonBody(request);
   const message = String(body.message || '').trim();
   const { aiType, productId } = body;
+  const isResearchChat = body.scope === 'research' || conversationIdStartsWithResearch(body.conversationId);
   const conversationId = requireConversationId(body.conversationId);
   const clientMessageId = requireClientMessageId(body.clientMessageId);
 
@@ -72,9 +73,11 @@ export async function chat({ request, env, url }) {
     productInfo = product ? normalizeProduct(product, locale) : null;
   }
 
+  const catalogProducts = isResearchChat ? await getProductCatalog(env, locale) : [];
+
   const systemPrompt = aiType === 'seller'
-    ? getSellerPrompt(productInfo, locale)
-    : getGuardianPrompt(session, productInfo, locale);
+    ? getSellerPrompt(productInfo, locale, catalogProducts)
+    : getGuardianPrompt(session, productInfo, locale, catalogProducts);
   const structuredSystemPrompt = `${systemPrompt}\n\n${getStructuredAgentPrompt(locale)}`;
 
   const messageRecordId = createId("conv");
@@ -605,6 +608,18 @@ async function getAgentConversationRows(env, userId, aiType, conversationId) {
     "ORDER BY timestamp ASC, id ASC LIMIT " + HISTORY_LIMIT,
   ).bind(userId, aiType, conversationId).all();
   return result.results || [];
+}
+
+async function getProductCatalog(env, locale) {
+  const { results } = await env.db.prepare(`
+    SELECT * FROM products
+    ORDER BY category_id ASC, is_hot DESC, sales_count DESC, updated_at DESC
+  `).all();
+  return results.map((product) => normalizeProduct(product, locale));
+}
+
+function conversationIdStartsWithResearch(value) {
+  return String(value || '').trim().startsWith('research-');
 }
 
 function buildAgentTranscript(rows, locale) {

@@ -5,9 +5,10 @@ export function getStructuredAgentPrompt(locale = 'zh-CN') {
   if (locale === 'en-US') {
     return [
       'Keep your role and independent viewpoint. Reply as a natural conversation, but return ONLY one valid JSON object with this shape:',
-      '{"reply":"your user-facing answer","assessment":{"ready":boolean,"recommendation":"buy_now"|"verify"|"do_not_buy"|null,"confidence":number,"summary":"short conclusion","evidence":[{"item":"fact or question","value":"known or unknown","status":"confirmed"|"unverified"|"missing"}],"next_questions":["at most three questions"]}}',
+      '{"reply":"your user-facing answer","assessment":{"ready":boolean,"recommendation":"buy_now"|"verify"|"do_not_buy"|null,"confidence":number,"summary":"short conclusion","evidence":[{"item":"fact or question","value":"known or unknown","status":"confirmed"|"unverified"|"missing"}],"next_questions":["at most three questions"],"recommended_product_ids":["product IDs from the catalog"]}}',
       'Use ready=true and one of the three recommendations only when the conversation contains enough information to make a responsible recommendation.',
       'Until then use ready=false and recommendation="verify"; ask only the questions that would materially change the decision.',
+      'When you explicitly recommend, compare, or name products, include their exact catalog IDs in recommended_product_ids (at most six). Use an empty array when no product is being recommended.',
       'Never invent product facts, reviews, policies, comparisons, discounts, or technical specifications.',
       'The reply field should remain helpful and readable. Do not include Markdown fences or any text outside the JSON.',
     ].join('\n');
@@ -15,9 +16,10 @@ export function getStructuredAgentPrompt(locale = 'zh-CN') {
 
   return [
     '保留你当前的角色和独立视角。请像正常对话一样回答，但只能返回一个有效 JSON 对象，严格使用以下结构：',
-    '{"reply":"面向用户的自然回答","assessment":{"ready":boolean,"recommendation":"buy_now"|"verify"|"do_not_buy"|null,"confidence":number,"summary":"简短结论","evidence":[{"item":"事实或问题","value":"已知或未知内容","status":"confirmed"|"unverified"|"missing"}],"next_questions":["最多三个问题"]}}',
+    '{"reply":"面向用户的自然回答","assessment":{"ready":boolean,"recommendation":"buy_now"|"verify"|"do_not_buy"|null,"confidence":number,"summary":"简短结论","evidence":[{"item":"事实或问题","value":"已知或未知内容","status":"confirmed"|"unverified"|"missing"}],"next_questions":["最多三个问题"],"recommended_product_ids":["商品目录中的商品 ID"]}}',
     '只有当对话信息足够、可以负责任地给出建议时，才将 ready=true，并使用三个建议之一。',
     '信息不足时使用 ready=false、recommendation="verify"，只追问会实质改变判断的问题。',
+    '当你明确推荐、比较或点名商品时，把对应的准确商品 ID 写入 recommended_product_ids（最多六个）；没有推荐商品时使用空数组。',
     '绝不编造商品事实、评价、政策、竞品、折扣或技术参数。',
     'reply 字段要保持自然、可读。不要使用 Markdown 代码围栏，也不要在 JSON 外输出文字。',
   ].join('\n');
@@ -65,7 +67,15 @@ function normalizeAssessment(value, locale) {
     next_questions: Array.isArray(value?.next_questions)
       ? value.next_questions.map((item) => String(item || '').trim()).filter(Boolean).slice(0, 3)
       : [],
+    recommended_product_ids: normalizeProductIds(
+      value?.recommended_product_ids || value?.product_ids || value?.recommendedProductIds,
+    ),
   };
+}
+
+function normalizeProductIds(value) {
+  if (!Array.isArray(value)) return [];
+  return Array.from(new Set(value.map((item) => String(item || '').trim()).filter(Boolean))).slice(0, 6);
 }
 
 function stripJsonFence(text) {

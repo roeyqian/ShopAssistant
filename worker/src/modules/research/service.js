@@ -2,8 +2,6 @@ import { json, readJsonBody, requireAdmin, requireAuth, requireStandardUser, get
 import { getLocaleFromRequest } from "../shop/utils.js";
 import { normalizeProduct } from "../shop/utils.js";
 
-const RECOMMENDATION_LIMIT = 6;
-
 export async function getRecommendations({ request, env, url }) {
   await requireStandardUser(request, env);
   const locale = getLocaleFromRequest(request, url);
@@ -12,20 +10,18 @@ export async function getRecommendations({ request, env, url }) {
   const { results } = await env.db.prepare(`
     SELECT * FROM products
     ORDER BY is_hot DESC, sales_count DESC, rating DESC, updated_at DESC
-    LIMIT 100
   `).all();
 
   const recommendations = results
     .map((product) => scoreResearchProduct(normalizeProduct(product, locale), profile, locale))
-    .sort((left, right) => right.matchScore - left.matchScore || Number(right.rating || 0) - Number(left.rating || 0))
-    .slice(0, RECOMMENDATION_LIMIT);
+    .sort((left, right) => right.matchScore - left.matchScore || Number(right.rating || 0) - Number(left.rating || 0));
 
   return json({
     products: recommendations,
     source: 'product-database',
     note: locale === 'en-US'
-      ? 'Candidates are selected from the local product database. Seller AI must only discuss the facts provided here.'
-      : '候选商品来自站内商品数据库。卖家 AI 只能依据这里提供的商品事实进行讨论。',
+      ? 'The complete product database is provided as a hidden catalog. Seller AI chooses and identifies recommended products after reading the user profile.'
+      : '完整商品数据库会作为隐藏目录提供给 AI。卖家 AI 读取用户信息后选择并标识推荐商品。',
   });
 }
 

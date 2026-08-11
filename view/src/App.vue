@@ -1076,7 +1076,7 @@
             </div>
             <h2>{{ researchStage === 2 ? t('research.sellerTitle') : t('research.guardianTitle') }}</h2>
             <p>{{ researchStage === 2 ? t('research.sellerSubtitle') : t('research.guardianSubtitle') }}</p>
-            <div v-if="researchStage === 2 && researchRecommendations.length" class="research-products">
+            <div v-if="researchRecommendations.length" class="research-products">
               <h3>{{ t('research.databaseProducts') }}</h3>
               <button
                 v-for="product in researchRecommendations"
@@ -2169,6 +2169,7 @@ const researchConsentChecked = ref(false);
 const researchConsentGiven = ref(false);
 const researchRunId = ref('');
 const researchProfileLoading = ref(false);
+const researchCatalog = ref([]);
 const researchRecommendations = ref([]);
 const researchSelectedProductId = ref('');
 const researchMessage = ref('');
@@ -2841,6 +2842,7 @@ function researchDraftPayload() {
     stage: researchStage.value,
     runId: researchRunId.value,
     profile: { ...researchProfile },
+    catalog: researchCatalog.value,
     recommendations: researchRecommendations.value,
     selectedProductId: researchSelectedProductId.value,
     sellerTurns: researchSellerTurns.value,
@@ -2888,8 +2890,14 @@ function restoreResearchDraft(account = user.value) {
     researchStage.value = Number.isInteger(draft.stage) ? draft.stage : 1;
     researchRunId.value = String(draft.runId || '');
     Object.assign(researchProfile, draft.profile || {});
+    researchCatalog.value = Array.isArray(draft.catalog) ? draft.catalog : [];
     researchRecommendations.value = Array.isArray(draft.recommendations) ? draft.recommendations : [];
-    researchSelectedProductId.value = String(draft.selectedProductId || '');
+    // Older drafts selected the first candidate automatically. New drafts only
+    // restore a product after the participant explicitly selected one.
+    researchSelectedProductId.value = researchCatalog.value.length ? String(draft.selectedProductId || '') : '';
+    if (!researchCatalog.value.length && researchRecommendations.value.length) {
+      researchCatalog.value = researchRecommendations.value;
+    }
     researchSellerTurns.value = Number(draft.sellerTurns || 0);
     researchGuardianTurns.value = Number(draft.guardianTurns || 0);
     researchSellerRecommendation.value = draft.sellerRecommendation || 'verify';
@@ -2920,12 +2928,13 @@ async function submitResearchProfile() {
   try {
     const result = await ResearchAPI.recommendations({ ...researchProfile });
     if (!isCurrentAccountContext(context)) return;
-    researchRecommendations.value = result.products || [];
-    if (!researchRecommendations.value.length) {
+    researchCatalog.value = result.products || [];
+    researchRecommendations.value = [];
+    researchSelectedProductId.value = '';
+    if (!researchCatalog.value.length) {
       throw new Error(t('research.noProducts'));
     }
     researchRunId.value = researchRunId.value || createClientId('research');
-    researchSelectedProductId.value = researchRecommendations.value[0].id;
     researchSellerTurns.value = 0;
     researchGuardianTurns.value = 0;
     researchSellerRecommendation.value = 'verify';
@@ -2940,7 +2949,7 @@ async function submitResearchProfile() {
       metadata: {
         researchEvent: 'profile_submitted',
         profile: { ...researchProfile },
-        recommendationIds: researchRecommendations.value.map((item) => item.id),
+        catalogSize: researchCatalog.value.length,
       },
     });
     await nextTick();
@@ -2960,14 +2969,20 @@ function buildSellerOpening() {
     `我的基本信息：性别=${researchProfile.gender}，年龄=${researchProfile.age}，教育程度=${researchProfile.education}。`,
     `购买对象=${researchProfile.purchaseTarget}，预算上限=${researchProfile.maxBudget ? `¥${researchProfile.maxBudget}` : '未设置'}，紧迫程度=${researchProfile.urgency}。`,
     `我目前想买：${researchProfile.currentNeed}`,
-    '请先根据站内商品数据库里提供的商品，说明最匹配的商品和理由。只能使用商品数据库中的事实，不要虚构评价、参数或优惠；也请告诉我还需要了解什么。',
+    '请先根据完整商品数据库，说明最匹配的商品（可以是多个）和理由。不要假定有一个当前商品，也不要只讨论一个商品；请点明推荐商品名称，并在结构化结果中填写对应的商品 ID。只能使用商品数据库中的事实，不要虚构评价、参数或优惠；也请告诉我还需要了解什么。',
   ].join('\n');
 }
 
 function buildGuardianOpening() {
-  const productName = researchSelectedProduct.value?.name || '当前候选商品';
+  const selectedName = researchSelectedProduct.value?.name;
+  const recommendationNames = researchRecommendations.value.map((item) => item.name).filter(Boolean).join('、');
+  const productContext = selectedName
+    ? `我当前选中了：${selectedName}。`
+    : recommendationNames
+      ? `卖家 AI 刚才推荐了这些商品：${recommendationNames}。`
+      : '卖家 AI 刚才提供了商品建议。';
   return [
-    `现在请你作为管家 AI，帮我检查刚才讨论的${productName}。`,
+    `现在请你作为管家 AI，帮我检查刚才的商品建议。${productContext}`,
     `我的需求是：${researchProfile.currentNeed}；预算上限：${researchProfile.maxBudget ? `¥${researchProfile.maxBudget}` : '未设置'}；紧迫程度：${researchProfile.urgency}。`,
     '请重点检查真实需求、预算压力、情绪或促销影响、商品适配性和信息缺口。请按 DOC.md 的研究原则给出买、观望或不买方向，但不要把不买当成固定答案，也不要替我做最终决定。',
   ].join('\n');
@@ -2984,6 +2999,7 @@ async function loadResearchHistory(type) {
       assessment: message.assessment || parseMetadataAssessment(message.metadata_json),
     }));
     const latestAssessment = researchThreads[type].slice().reverse().find((item) => item.role === 'assistant' && item.assessment);
+    revealResearchProducts(latestAssessment?.assessment, latestAssessment?.content);
     if (latestAssessment?.assessment?.recommendation) {
       if (type === 'seller') researchSellerRecommendation.value = latestAssessment.assessment.recommendation;
       else researchGuardianRecommendation.value = latestAssessment.assessment.recommendation;
@@ -2994,13 +3010,36 @@ async function loadResearchHistory(type) {
   }
 }
 
-function selectResearchProduct(product) {
-  if (researchSellerTurns.value > 0) {
-    toast(t('research.productLocked'), 'error');
-    return;
+function revealResearchProducts(assessment, content = '') {
+  if (!researchCatalog.value.length) return;
+  const recommendedIds = Array.isArray(assessment?.recommended_product_ids)
+    ? assessment.recommended_product_ids
+    : [];
+  let matches = researchCatalog.value.filter((product) => recommendedIds.includes(product.id));
+
+  // Keep the UI useful if an older model response named products but omitted IDs.
+  if (!matches.length && content) {
+    matches = researchCatalog.value.filter((product) => product.name && content.includes(product.name));
   }
+  if (!matches.length) return;
+
+  const existingIds = new Set(researchRecommendations.value.map((product) => product.id));
+  const merged = [
+    ...researchRecommendations.value,
+    ...matches.filter((product) => !existingIds.has(product.id)),
+  ];
+  researchRecommendations.value = merged.slice(0, 6);
+}
+
+function selectResearchProduct(product) {
+  if (!product?.id || product.id === researchSelectedProductId.value) return;
   researchSelectedProductId.value = product.id;
   saveResearchDraft();
+  void trackBehavior('intervention_check', {
+    strategy: 'research_product_switch',
+    productId: product.id,
+    metadata: { researchEvent: 'product_switched', researchRunId: researchRunId.value },
+  });
 }
 
 async function sendResearchMessage(explicitMessage) {
@@ -3045,7 +3084,7 @@ async function sendResearchMessage(explicitMessage) {
       researchSelectedProductId.value || null,
       conversationId,
       clientMessageId,
-      { signal: controller.signal, onDelta: appendStreamDelta, onDone: (data) => { streamedAssessment = data.assessment || null; } },
+      { scope: 'research', signal: controller.signal, onDelta: appendStreamDelta, onDone: (data) => { streamedAssessment = data.assessment || null; } },
     );
     if (!isCurrentAccountContext(context)) return;
     if (streamMessageIndex < 0) appendStreamDelta(String(result.response || ''));
@@ -3054,6 +3093,7 @@ async function sendResearchMessage(explicitMessage) {
       response.content = String(result.response || response.content);
       response.assessment = streamedAssessment || result.assessment || null;
       response.streaming = false;
+      revealResearchProducts(response.assessment, response.content);
       if (response.assessment?.recommendation) {
         if (type === 'seller') researchSellerRecommendation.value = response.assessment.recommendation;
         else researchGuardianRecommendation.value = response.assessment.recommendation;
@@ -3139,6 +3179,7 @@ function resetResearch({ clearDraft = true } = {}) {
   researchConsentGiven.value = false;
   researchRunId.value = '';
   researchProfileLoading.value = false;
+  researchCatalog.value = [];
   researchRecommendations.value = [];
   researchSelectedProductId.value = '';
   researchMessage.value = '';
