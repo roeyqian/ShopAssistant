@@ -56,6 +56,20 @@ This definition is consistent with the discussion of excessive self-control in [
 - H2: Compared with a single steward agent, dual-agent collaboration will reduce over-restraint in high-appropriateness scenarios while maintaining or reducing impulse purchases in low-appropriateness scenarios.
 - H3: Recommendations that present evidence, items to verify, and an option to ignore them will better increase perceived autonomy and appropriate trust than deterministic directives, while reducing the likelihood of blindly following advice.
 
+### 3.3 Five-technique protocol
+
+To make the research page more than a seller/butler chat, the current flow extends BuyMate’s two core modules into five observable, reviewable, and logged techniques. Each technique combines an interface action, an agent instruction for a specific round, and an `intervention_check` event. None treats “do not buy” as the default success outcome.
+
+| Technique | Participant action | ShopAssistant agent behavior | Main source (JCR Q1 research label) |
+| --- | --- | --- | --- |
+| Reflective pause | Ask whether the need remains if the promotion cue disappears, while keeping buying after the pause legitimate. | The third seller/butler round invites a 10-second pause and records the participant’s reason, certainty, and information gap. | Mischel, Shoda, & Rodriguez (1989), *Journal of Personality and Social Psychology* |
+| Persuasion knowledge and neutral reframing | Separate seller claims, checkable facts, and evidence gaps. | The first seller round reframes urgency, popularity, and scarcity language without creating counter-pressure. | Friestad & Wright (1994), *Journal of Consumer Research* |
+| Controlled comparison | Select up to three candidates and compare them on the same dimensions. | The second seller round uses only catalog facts and marks missing fields as unverified; it does not treat the cheapest option as correct. | Iyengar & Lepper (2000), *Journal of Personality and Social Psychology* |
+| Budget calibration and mental accounting | Place total price, budget cap, alternatives, frequency of use, and opportunity cost together. | The first butler round uses only participant-provided numbers; a comfortable budget and clear need may support buying. | Kivetz & Simonson (2002), *Journal of Consumer Research* |
+| Implementation intention | Write a short, executable “if–then” plan that permits either buying or declining. | The second butler round sets a bounded review time and one fact to verify. | Gollwitzer (1999), *American Psychologist* |
+
+Self-determination theory (Deci & Ryan, 2000, *Psychological Inquiry*, JCR Q1) is the interaction constraint across all five techniques: the AI explains reasons and uncertainty and preserves paths to ignore advice, add information, delay, or buy now. Q1 depends on year and category; the UI label is a research-provenance marker and should be rechecked against the institution’s latest Journal Citation Reports before preregistration or publication.
+
 ## 4. Relationship to BuyMate
 
 ShopAssistant is inspired by BuyMate, *Making AI Interventions Effective in Promoting Rational Consumption in Live Commerce*. It carries forward BuyMate’s research interest in using AI to support reflection at key consumption-decision moments, but does not reproduce its full experimental procedure, scales, statistical models, or live-streaming capabilities.

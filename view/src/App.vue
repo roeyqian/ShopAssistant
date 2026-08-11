@@ -958,6 +958,32 @@
           </div>
         </div>
 
+        <section class="research-method-strip" :aria-label="t('research.methodologyTitle')">
+          <div class="research-method-heading">
+            <div>
+              <span class="eyebrow">{{ t('research.methodologyEyebrow') }}</span>
+              <h2>{{ t('research.methodologyTitle') }}</h2>
+            </div>
+            <p>{{ t('research.methodologySubtitle') }}</p>
+          </div>
+          <div class="research-technique-grid">
+            <article
+              v-for="(technique, index) in researchTechniques"
+              :key="technique.id"
+              class="research-technique-card"
+              :class="researchTechniqueState(technique.id)"
+            >
+              <span class="research-technique-number">0{{ index + 1 }}</span>
+              <div>
+                <strong>{{ t(technique.titleKey) }}</strong>
+                <span>{{ t(technique.hintKey) }}</span>
+                <small>{{ t(technique.sourceKey) }}</small>
+              </div>
+              <span class="research-technique-state">{{ researchTechniqueStateLabel(technique.id) }}</span>
+            </article>
+          </div>
+        </section>
+
         <section v-if="researchStage === 0" class="panel research-card consent-card">
           <div class="research-intro-icon"><ClipboardCheck :size="28" /></div>
           <h2>{{ t('research.consentTitle') }}</h2>
@@ -1052,6 +1078,26 @@
                   <option value="high">{{ t('research.urgencyHigh') }}</option>
                 </select>
               </label>
+              <label class="field">
+                <span>{{ t('research.purchasePlan') }}</span>
+                <select v-model="researchProfile.purchasePlan" required>
+                  <option value="planned">{{ t('research.purchasePlanPlanned') }}</option>
+                  <option value="considering">{{ t('research.purchasePlanConsidering') }}</option>
+                  <option value="spontaneous">{{ t('research.purchasePlanSpontaneous') }}</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>{{ t('research.baselineDecision') }}</span>
+                <select v-model="researchProfile.baselineDecision" required>
+                  <option value="buy">{{ t('research.baselineBuy') }}</option>
+                  <option value="observe">{{ t('research.baselineObserve') }}</option>
+                  <option value="not_buy">{{ t('research.baselineNotBuy') }}</option>
+                </select>
+              </label>
+              <label class="field full">
+                <span>{{ t('research.alternative') }}</span>
+                <input v-model.trim="researchProfile.alternative" type="text" :placeholder="t('research.alternativePlaceholder')" />
+              </label>
               <label class="field full">
                 <span>{{ t('research.currentNeed') }}</span>
                 <textarea v-model.trim="researchProfile.currentNeed" rows="4" required :placeholder="t('research.needPlaceholder')"></textarea>
@@ -1097,6 +1143,63 @@
               <span>{{ t('research.currentProduct') }}</span>
               <strong>{{ researchSelectedProduct.name }}</strong>
               <small>{{ formatMoney(researchSelectedProduct.price) }}</small>
+            </div>
+
+            <div class="research-technique-checklist">
+              <div class="research-side-heading">
+                <div>
+                  <span class="eyebrow">{{ t('research.checkpointEyebrow') }}</span>
+                  <h3>{{ t('research.checkpointTitle') }}</h3>
+                </div>
+                <span>{{ researchTechniqueCompletedCount }}/5</span>
+              </div>
+              <button
+                v-for="technique in researchVisibleTechniques"
+                :key="technique.id"
+                type="button"
+                class="research-checkpoint"
+                :class="{ checked: researchTechniqueChecks[technique.id] }"
+                @click="toggleResearchTechnique(technique.id)"
+              >
+                <span class="research-checkpoint-mark">{{ researchTechniqueChecks[technique.id] ? '✓' : '○' }}</span>
+                <span>
+                  <strong>{{ t(technique.titleKey) }}</strong>
+                  <small>{{ t(technique.actionKey) }}</small>
+                </span>
+              </button>
+            </div>
+
+            <div v-if="researchComparisonProducts.length" class="research-compare-lab">
+              <div class="research-side-heading">
+                <div>
+                  <span class="eyebrow">{{ t('research.comparisonEyebrow') }}</span>
+                  <h3>{{ t('research.comparisonTitle') }}</h3>
+                </div>
+                <span>{{ researchCompareIds.length }}/3</span>
+              </div>
+              <p>{{ t('research.comparisonBody') }}</p>
+              <label v-for="product in researchComparisonProducts" :key="product.id" class="research-compare-option">
+                <input v-model="researchCompareIds" type="checkbox" :value="product.id" :disabled="researchCompareIds.length >= 3 && !researchCompareIds.includes(product.id)" @change="recordResearchComparison(product)" />
+                <span><strong>{{ product.name }}</strong><small>{{ formatMoney(product.price) }} · {{ product.matchReasons?.[0] }}</small></span>
+              </label>
+              <div v-if="researchComparisonSelection.length >= 2" class="research-compare-table">
+                <div class="research-compare-table-row research-compare-table-head">
+                  <span>{{ t('research.compareDimension') }}</span>
+                  <strong v-for="product in researchComparisonSelection" :key="product.id">{{ product.name }}</strong>
+                </div>
+                <div class="research-compare-table-row">
+                  <span>{{ t('research.comparePrice') }}</span>
+                  <strong v-for="product in researchComparisonSelection" :key="`${product.id}-price`">{{ formatMoney(product.price) }}</strong>
+                </div>
+                <div class="research-compare-table-row">
+                  <span>{{ t('research.compareRating') }}</span>
+                  <strong v-for="product in researchComparisonSelection" :key="`${product.id}-rating`">{{ Number(product.rating || 0).toFixed(1) }}</strong>
+                </div>
+                <div class="research-compare-table-row">
+                  <span>{{ t('research.compareEvidence') }}</span>
+                  <strong v-for="product in researchComparisonSelection" :key="`${product.id}-evidence`">{{ product.matchReasons?.[0] || t('research.compareUnknown') }}</strong>
+                </div>
+              </div>
             </div>
           </aside>
 
@@ -1165,6 +1268,39 @@
             <span>{{ t('research.sellerOpinion') }} <strong>{{ researchDecisionLabel(researchSellerRecommendation) }}</strong></span>
             <span>{{ t('research.guardianOpinion') }} <strong>{{ researchDecisionLabel(researchGuardianRecommendation) }}</strong></span>
           </div>
+          <div class="research-final-reflection">
+            <div class="research-final-reflection-head">
+              <div>
+                <span class="eyebrow">{{ t('research.pauseEyebrow') }}</span>
+                <h3>{{ t('research.pauseTitle') }}</h3>
+                <p>{{ t('research.pauseSubtitle') }}</p>
+              </div>
+              <span class="research-method-badge">{{ t('research.autonomyBadge') }}</span>
+            </div>
+            <div class="research-final-reflection-grid">
+              <label class="field">
+                <span>{{ t('research.delayPlan') }}</span>
+                <select v-model="researchDelayPlan">
+                  <option value="now">{{ t('research.delayNow') }}</option>
+                  <option value="ten_minutes">{{ t('research.delayTenMinutes') }}</option>
+                  <option value="tomorrow">{{ t('research.delayTomorrow') }}</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>{{ t('research.confidenceNow') }}</span>
+                <select v-model="researchFinalConfidence">
+                  <option value="low">{{ t('research.confidenceLow') }}</option>
+                  <option value="medium">{{ t('research.confidenceMedium') }}</option>
+                  <option value="high">{{ t('research.confidenceHigh') }}</option>
+                </select>
+              </label>
+              <label class="field full">
+                <span>{{ t('research.ifThenPlan') }}</span>
+                <textarea v-model.trim="researchIfThenPlan" rows="3" :placeholder="t('research.ifThenPlaceholder')"></textarea>
+              </label>
+            </div>
+            <p class="research-autonomy-note">{{ t('research.autonomyNote') }}</p>
+          </div>
           <div class="research-choice-grid">
             <button class="research-final-choice buy" type="button" @click="submitResearchDecision('buy')">
               <strong>{{ t('research.buy') }}</strong><span>{{ t('research.buyHint') }}</span>
@@ -1189,6 +1325,14 @@
             <div><span>{{ t('research.resultUser') }}</span><strong :class="researchDecisionClass(researchFinalDecision)">{{ researchDecisionLabel(researchFinalDecision) }}</strong></div>
           </div>
           <p class="research-result-note">{{ researchAgreementLabel }}</p>
+          <div class="research-result-techniques">
+            <span class="eyebrow">{{ t('research.resultTechniques') }}</span>
+            <div>
+              <span v-for="technique in researchTechniques" :key="technique.id" :class="{ active: researchTechniqueChecks[technique.id] }">
+                {{ t(technique.shortKey) }} {{ researchTechniqueChecks[technique.id] ? '✓' : '·' }}
+              </span>
+            </div>
+          </div>
           <form v-if="!researchFeedbackSubmitted" class="research-feedback" @submit.prevent="submitResearchFeedback">
             <h3>{{ t('research.feedbackTitle') }}</h3>
             <div class="research-feedback-grid">
@@ -2191,8 +2335,65 @@ const researchProfile = reactive({
   purchaseTarget: 'self',
   maxBudget: 0,
   urgency: 'medium',
+  purchasePlan: 'considering',
+  baselineDecision: 'observe',
+  alternative: '',
   currentNeed: '',
 });
+const researchTechniqueChecks = reactive({
+  reflective_pause: false,
+  persuasion_reframe: false,
+  comparative_choice: false,
+  budget_calibration: false,
+  implementation_intention: false,
+});
+const researchCompareIds = ref([]);
+const researchDelayPlan = ref('ten_minutes');
+const researchFinalConfidence = ref('medium');
+const researchIfThenPlan = ref('');
+
+const researchTechniques = [
+  {
+    id: 'reflective_pause',
+    titleKey: 'research.techniquePauseTitle',
+    shortKey: 'research.techniquePauseShort',
+    hintKey: 'research.techniquePauseHint',
+    actionKey: 'research.techniquePauseAction',
+    sourceKey: 'research.techniquePauseSource',
+  },
+  {
+    id: 'persuasion_reframe',
+    titleKey: 'research.techniqueReframeTitle',
+    shortKey: 'research.techniqueReframeShort',
+    hintKey: 'research.techniqueReframeHint',
+    actionKey: 'research.techniqueReframeAction',
+    sourceKey: 'research.techniqueReframeSource',
+  },
+  {
+    id: 'comparative_choice',
+    titleKey: 'research.techniqueCompareTitle',
+    shortKey: 'research.techniqueCompareShort',
+    hintKey: 'research.techniqueCompareHint',
+    actionKey: 'research.techniqueCompareAction',
+    sourceKey: 'research.techniqueCompareSource',
+  },
+  {
+    id: 'budget_calibration',
+    titleKey: 'research.techniqueBudgetTitle',
+    shortKey: 'research.techniqueBudgetShort',
+    hintKey: 'research.techniqueBudgetHint',
+    actionKey: 'research.techniqueBudgetAction',
+    sourceKey: 'research.techniqueBudgetSource',
+  },
+  {
+    id: 'implementation_intention',
+    titleKey: 'research.techniquePlanTitle',
+    shortKey: 'research.techniquePlanShort',
+    hintKey: 'research.techniquePlanHint',
+    actionKey: 'research.techniquePlanAction',
+    sourceKey: 'research.techniquePlanSource',
+  },
+];
 
 const adminConfig = ref(null);
 const adminStats = ref(null);
@@ -2394,6 +2595,16 @@ const researchSelectedProduct = computed(() =>
 const researchCurrentMessages = computed(() =>
   researchThreads[researchStage.value === 3 ? 'guardian' : 'seller'] || [],
 );
+const researchTechniqueCompletedCount = computed(() =>
+  researchTechniques.filter((item) => researchTechniqueChecks[item.id]).length,
+);
+const researchVisibleTechniques = computed(() => {
+  if (researchStage.value === 2) return researchTechniques.slice(0, 3);
+  if (researchStage.value === 3) return researchTechniques.slice(3);
+  return researchTechniques;
+});
+const researchComparisonProducts = computed(() => researchRecommendations.value.slice(0, 6));
+const researchComparisonSelection = computed(() => researchComparisonProducts.value.filter((product) => researchCompareIds.value.includes(String(product.id))));
 const researchProgressLabel = computed(() => {
   const labels = [
     t('research.progressConsent'),
@@ -2413,6 +2624,54 @@ const researchAgreementLabel = computed(() => {
   if (seller === guardian) return t('research.resultAgentsAgree', { choice: seller, user: userChoice });
   return t('research.resultAgentsDiffer', { seller, guardian, user: userChoice });
 });
+
+function researchTechniqueState(id) {
+  if (researchTechniqueChecks[id]) return 'completed';
+  const activeIds = researchVisibleTechniques.value.map((item) => item.id);
+  return activeIds.includes(id) ? 'active' : 'upcoming';
+}
+
+function researchTechniqueStateLabel(id) {
+  const state = researchTechniqueState(id);
+  return t(`research.techniqueState.${state}`);
+}
+
+function toggleResearchTechnique(id) {
+  if (!Object.prototype.hasOwnProperty.call(researchTechniqueChecks, id)) return;
+  researchTechniqueChecks[id] = !researchTechniqueChecks[id];
+  saveResearchDraft();
+  void trackBehavior('intervention_check', {
+    strategy: id,
+    productId: researchSelectedProductId.value || null,
+    metadata: {
+      researchEvent: 'technique_checkpoint',
+      researchRunId: researchRunId.value,
+      checked: researchTechniqueChecks[id],
+    },
+  });
+}
+
+function recordResearchComparison(product) {
+  if (!product?.id) return;
+  researchCompareIds.value = researchCompareIds.value.map(String).slice(0, 3);
+  void trackBehavior('intervention_check', {
+    strategy: 'comparative_choice',
+    productId: product.id,
+    metadata: {
+      researchEvent: 'comparison_candidate_toggled',
+      researchRunId: researchRunId.value,
+      selectedIds: [...researchCompareIds.value],
+    },
+  });
+  saveResearchDraft();
+}
+
+function researchTechniqueForTurn(type, turnCount) {
+  if (type === 'seller') {
+    return ['persuasion_reframe', 'comparative_choice', 'reflective_pause'][turnCount] || 'reflective_pause';
+  }
+  return ['budget_calibration', 'implementation_intention', 'reflective_pause'][turnCount] || 'reflective_pause';
+}
 
 const cartCount = computed(() => cart.value.reduce((sum, item) => sum + Number(item.quantity || 0), 0));
 const cartTotal = computed(() =>
@@ -2849,6 +3108,11 @@ function researchDraftPayload() {
     sellerRecommendation: researchSellerRecommendation.value,
     guardianRecommendation: researchGuardianRecommendation.value,
     finalDecision: researchFinalDecision.value,
+    techniqueChecks: { ...researchTechniqueChecks },
+    compareIds: [...researchCompareIds.value],
+    delayPlan: researchDelayPlan.value,
+    finalConfidence: researchFinalConfidence.value,
+    ifThenPlan: researchIfThenPlan.value,
     threads: {
       seller: researchThreads.seller,
       guardian: researchThreads.guardian,
@@ -2902,6 +3166,13 @@ function restoreResearchDraft(account = user.value) {
     researchSellerRecommendation.value = draft.sellerRecommendation || 'verify';
     researchGuardianRecommendation.value = draft.guardianRecommendation || 'verify';
     researchFinalDecision.value = draft.finalDecision || '';
+    Object.keys(researchTechniqueChecks).forEach((key) => {
+      researchTechniqueChecks[key] = Boolean(draft.techniqueChecks?.[key]);
+    });
+    researchCompareIds.value = Array.isArray(draft.compareIds) ? draft.compareIds.map(String).slice(0, 3) : [];
+    researchDelayPlan.value = draft.delayPlan || 'ten_minutes';
+    researchFinalConfidence.value = draft.finalConfidence || 'medium';
+    researchIfThenPlan.value = String(draft.ifThenPlan || '');
     researchThreads.seller = Array.isArray(draft.threads?.seller) ? draft.threads.seller : [];
     researchThreads.guardian = Array.isArray(draft.threads?.guardian) ? draft.threads.guardian : [];
     researchDraftAvailable.value = true;
@@ -2939,6 +3210,11 @@ async function submitResearchProfile() {
     researchSellerRecommendation.value = 'verify';
     researchGuardianRecommendation.value = 'verify';
     researchFinalDecision.value = '';
+    Object.keys(researchTechniqueChecks).forEach((key) => { researchTechniqueChecks[key] = false; });
+    researchCompareIds.value = [];
+    researchDelayPlan.value = 'ten_minutes';
+    researchFinalConfidence.value = 'medium';
+    researchIfThenPlan.value = '';
     researchThreads.seller = [];
     researchThreads.guardian = [];
     researchStage.value = 2;
@@ -2966,7 +3242,8 @@ function buildSellerOpening() {
   return [
     '我正在参加购物决策研究。',
     `我的基本信息：性别=${researchProfile.gender}，年龄=${researchProfile.age}，教育程度=${researchProfile.education}。`,
-    `购买对象=${researchProfile.purchaseTarget}，预算上限=${researchProfile.maxBudget ? `¥${researchProfile.maxBudget}` : '未设置'}，紧迫程度=${researchProfile.urgency}。`,
+    `购买对象=${researchProfile.purchaseTarget}，预算上限=${researchProfile.maxBudget ? `¥${researchProfile.maxBudget}` : '未设置'}，紧迫程度=${researchProfile.urgency}，购买起点=${researchProfile.purchasePlan}，开始前倾向=${researchProfile.baselineDecision}。`,
+    `已有替代方案=${researchProfile.alternative || '未填写'}。`,
     `我目前想买：${researchProfile.currentNeed}`,
     '请先根据完整商品数据库，说明最匹配的商品（可以是多个）和理由。不要假定有一个当前商品，也不要只讨论一个商品；请点明推荐商品名称，并在结构化结果中填写对应的商品 ID。只能使用商品数据库中的事实，不要虚构评价、参数或优惠；也请告诉我还需要了解什么。',
   ].join('\n');
@@ -2982,7 +3259,7 @@ function buildGuardianOpening() {
       : '卖家 AI 刚才提供了商品建议。';
   return [
     `现在请你作为管家 AI，帮我检查刚才的商品建议。${productContext}`,
-    `我的需求是：${researchProfile.currentNeed}；预算上限：${researchProfile.maxBudget ? `¥${researchProfile.maxBudget}` : '未设置'}；紧迫程度：${researchProfile.urgency}。`,
+    `我的需求是：${researchProfile.currentNeed}；预算上限：${researchProfile.maxBudget ? `¥${researchProfile.maxBudget}` : '未设置'}；紧迫程度：${researchProfile.urgency}；购买起点：${researchProfile.purchasePlan}；已有替代方案：${researchProfile.alternative || '未填写'}。`,
     '请重点检查真实需求、预算压力、情绪或促销影响、商品适配性和信息缺口。请按 DOC.md 的研究原则给出买、观望或不买方向，但不要把不买当成固定答案，也不要替我做最终决定。',
   ].join('\n');
 }
@@ -3054,6 +3331,7 @@ async function sendResearchMessage(explicitMessage) {
 
   const conversationId = researchConversationId(type);
   const clientMessageId = createClientId('research-message');
+  const technique = researchTechniqueForTurn(type, type === 'seller' ? researchSellerTurns.value : researchGuardianTurns.value);
   researchAiSending.value = true;
   researchMessage.value = '';
   researchThreads[type].push({ role: 'user', content: message, client_message_id: clientMessageId });
@@ -3073,7 +3351,11 @@ async function sendResearchMessage(explicitMessage) {
     aiType: type,
     productId: researchSelectedProductId.value || null,
     messageLength: message.length,
-    metadata: { researchEvent: 'research_phase_chat', researchRunId: researchRunId.value },
+    metadata: {
+      researchEvent: 'research_phase_chat',
+      researchRunId: researchRunId.value,
+      technique,
+    },
   });
 
   try {
@@ -3083,7 +3365,14 @@ async function sendResearchMessage(explicitMessage) {
       researchSelectedProductId.value || null,
       conversationId,
       clientMessageId,
-      { scope: 'research', signal: controller.signal, onDelta: appendStreamDelta, onDone: (data) => { streamedAssessment = data.assessment || null; } },
+      {
+        scope: 'research',
+        researchTechnique: technique,
+        researchRunId: researchRunId.value,
+        signal: controller.signal,
+        onDelta: appendStreamDelta,
+        onDone: (data) => { streamedAssessment = data.assessment || null; },
+      },
     );
     if (!isCurrentAccountContext(context)) return;
     if (streamMessageIndex < 0) appendStreamDelta(String(result.response || ''));
@@ -3147,6 +3436,11 @@ function submitResearchDecision(decision) {
       userDecision: decision,
       sellerRecommendation: researchSellerRecommendation.value,
       guardianRecommendation: researchGuardianRecommendation.value,
+      techniqueChecks: { ...researchTechniqueChecks },
+      compareIds: [...researchCompareIds.value],
+      delayPlan: researchDelayPlan.value,
+      finalConfidence: researchFinalConfidence.value,
+      ifThenPlan: researchIfThenPlan.value,
       profile: { ...researchProfile },
     },
   });
@@ -3190,12 +3484,18 @@ function resetResearch({ clearDraft = true } = {}) {
   researchSellerRecommendation.value = 'verify';
   researchGuardianRecommendation.value = 'verify';
   researchFinalDecision.value = '';
+  Object.keys(researchTechniqueChecks).forEach((key) => { researchTechniqueChecks[key] = false; });
+  researchCompareIds.value = [];
+  researchDelayPlan.value = 'ten_minutes';
+  researchFinalConfidence.value = 'medium';
+  researchIfThenPlan.value = '';
   researchFeedbackSubmitted.value = false;
   Object.assign(researchFeedback, { confidence: '', helpful: '', note: '' });
   researchThreads.seller = [];
   researchThreads.guardian = [];
   Object.assign(researchProfile, {
-    gender: '', age: null, education: '', purchaseTarget: 'self', maxBudget: 0, urgency: 'medium', currentNeed: '',
+    gender: '', age: null, education: '', purchaseTarget: 'self', maxBudget: 0, urgency: 'medium',
+    purchasePlan: 'considering', baselineDecision: 'observe', alternative: '', currentNeed: '',
   });
 }
 

@@ -3731,10 +3731,309 @@ textarea:focus-visible {
   font-size: 12px;
 }
 
+.research-method-strip {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  margin-top: 20px;
+  padding: 20px;
+}
+
+.research-method-heading {
+  align-items: flex-end;
+  display: flex;
+  gap: 20px;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.research-method-heading h2,
+.research-side-heading h3,
+.research-final-reflection h3 {
+  margin: 4px 0 0;
+}
+
+.research-method-heading p,
+.research-compare-lab p,
+.research-final-reflection p {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+  margin: 0;
+  max-width: 520px;
+}
+
+.research-technique-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.research-technique-card {
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  display: flex;
+  gap: 10px;
+  min-height: 120px;
+  padding: 12px;
+  position: relative;
+  transition: border-color .2s ease, transform .2s ease;
+}
+
+.research-technique-card.active {
+  border-color: color-mix(in srgb, var(--accent) 58%, var(--line));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.research-technique-card.completed {
+  border-color: color-mix(in srgb, #2d9b67 55%, var(--line));
+}
+
+.research-technique-number {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .04em;
+}
+
+.research-technique-card div {
+  min-width: 0;
+}
+
+.research-technique-card strong,
+.research-technique-card span,
+.research-technique-card small {
+  display: block;
+}
+
+.research-technique-card strong {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.research-technique-card div span {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+  margin-top: 5px;
+}
+
+.research-technique-card small {
+  color: var(--accent);
+  font-size: 10px;
+  line-height: 1.35;
+  margin-top: 9px;
+}
+
+.research-technique-state {
+  bottom: 9px;
+  color: var(--muted);
+  font-size: 10px;
+  position: absolute;
+  right: 10px;
+}
+
+.research-technique-card.completed .research-technique-state {
+  color: #2d9b67;
+}
+
+.research-flow-grid .research-context-card {
+  display: grid;
+  gap: 0;
+}
+
+.research-technique-checklist,
+.research-compare-lab {
+  border-top: 1px solid var(--line);
+  margin-top: 18px;
+  padding-top: 16px;
+}
+
+.research-side-heading {
+  align-items: flex-start;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.research-side-heading > span {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.research-checkpoint,
+.research-compare-option {
+  align-items: flex-start;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: inherit;
+  display: flex;
+  gap: 9px;
+  margin-top: 7px;
+  padding: 9px;
+  text-align: left;
+  width: 100%;
+}
+
+.research-checkpoint {
+  cursor: pointer;
+}
+
+.research-checkpoint:hover,
+.research-checkpoint.checked,
+.research-compare-option:has(input:checked) {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 32%, var(--line));
+}
+
+.research-checkpoint-mark {
+  color: var(--accent);
+  font-size: 16px;
+  line-height: 1.2;
+}
+
+.research-checkpoint strong,
+.research-checkpoint small,
+.research-compare-option strong,
+.research-compare-option small {
+  display: block;
+}
+
+.research-checkpoint strong,
+.research-compare-option strong {
+  font-size: 12px;
+}
+
+.research-checkpoint small,
+.research-compare-option small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+  margin-top: 3px;
+}
+
+.research-compare-option {
+  cursor: pointer;
+}
+
+.research-compare-option input {
+  accent-color: var(--accent);
+  margin-top: 3px;
+}
+
+.research-compare-table {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  margin-top: 12px;
+  overflow: hidden;
+}
+
+.research-compare-table-row {
+  align-items: start;
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  gap: 7px;
+  grid-template-columns: 82px repeat(3, minmax(0, 1fr));
+  padding: 8px;
+}
+
+.research-compare-table-row:last-child {
+  border-bottom: 0;
+}
+
+.research-compare-table-row span,
+.research-compare-table-row strong {
+  font-size: 10px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.research-compare-table-row span {
+  color: var(--muted);
+}
+
+.research-compare-table-head strong {
+  color: var(--accent);
+}
+
+.research-final-reflection {
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  margin: 24px 0;
+  padding: 18px;
+  text-align: left;
+}
+
+.research-final-reflection-head {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.research-final-reflection-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 16px;
+}
+
+.research-final-reflection-grid .field.full {
+  grid-column: 1 / -1;
+}
+
+.research-method-badge {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-radius: 999px;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 7px 10px;
+  white-space: nowrap;
+}
+
+.research-autonomy-note {
+  margin-top: 13px !important;
+}
+
+.research-result-techniques {
+  border-top: 1px solid var(--line);
+  margin: 22px auto 0;
+  max-width: 560px;
+  padding-top: 18px;
+  text-align: left;
+}
+
+.research-result-techniques > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 9px;
+}
+
+.research-result-techniques > div span {
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 11px;
+  padding: 6px 9px;
+}
+
+.research-result-techniques > div span.active {
+  border-color: color-mix(in srgb, #2d9b67 55%, var(--line));
+  color: #2d9b67;
+}
+
 .research-card {
   margin: 20px auto 0;
-  max-width: 920px;
+  max-width: none;
   padding: clamp(22px, 4vw, 42px);
+  width: 100%;
 }
 
 .consent-card {
@@ -4219,6 +4518,10 @@ textarea:focus-visible {
 }
 
 @media (max-width: 900px) {
+  .research-technique-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .research-flow-grid {
     grid-template-columns: 1fr;
   }
@@ -4229,6 +4532,21 @@ textarea:focus-visible {
 }
 
 @media (max-width: 620px) {
+  .research-method-heading,
+  .research-final-reflection-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .research-technique-grid,
+  .research-final-reflection-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .research-final-reflection-grid .field.full {
+    grid-column: auto;
+  }
+
   .research-header,
   .research-header-actions,
   .research-card-heading,

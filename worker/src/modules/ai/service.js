@@ -11,6 +11,13 @@ const MAX_MESSAGE_LENGTH = 2_000;
 const MAX_AI_REQUESTS_PER_MINUTE = 12;
 const HISTORY_LIMIT = 20;
 const MAX_CONSECUTIVE_AUTOMATIC_PROMOTIONS = 3;
+const RESEARCH_TECHNIQUES = new Set([
+  'reflective_pause',
+  'persuasion_reframe',
+  'comparative_choice',
+  'budget_calibration',
+  'implementation_intention',
+]);
 const HISTORY_ORDER_DESC = `
     ORDER BY timestamp DESC,
       CASE role WHEN 'assistant' THEN 0 WHEN 'user' THEN 1 ELSE 2 END,
@@ -24,6 +31,10 @@ export async function chat({ request, env, url }) {
   const message = String(body.message || '').trim();
   const { aiType, productId } = body;
   const isResearchChat = body.scope === 'research' || conversationIdStartsWithResearch(body.conversationId);
+  const researchTechnique = isResearchChat && RESEARCH_TECHNIQUES.has(body.researchTechnique)
+    ? body.researchTechnique
+    : null;
+  const researchRunId = isResearchChat ? String(body.researchRunId || '').slice(0, 100) : null;
   const conversationId = requireConversationId(body.conversationId);
   const clientMessageId = requireClientMessageId(body.clientMessageId);
 
@@ -78,7 +89,11 @@ export async function chat({ request, env, url }) {
   const systemPrompt = aiType === 'seller'
     ? getSellerPrompt(productInfo, locale, catalogProducts)
     : getGuardianPrompt(session, productInfo, locale, catalogProducts);
-  const structuredSystemPrompt = `${systemPrompt}\n\n${getStructuredAgentPrompt(locale)}`;
+  const structuredSystemPrompt = [
+    systemPrompt,
+    researchTechnique ? buildResearchTechniquePrompt(researchTechnique, aiType, locale) : '',
+    getStructuredAgentPrompt(locale),
+  ].filter(Boolean).join('\n\n');
 
   const messageRecordId = createId("conv");
   const userTimestamp = new Date().toISOString();
@@ -95,7 +110,12 @@ export async function chat({ request, env, url }) {
     aiType,
     message,
     productId || null,
-    JSON.stringify({ messageLength: message.length, source: 'research-shell' }),
+    JSON.stringify({
+      messageLength: message.length,
+      source: 'research-shell',
+      researchTechnique,
+      researchRunId,
+    }),
     userTimestamp
   ).run().catch(async (error) => {
     const existing = await findIdempotentResponse(env, session.userId, clientMessageId);
@@ -149,6 +169,8 @@ export async function chat({ request, env, url }) {
         model: config.deepseek_model || 'deepseek-chat',
         assessment: result.assessment,
         structured: true,
+        researchTechnique,
+        researchRunId,
         finishReason: result.finishReason || null,
         providerError: result.providerError || null,
       }),
@@ -536,6 +558,48 @@ async function getStructuredAgentResponse({ config, systemPrompt, messages, user
       providerError: getStreamErrorMessage(error),
     };
   }
+}
+
+function buildResearchTechniquePrompt(technique, aiType, locale) {
+  const role = aiType === 'seller' ? '卖家 AI' : '管家 AI';
+  const prompts = {
+    reflective_pause: [
+      '研究技术：反思性暂停（reflective pause）。',
+      '在不打断用户自主性的前提下，先邀请用户停 10 秒，把“我现在想要”与“如果促销线索消失，我仍会需要它吗”区分开。只提出一个能改变判断的问题，并允许暂停后仍然购买。',
+      '不要把快速决定直接标记为冲动，也不要把延迟或不购买当作成功；记录用户自己给出的理由、确定性和信息缺口。',
+    ].join('\n'),
+    persuasion_reframe: [
+      '研究技术：劝服知识与销售话术中性重构（persuasion knowledge / neutral reframing）。',
+      `${role}需要把页面或用户转述中的主张拆成“商家说法、可核验事实、尚未验证的部分”，再给出不带反向操控的中性表述。`,
+      '不得制造新的稀缺、限时、从众或恐惧线索；不要因为识别到话术就自动建议不买。',
+    ].join('\n'),
+    comparative_choice: [
+      '研究技术：受控同类比较（comparative choice）。',
+      '最多使用三项商品或方案，使用同一组比较维度（价格、匹配度、信息完整性、可逆性或售后）；缺失数据必须标为未核实，不得补写竞品事实。',
+      '比较的目标是减少单一商品聚焦和选择偏差，不是把用户推向最便宜或最保守的选项。',
+    ].join('\n'),
+    budget_calibration: [
+      '研究技术：预算校准与心理账户（budget calibration / mental accounting）。',
+      '请把总价、用户明确给出的预算、替代用途、使用频率和机会成本放在同一张可检查的账上；只使用用户说过的数字，不能推断收入或消费能力。',
+      '预算舒适且需求明确时可以支持购买；预算压力或数字不清时建议核实，不要用“少花钱”替代用户价值判断。',
+    ].join('\n'),
+    implementation_intention: [
+      '研究技术：执行意图（implementation intention）。',
+      '帮助用户写出一个具体的“如果—那么”计划，例如“如果我在核对退换政策后仍满足使用需求，那么我会在明天作决定”；计划必须允许满足条件后购买，也允许发现不匹配后放弃。',
+      '时间盒应当短而可执行，不用无限期拖延来替代判断；明确下一步要核实的事实。',
+    ].join('\n'),
+  };
+  if (locale === 'en-US') {
+    const english = {
+      reflective_pause: 'Technique: reflective pause. Invite a 10-second pause and ask whether the need remains if the promotion cue disappears. Keep buying after the pause fully legitimate; do not equate speed with impulsivity.',
+      persuasion_reframe: 'Technique: persuasion knowledge and neutral reframing. Separate the seller claim, checkable fact, and unverified part. Do not create counter-pressure or turn a detected tactic into an automatic no-buy.',
+      comparative_choice: 'Technique: controlled comparative choice. Compare at most three options on the same dimensions and mark missing data as unverified. Do not push the cheapest or most conservative option.',
+      budget_calibration: 'Technique: budget calibration and mental accounting. Use only the user-provided numbers to align total price, stated budget, alternatives, frequency, and opportunity cost. A comfortable budget can support buying.',
+      implementation_intention: 'Technique: implementation intention. Help the user write a concrete if-then plan with a short time box. The plan must allow buying if conditions are met and declining if they are not.',
+    };
+    return english[technique] || '';
+  }
+  return prompts[technique] || '';
 }
 
 function formatProviderFailure(locale, error) {
