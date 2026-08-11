@@ -313,6 +313,7 @@ export const AIAPI = {
 };
 
 export const ResearchAPI = {
+  clearData: () => request('/research/data', { method: 'DELETE' }),
   recommendations: (profile) =>
     request('/research/recommendations', {
       method: 'POST',

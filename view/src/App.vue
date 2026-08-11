@@ -2821,19 +2821,18 @@ function startResearch() {
   }
 }
 
-function exitResearch() {
-  if (researchStage.value > 0 && researchStage.value < 5) {
-    saveResearchDraft();
-    researchDraftAvailable.value = true;
-    if (token.value && !isAdminUser.value) {
-      void trackBehavior('intervention_check', {
-        strategy: 'research_exit',
-        metadata: { researchEvent: 'exit_with_draft', stage: researchStage.value },
-      });
-    }
-    toast(t('research.savedExit'));
-  }
+async function exitResearch() {
+  const shouldClearServerData = Boolean(token.value && !isAdminUser.value);
+  resetResearch();
   go('products');
+
+  if (!shouldClearServerData) return;
+  try {
+    await ResearchAPI.clearData();
+    toast(t('research.clearedExit'));
+  } catch (error) {
+    toast(error.message || t('toast.researchClearFailed'), 'error');
+  }
 }
 
 function researchDraftPayload() {
@@ -3105,6 +3104,7 @@ async function sendResearchMessage(explicitMessage) {
     await nextTick();
   } catch (error) {
     if (!isCurrentAccountContext(context)) return;
+    if (error?.name === 'AbortError' || researchAbortController.value !== controller) return;
     if (error.status === 401) openAuth('login');
     else toast(error.message || t('toast.aiFailed'), 'error');
     if (streamMessageIndex >= 0) researchThreads[type].splice(streamMessageIndex, 1);
@@ -3172,6 +3172,7 @@ function resetResearch({ clearDraft = true } = {}) {
   researchAbortController.value = null;
   if (clearDraft) {
     AccountState.remove(RESEARCH_DRAFT_STATE_KEY);
+    AccountState.clearLegacy();
   }
   researchDraftAvailable.value = false;
   researchStage.value = 0;

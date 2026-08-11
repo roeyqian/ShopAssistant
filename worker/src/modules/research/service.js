@@ -2,6 +2,30 @@ import { json, readJsonBody, requireAdmin, requireAuth, requireStandardUser, get
 import { getLocaleFromRequest } from "../shop/utils.js";
 import { normalizeProduct } from "../shop/utils.js";
 
+export async function clearUserResearchData({ request, env }) {
+  const { session } = await requireStandardUser(request, env);
+
+  // Research conversations use a dedicated conversation ID prefix. Research
+  // behavior records are marked with researchEvent so normal shop browsing,
+  // cart, order, and product-consultation records remain untouched.
+  const results = await env.db.batch([
+    env.db.prepare(`
+      DELETE FROM ai_conversations
+      WHERE user_id = ? AND conversation_id LIKE 'research-%'
+    `).bind(session.userId),
+    env.db.prepare(`
+      DELETE FROM user_behaviors
+      WHERE user_id = ? AND json_extract(metadata_json, '$.researchEvent') IS NOT NULL
+    `).bind(session.userId),
+  ]);
+
+  return json({
+    message: "Research data cleared",
+    conversationsCleared: Number(results[0]?.meta?.changes || 0),
+    behaviorsCleared: Number(results[1]?.meta?.changes || 0),
+  });
+}
+
 export async function getRecommendations({ request, env, url }) {
   await requireStandardUser(request, env);
   const locale = getLocaleFromRequest(request, url);
