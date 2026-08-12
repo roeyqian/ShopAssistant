@@ -93,7 +93,7 @@ ShopAssistant’s research model can be summarized as:
 
 **Context and user state → dual-agent review → purchase-appropriateness recommendation → user decision and subsequent evaluation**
 
-Context and user state include promotional pressure, product-information quality, urgency of genuine need, disposable budget, alternatives, emotional pressure, and time constraints. The seller agent helps clarify “why it may be worth buying” from the perspectives of product value, use context, after-sales service, and alternatives. The steward agent checks for impulse cues, budget pressure, information gaps, and irreversibility risk. Neither agent may treat buying or not buying as a predetermined goal.
+Context and user state include promotional pressure, product-information quality, urgency of genuine need, disposable budget, alternatives, emotional pressure, and time constraints. The seller agent actively encourages buying from the perspectives of product value, use context, after-sales service, and alternatives. The steward agent checks for impulse cues, budget pressure, information gaps, and irreversibility risk, and preferentially encourages not buying or continued observation. Their structured output is no longer advice to the user; it analyzes whether the user's current language leans toward buying, continuing to observe, or not buying.
 
 After integrating these checks, the system presents one of the following recommendations, together with its reasons and matters to confirm:
 
@@ -109,8 +109,8 @@ Users may accept, question, supplement, or ignore recommendations. Research outc
 
 The current prototype can be configured with the following study conditions:
 
-- **Seller agent:** focuses on clarifying product value and fit for use, helping users confirm needs, functions, price composition, alternatives, and timing; it must not create pressure through urgency, scarcity, or social-proof language.
-- **Steward agent:** focuses on identifying impulse, budget pressure, information gaps, and emotional influence, helping users verify risks and distinguish genuine needs from immediate triggers; it must not treat “do not buy” as the default answer.
+- **Seller agent:** focuses on clarifying product value and fit for use and preferentially encourages buying by connecting needs, functions, price composition, alternatives, and timing; it must not create pressure through urgency, scarcity, or social-proof language.
+- **Steward agent:** focuses on identifying impulse, budget pressure, information gaps, and emotional influence, preferentially encouraging not buying or continued observation while helping users verify risks and distinguish genuine needs from immediate triggers.
 - **Dual-agent collaboration:** presents complementary perspectives in the same decision and explicitly shows consensus, disagreement, evidence, and information that still needs user confirmation.
 - **Neutral or no-AI control:** used to compare the effect of AI advice itself, its wording, and its timing on purchase appropriateness and over-restraint.
 - **Decision-support tools:** need reflection, budget calibration, similar-product comparison, neutral rewriting of sales language, information-verification checklists, cooling-off delays, and pre-checkout checks.

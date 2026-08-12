@@ -643,7 +643,9 @@ export async function getHistory({ request, env, url }) {
       .filter((item) => !isHiddenConversation(item) && String(item.content || '').trim())
       .map((item) => ({
         ...item,
-        assessment: parseStoredAssessment(item.metadata_json),
+        assessment: ['seller', 'guardian'].includes(item.ai_type)
+          ? parseAgentAssessment(item.metadata_json, locale)
+          : parseStoredAssessment(item.metadata_json),
       })),
   });
 }
@@ -730,7 +732,7 @@ async function findIdempotentResponse(env, userId, clientMessageId) {
     pending: !assistantMessage,
     hasAssistant: Boolean(assistantMessage),
     response: String(assistantMessage?.content || ''),
-    assessment: parseStoredAssessment(assistantMessage?.metadata_json),
+    assessment: parseAgentAssessment(assistantMessage?.metadata_json),
   };
 }
 

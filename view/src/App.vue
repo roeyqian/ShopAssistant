@@ -1219,8 +1219,8 @@
               <div v-for="(message, index) in researchCurrentMessages" :key="`${message.client_message_id || message.id || index}-${index}`" class="research-chat-row" :class="message.role">
                 <div class="research-chat-label">{{ message.role === 'user' ? t('research.you') : (researchStage === 2 ? t('common.sellerAi') : t('common.guardianAi')) }}</div>
                 <div class="research-chat-bubble" :class="{ markdown: message.role === 'assistant' }" v-html="message.role === 'assistant' ? renderMarkdown(message.content) : message.content"></div>
-                <div v-if="message.role === 'assistant' && message.assessment?.recommendation" class="research-mini-assessment">
-                  {{ t('research.aiDirection') }}：{{ researchDecisionLabel(message.assessment.recommendation) }}
+                <div v-if="message.role === 'assistant' && message.assessment?.analysis?.inclination" class="research-mini-assessment">
+                  {{ t('research.userInclination') }}：{{ inclinationLabel(message.assessment.analysis.inclination) }}
                 </div>
               </div>
               <div v-if="researchAiSending" class="research-chat-row assistant">
@@ -1265,8 +1265,8 @@
             <ClipboardCheck :size="28" />
           </div>
           <div class="research-summary-strip">
-            <span>{{ t('research.sellerOpinion') }} <strong>{{ researchDecisionLabel(researchSellerRecommendation) }}</strong></span>
-            <span>{{ t('research.guardianOpinion') }} <strong>{{ researchDecisionLabel(researchGuardianRecommendation) }}</strong></span>
+            <span>{{ t('research.sellerOpinion') }} <strong>{{ inclinationLabel(researchSellerInclination) }}</strong></span>
+            <span>{{ t('research.guardianOpinion') }} <strong>{{ inclinationLabel(researchGuardianInclination) }}</strong></span>
           </div>
           <div class="research-final-reflection">
             <div class="research-final-reflection-head">
@@ -1320,8 +1320,8 @@
           <h2>{{ t('research.resultTitle') }}</h2>
           <p>{{ t('research.resultSubtitle') }}</p>
           <div class="research-comparison-table">
-            <div><span>{{ t('research.resultSeller') }}</span><strong :class="researchDecisionClass(researchSellerRecommendation)">{{ researchDecisionLabel(researchSellerRecommendation) }}</strong></div>
-            <div><span>{{ t('research.resultGuardian') }}</span><strong :class="researchDecisionClass(researchGuardianRecommendation)">{{ researchDecisionLabel(researchGuardianRecommendation) }}</strong></div>
+            <div><span>{{ t('research.resultSeller') }}</span><strong :class="researchDecisionClass(researchSellerInclination)">{{ inclinationLabel(researchSellerInclination) }}</strong></div>
+            <div><span>{{ t('research.resultGuardian') }}</span><strong :class="researchDecisionClass(researchGuardianInclination)">{{ inclinationLabel(researchGuardianInclination) }}</strong></div>
             <div><span>{{ t('research.resultUser') }}</span><strong :class="researchDecisionClass(researchFinalDecision)">{{ researchDecisionLabel(researchFinalDecision) }}</strong></div>
           </div>
           <p class="research-result-note">{{ researchAgreementLabel }}</p>
@@ -1741,39 +1741,28 @@
                   class="chat-bubble markdown-body"
                   v-html="renderMarkdown(message.content)"
                 ></div>
-                <section v-if="message.role === 'assistant' && message.assessment?.ready" class="decision-assessment agent-assessment">
-                  <div class="decision-recommendation" :class="`recommendation-${message.assessment.recommendation}`">
+                <section v-if="message.role === 'assistant' && message.assessment?.analysis" class="decision-assessment agent-assessment">
+                  <div class="decision-recommendation" :class="`recommendation-${inclinationRecommendationClass(message.assessment.analysis.inclination)}`">
                     <div>
-                      <span class="decision-kicker">{{ t('ai.agentRecommendation') }}</span>
-                      <strong>{{ recommendationLabel(message.assessment.recommendation) }}</strong>
+                      <span class="decision-kicker">{{ t('ai.agentAnalysis') }}</span>
+                      <strong>{{ inclinationLabel(message.assessment.analysis.inclination) }}</strong>
                     </div>
-                    <span class="decision-readiness">
-                      {{ message.assessment.ready ? t('ai.ready') : t('ai.needsMoreInfo') }}
-                    </span>
                   </div>
 
-                  <p class="synthesis-summary">{{ message.assessment.summary }}</p>
+                  <p class="synthesis-summary">{{ message.assessment.analysis.summary }}</p>
 
-                  <div v-if="message.assessment.consensus?.length" class="decision-section">
-                    <span class="decision-kicker">{{ t('ai.consensus') }}</span>
-                    <ul><li v-for="item in message.assessment.consensus" :key="item">{{ item }}</li></ul>
-                  </div>
-                  <div v-if="message.assessment.disagreements?.length" class="decision-section">
-                    <span class="decision-kicker">{{ t('ai.disagreements') }}</span>
-                    <ul><li v-for="item in message.assessment.disagreements" :key="item">{{ item }}</li></ul>
-                  </div>
                   <div class="decision-section">
                     <span class="decision-kicker">{{ t('ai.evidence') }}</span>
                     <div class="decision-evidence-list">
-                      <div v-for="item in message.assessment.evidence" :key="`${item.item}-${item.value}`" class="decision-evidence-item">
+                      <div v-for="item in message.assessment.analysis.evidence" :key="`${item.item}-${item.value}`" class="decision-evidence-item">
                         <span :class="`evidence-status-${item.status}`">{{ evidenceStatusLabel(item.status) }}</span>
                         <div><strong>{{ item.item }}</strong><p>{{ item.value }}</p></div>
                       </div>
                     </div>
                   </div>
-                  <div v-if="message.assessment.next_questions?.length" class="decision-section decision-next-questions">
+                  <div v-if="message.assessment.analysis.next_questions?.length" class="decision-section decision-next-questions">
                     <span class="decision-kicker">{{ t('ai.nextQuestions') }}</span>
-                    <ul><li v-for="item in message.assessment.next_questions" :key="item">{{ item }}</li></ul>
+                    <ul><li v-for="item in message.assessment.analysis.next_questions" :key="item">{{ item }}</li></ul>
                   </div>
                 </section>
                 <div v-else-if="message.role === 'assistant' && message.streaming && !message.content" class="typing-bubble" :aria-label="t('ai.thinking')">
@@ -2324,8 +2313,8 @@ const researchGuardianTurns = ref(0);
 const researchMaxTurnsPerPhase = 8;
 const researchSellerReady = ref(false);
 const researchGuardianReady = ref(false);
-const researchSellerRecommendation = ref('verify');
-const researchGuardianRecommendation = ref('verify');
+const researchSellerInclination = ref('observe');
+const researchGuardianInclination = ref('observe');
 const researchFinalDecision = ref('');
 const researchFeedbackSubmitted = ref(false);
 const researchFeedback = reactive({ confidence: '', helpful: '', note: '' });
@@ -2624,12 +2613,20 @@ const researchProgressLabel = computed(() => {
   return labels[Math.min(researchStage.value, labels.length - 1)];
 });
 const researchAgreementLabel = computed(() => {
-  const seller = researchDecisionLabel(researchSellerRecommendation.value);
-  const guardian = researchDecisionLabel(researchGuardianRecommendation.value);
-  const userChoice = researchDecisionLabel(researchFinalDecision.value);
-  if (seller === userChoice && guardian === userChoice) return t('research.resultAllAgree', { choice: userChoice });
-  if (seller === guardian) return t('research.resultAgentsAgree', { choice: seller, user: userChoice });
-  return t('research.resultAgentsDiffer', { seller, guardian, user: userChoice });
+  const seller = researchSellerInclination.value;
+  const guardian = researchGuardianInclination.value;
+  const userChoice = researchFinalDecision.value;
+  if (seller === userChoice && guardian === userChoice) {
+    return t('research.resultAllAgree', { choice: researchDecisionLabel(userChoice) });
+  }
+  if (seller === guardian) {
+    return t('research.resultAgentsAgree', { choice: inclinationLabel(seller), user: researchDecisionLabel(userChoice) });
+  }
+  return t('research.resultAgentsDiffer', {
+    seller: inclinationLabel(seller),
+    guardian: inclinationLabel(guardian),
+    user: researchDecisionLabel(userChoice),
+  });
 });
 
 function researchTechniqueState(id) {
@@ -3116,8 +3113,8 @@ function researchDraftPayload() {
     guardianTurns: researchGuardianTurns.value,
     sellerReady: researchSellerReady.value,
     guardianReady: researchGuardianReady.value,
-    sellerRecommendation: researchSellerRecommendation.value,
-    guardianRecommendation: researchGuardianRecommendation.value,
+    sellerInclination: researchSellerInclination.value,
+    guardianInclination: researchGuardianInclination.value,
     finalDecision: researchFinalDecision.value,
     techniqueChecks: { ...researchTechniqueChecks },
     compareIds: [...researchCompareIds.value],
@@ -3176,8 +3173,8 @@ function restoreResearchDraft(account = user.value) {
     researchGuardianTurns.value = Number(draft.guardianTurns || 0);
     researchSellerReady.value = Boolean(draft.sellerReady);
     researchGuardianReady.value = Boolean(draft.guardianReady);
-    researchSellerRecommendation.value = draft.sellerRecommendation || 'verify';
-    researchGuardianRecommendation.value = draft.guardianRecommendation || 'verify';
+    researchSellerInclination.value = draft.sellerInclination || legacyRecommendationToInclination(draft.sellerRecommendation);
+    researchGuardianInclination.value = draft.guardianInclination || legacyRecommendationToInclination(draft.guardianRecommendation);
     researchFinalDecision.value = draft.finalDecision || '';
     Object.keys(researchTechniqueChecks).forEach((key) => {
       researchTechniqueChecks[key] = Boolean(draft.techniqueChecks?.[key]);
@@ -3222,8 +3219,8 @@ async function submitResearchProfile() {
     researchGuardianTurns.value = 0;
     researchSellerReady.value = false;
     researchGuardianReady.value = false;
-    researchSellerRecommendation.value = 'verify';
-    researchGuardianRecommendation.value = 'verify';
+    researchSellerInclination.value = 'observe';
+    researchGuardianInclination.value = 'observe';
     researchFinalDecision.value = '';
     Object.keys(researchTechniqueChecks).forEach((key) => { researchTechniqueChecks[key] = false; });
     researchCompareIds.value = [];
@@ -3275,7 +3272,7 @@ function buildGuardianOpening() {
   return [
     `现在请你作为管家 AI，帮我检查刚才的商品建议。${productContext}`,
     `我的需求是：${researchProfile.currentNeed}；预算上限：${researchProfile.maxBudget ? `¥${researchProfile.maxBudget}` : '未设置'}；紧迫程度：${researchProfile.urgency}；购买起点：${researchProfile.purchasePlan}；已有替代方案：${researchProfile.alternative || '未填写'}。`,
-    '请重点检查真实需求、预算压力、情绪或促销影响、商品适配性和信息缺口。请按 DOC.md 的研究原则给出买、观望或不买方向，但不要把不买当成固定答案，也不要替我做最终决定。',
+    '请重点检查真实需求、预算压力、情绪或促销影响、商品适配性和信息缺口。请以管家立场偏向不买，并在结构化结果中分析我当前言语倾向于买、继续观望还是不买；不要把该分析写成替我做决定的建议。',
   ].join('\n');
 }
 
@@ -3291,13 +3288,13 @@ async function loadResearchHistory(type) {
     }));
     const latestAssessment = researchThreads[type].slice().reverse().find((item) => item.role === 'assistant' && item.assessment);
     revealResearchProducts(latestAssessment?.assessment, latestAssessment?.content);
-    if (latestAssessment?.assessment?.recommendation) {
+    if (latestAssessment?.assessment?.analysis?.inclination) {
       if (type === 'seller') {
-        researchSellerRecommendation.value = latestAssessment.assessment.recommendation;
-        researchSellerReady.value = Boolean(latestAssessment.assessment.ready);
+        researchSellerInclination.value = latestAssessment.assessment.analysis.inclination;
+        researchSellerReady.value = true;
       } else {
-        researchGuardianRecommendation.value = latestAssessment.assessment.recommendation;
-        researchGuardianReady.value = Boolean(latestAssessment.assessment.ready);
+        researchGuardianInclination.value = latestAssessment.assessment.analysis.inclination;
+        researchGuardianReady.value = true;
       }
     }
   } catch (error) {
@@ -3402,13 +3399,13 @@ async function sendResearchMessage(explicitMessage) {
       response.assessment = streamedAssessment || result.assessment || null;
       response.streaming = false;
       revealResearchProducts(response.assessment, response.content);
-      if (response.assessment?.recommendation) {
+      if (response.assessment?.analysis?.inclination) {
         if (type === 'seller') {
-          researchSellerRecommendation.value = response.assessment.recommendation;
-          researchSellerReady.value = Boolean(response.assessment.ready);
+          researchSellerInclination.value = response.assessment.analysis.inclination;
+          researchSellerReady.value = true;
         } else {
-          researchGuardianRecommendation.value = response.assessment.recommendation;
-          researchGuardianReady.value = Boolean(response.assessment.ready);
+          researchGuardianInclination.value = response.assessment.analysis.inclination;
+          researchGuardianReady.value = true;
         }
       }
     }
@@ -3479,8 +3476,8 @@ function submitResearchDecision(decision) {
       researchEvent: 'final_decision',
       researchRunId: researchRunId.value,
       userDecision: decision,
-      sellerRecommendation: researchSellerRecommendation.value,
-      guardianRecommendation: researchGuardianRecommendation.value,
+      sellerInclination: researchSellerInclination.value,
+      guardianInclination: researchGuardianInclination.value,
       sellerTurns: researchSellerTurns.value,
       guardianTurns: researchGuardianTurns.value,
       sellerReady: researchSellerReady.value,
@@ -3532,8 +3529,8 @@ function resetResearch({ clearDraft = true } = {}) {
   researchGuardianTurns.value = 0;
   researchSellerReady.value = false;
   researchGuardianReady.value = false;
-  researchSellerRecommendation.value = 'verify';
-  researchGuardianRecommendation.value = 'verify';
+  researchSellerInclination.value = 'observe';
+  researchGuardianInclination.value = 'observe';
   researchFinalDecision.value = '';
   Object.keys(researchTechniqueChecks).forEach((key) => { researchTechniqueChecks[key] = false; });
   researchCompareIds.value = [];
@@ -4179,6 +4176,18 @@ function parseMetadataAssessment(metadataJson) {
 
 function recommendationLabel(value) {
   return t(`ai.recommendation.${value || 'verify'}`);
+}
+
+function inclinationLabel(value) {
+  return t(`ai.inclination.${value || 'observe'}`);
+}
+
+function inclinationRecommendationClass(value) {
+  return value === 'buy' ? 'buy_now' : value === 'not_buy' ? 'do_not_buy' : 'verify';
+}
+
+function legacyRecommendationToInclination(value) {
+  return value === 'buy_now' ? 'buy' : value === 'do_not_buy' ? 'not_buy' : 'observe';
 }
 
 function researchDecisionLabel(value) {
