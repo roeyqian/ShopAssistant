@@ -3940,7 +3940,6 @@ textarea:focus-visible {
 }
 
 .research-workspace {
-  margin-top: 20px;
   padding: 24px;
 }
 
@@ -4009,8 +4008,6 @@ textarea:focus-visible {
   display: grid;
   gap: 12px;
   padding: 20px;
-  position: sticky;
-  top: 20px;
 }
 
 .research-materials-panel h3 {
