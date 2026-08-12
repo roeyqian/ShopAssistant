@@ -958,32 +958,6 @@
           </div>
         </div>
 
-        <section class="research-method-strip" :aria-label="t('research.methodologyTitle')">
-          <div class="research-method-heading">
-            <div>
-              <span class="eyebrow">{{ t('research.methodologyEyebrow') }}</span>
-              <h2>{{ t('research.methodologyTitle') }}</h2>
-            </div>
-            <p>{{ t('research.methodologySubtitle') }}</p>
-          </div>
-          <div class="research-technique-grid">
-            <article
-              v-for="(technique, index) in researchTechniques"
-              :key="technique.id"
-              class="research-technique-card"
-              :class="researchTechniqueState(technique.id)"
-            >
-              <span class="research-technique-number">0{{ index + 1 }}</span>
-              <div>
-                <strong>{{ t(technique.titleKey) }}</strong>
-                <span>{{ t(technique.hintKey) }}</span>
-                <small>{{ t(technique.sourceKey) }}</small>
-              </div>
-              <span class="research-technique-state">{{ researchTechniqueStateLabel(technique.id) }}</span>
-            </article>
-          </div>
-        </section>
-
         <section v-if="researchStage === 0" class="panel research-card consent-card">
           <div class="research-intro-icon"><ClipboardCheck :size="28" /></div>
           <h2>{{ t('research.consentTitle') }}</h2>
@@ -1113,146 +1087,123 @@
           </form>
         </section>
 
-        <section v-else-if="researchStage === 2 || researchStage === 3" class="research-flow-grid">
-          <aside class="panel research-context-card">
-            <div class="research-phase-badge" :class="researchStage === 2 ? 'seller' : 'guardian'">
-              <Bot v-if="researchStage === 2" :size="18" />
-              <ShieldCheck v-else :size="18" />
-              {{ researchStage === 2 ? t('research.sellerPhase') : t('research.guardianPhase') }}
-            </div>
-            <h2>{{ researchStage === 2 ? t('research.sellerTitle') : t('research.guardianTitle') }}</h2>
-            <p>{{ researchStage === 2 ? t('research.sellerSubtitle') : t('research.guardianSubtitle') }}</p>
-            <div v-if="researchRecommendations.length" class="research-products">
-              <h3>{{ t('research.databaseProducts') }}</h3>
-              <button
-                v-for="product in researchRecommendations"
-                :key="product.id"
-                class="research-product-option"
-                :class="{ active: researchSelectedProductId === product.id }"
-                type="button"
-                @click="selectResearchProduct(product)"
-              >
-                <img v-if="product.image_url" :src="product.image_url" :alt="product.name" />
-                <span>
-                  <strong>{{ product.name }}</strong>
-                  <small>{{ formatMoney(product.price) }} · {{ product.matchReasons?.[0] }}</small>
-                </span>
-              </button>
-            </div>
-            <div v-if="researchSelectedProduct" class="research-selected-product">
-              <span>{{ t('research.currentProduct') }}</span>
-              <strong>{{ researchSelectedProduct.name }}</strong>
-              <small>{{ formatMoney(researchSelectedProduct.price) }}</small>
-            </div>
-
-            <div class="research-technique-checklist">
-              <div class="research-side-heading">
-                <div>
-                  <span class="eyebrow">{{ t('research.checkpointEyebrow') }}</span>
-                  <h3>{{ t('research.checkpointTitle') }}</h3>
-                </div>
-                <span>{{ researchTechniqueCompletedCount }}/5</span>
-              </div>
-              <button
-                v-for="technique in researchVisibleTechniques"
-                :key="technique.id"
-                type="button"
-                class="research-checkpoint"
-                :class="{ checked: researchTechniqueChecks[technique.id] }"
-                @click="toggleResearchTechnique(technique.id)"
-              >
-                <span class="research-checkpoint-mark">{{ researchTechniqueChecks[technique.id] ? '✓' : '○' }}</span>
-                <span>
-                  <strong>{{ t(technique.titleKey) }}</strong>
-                  <small>{{ t(technique.actionKey) }}</small>
-                </span>
-              </button>
-            </div>
-
-            <div v-if="researchComparisonProducts.length" class="research-compare-lab">
-              <div class="research-side-heading">
-                <div>
-                  <span class="eyebrow">{{ t('research.comparisonEyebrow') }}</span>
-                  <h3>{{ t('research.comparisonTitle') }}</h3>
-                </div>
-                <span>{{ researchCompareIds.length }}/3</span>
-              </div>
-              <p>{{ t('research.comparisonBody') }}</p>
-              <label v-for="product in researchComparisonProducts" :key="product.id" class="research-compare-option">
-                <input v-model="researchCompareIds" type="checkbox" :value="product.id" :disabled="researchCompareIds.length >= 3 && !researchCompareIds.includes(product.id)" @change="recordResearchComparison(product)" />
-                <span><strong>{{ product.name }}</strong><small>{{ formatMoney(product.price) }} · {{ product.matchReasons?.[0] }}</small></span>
-              </label>
-              <div v-if="researchComparisonSelection.length >= 2" class="research-compare-table">
-                <div class="research-compare-table-row research-compare-table-head">
-                  <span>{{ t('research.compareDimension') }}</span>
-                  <strong v-for="product in researchComparisonSelection" :key="product.id">{{ product.name }}</strong>
-                </div>
-                <div class="research-compare-table-row">
-                  <span>{{ t('research.comparePrice') }}</span>
-                  <strong v-for="product in researchComparisonSelection" :key="`${product.id}-price`">{{ formatMoney(product.price) }}</strong>
-                </div>
-                <div class="research-compare-table-row">
-                  <span>{{ t('research.compareRating') }}</span>
-                  <strong v-for="product in researchComparisonSelection" :key="`${product.id}-rating`">{{ Number(product.rating || 0).toFixed(1) }}</strong>
-                </div>
-                <div class="research-compare-table-row">
-                  <span>{{ t('research.compareEvidence') }}</span>
-                  <strong v-for="product in researchComparisonSelection" :key="`${product.id}-evidence`">{{ product.matchReasons?.[0] || t('research.compareUnknown') }}</strong>
-                </div>
-              </div>
-            </div>
-          </aside>
-
-          <section class="panel research-chat-card">
+        <section v-else-if="researchStage === 2 || researchStage === 3" class="research-workspace-layout">
+          <section class="panel research-workspace">
+          <div class="research-workspace-content">
             <div class="research-chat-head">
               <div>
-                <span class="eyebrow">{{ researchStage === 2 ? t('research.sellerRound', { count: researchSellerTurns, max: researchMaxTurnsPerPhase }) : t('research.guardianRound', { count: researchGuardianTurns, max: researchMaxTurnsPerPhase }) }}</span>
-                <h2>{{ researchStage === 2 ? t('research.sellerChatTitle') : t('research.guardianChatTitle') }}</h2>
+                <span class="eyebrow">{{ researchStage === 2 ? t('research.sellerPhase') : t('research.guardianPhase') }}</span>
+                <h2>{{ t('research.protocolWorkspaceTitle') }}</h2>
               </div>
-              <span class="research-theory-note">{{ t('research.theoryNote') }}</span>
+              <span class="research-workspace-progress">{{ researchProtocolStep + 1 }} / 5</span>
             </div>
-            <div class="research-chat-list" aria-live="polite">
-              <div v-if="researchCurrentMessages.length === 0" class="empty-state">
-                <strong>{{ t('research.chatStarting') }}</strong>
-                <span>{{ t('research.chatStartingBody') }}</span>
-              </div>
-              <div v-for="(message, index) in researchCurrentMessages" :key="`${message.client_message_id || message.id || index}-${index}`" class="research-chat-row" :class="message.role">
-                <div class="research-chat-label">{{ message.role === 'user' ? t('research.you') : (researchStage === 2 ? t('common.sellerAi') : t('common.guardianAi')) }}</div>
-                <div class="research-chat-bubble" :class="{ markdown: message.role === 'assistant' }" v-html="message.role === 'assistant' ? renderMarkdown(message.content) : message.content"></div>
-                <div v-if="message.role === 'assistant' && message.assessment?.analysis?.inclination" class="research-mini-assessment">
-                  {{ t('research.userInclination') }}：{{ inclinationLabel(message.assessment.analysis.inclination) }}
+            <section v-if="researchCurrentProtocol" class="research-protocol-card">
+              <div class="research-protocol-heading">
+                <div>
+                  <span class="eyebrow">{{ t('research.protocolEyebrow') }} {{ researchProtocolStep + 1 }}/5</span>
+                  <h3>{{ t(researchCurrentProtocol.technique.titleKey) }}</h3>
+                  <p>{{ t(researchCurrentProtocol.technique.hintKey) }}</p>
                 </div>
+                <span>{{ t('research.protocolRequired') }}</span>
               </div>
-              <div v-if="researchAiSending" class="research-chat-row assistant">
+              <p v-if="researchCurrentProtocol.id === 'persuasion_reframe'" class="research-protocol-note">
+                {{ t('research.protocolAutomaticReframe') }}
+              </p>
+              <label v-else-if="researchCurrentProtocol.id === 'reflective_pause'" class="field">
+                <span>{{ t('research.protocolPause') }}</span>
+                <textarea v-model.trim="researchTechniqueNotes.reflective_pause" rows="2" :placeholder="t('research.protocolPausePlaceholder')"></textarea>
+              </label>
+              <label v-else-if="researchCurrentProtocol.id === 'budget_calibration'" class="field">
+                <span>{{ t('research.protocolBudget') }}</span>
+                <textarea v-model.trim="researchTechniqueNotes.budget_calibration" rows="2" :placeholder="t('research.protocolBudgetPlaceholder')"></textarea>
+              </label>
+              <label v-else-if="researchCurrentProtocol.id === 'implementation_intention'" class="field">
+                <span>{{ t('research.ifThenPlan') }}</span>
+                <textarea v-model.trim="researchIfThenPlan" rows="2" :placeholder="t('research.ifThenPlaceholder')"></textarea>
+              </label>
+              <p v-else class="research-protocol-note">{{ t('research.protocolComparison') }}</p>
+              <div v-if="researchCurrentProtocol.id === 'comparative_choice'" class="research-step-comparison">
+                <div v-if="researchComparisonSelection.length >= 2" class="research-compare-table">
+                  <div class="research-compare-table-row research-compare-table-head">
+                    <span>{{ t('research.compareDimension') }}</span>
+                    <strong v-for="product in researchComparisonSelection" :key="product.id">{{ product.name }}</strong>
+                  </div>
+                  <div class="research-compare-table-row">
+                    <span>{{ t('research.comparePrice') }}</span>
+                    <strong v-for="product in researchComparisonSelection" :key="`${product.id}-price`">{{ formatMoney(product.price) }}</strong>
+                  </div>
+                  <div class="research-compare-table-row">
+                    <span>{{ t('research.compareRating') }}</span>
+                    <strong v-for="product in researchComparisonSelection" :key="`${product.id}-rating`">{{ Number(product.rating || 0).toFixed(1) }}</strong>
+                  </div>
+                  <div class="research-compare-table-row">
+                    <span>{{ t('research.compareEvidence') }}</span>
+                    <strong v-for="product in researchComparisonSelection" :key="`${product.id}-evidence`">{{ product.matchReasons?.[0] || t('research.compareUnknown') }}</strong>
+                  </div>
+                </div>
+                <p v-else-if="researchComparisonProducts.length < 2" class="research-protocol-note">
+                  {{ t('research.protocolComparisonUnavailable') }}
+                </p>
+              </div>
+              <div v-else-if="researchContextProduct" class="research-step-product">
+                <span>{{ t('research.currentProduct') }}</span>
+                <strong>{{ researchContextProduct.name }}</strong>
+                <small>{{ formatMoney(researchContextProduct.price) }}</small>
+              </div>
+              <div class="research-protocol-actions">
+                <button class="primary-btn" type="button" :disabled="researchAiSending" @click="submitResearchTechnique">
+                  <Sparkles :size="16" /> {{ researchCurrentProtocol.id === 'persuasion_reframe' ? t('research.protocolAutomaticSubmit') : (researchCurrentProtocol.id === 'comparative_choice' && researchComparisonProducts.length < 2 ? t('research.protocolComparisonUnavailableSubmit') : t('research.protocolSubmit')) }}
+                </button>
+                <button class="ghost-btn" type="button" :disabled="researchAiSending" @click="skipResearchTechnique">
+                  {{ t('research.protocolSkip') }}
+                </button>
+              </div>
+            </section>
+            <section class="research-ai-feedback" aria-live="polite">
+              <span class="eyebrow">{{ t('research.protocolAiFeedback') }}</span>
+              <div v-if="researchLatestAssistantMessage" class="research-chat-row assistant">
+                <div class="research-chat-label">{{ researchStage === 2 ? t('common.sellerAi') : t('common.guardianAi') }}</div>
+                <div class="research-chat-bubble markdown" v-html="renderMarkdown(researchLatestAssistantMessage.content)"></div>
+              </div>
+              <div v-else-if="researchAiSending" class="research-chat-row assistant">
                 <div class="research-chat-label">{{ researchStage === 2 ? t('common.sellerAi') : t('common.guardianAi') }}</div>
                 <div class="research-chat-bubble research-thinking">{{ t('research.thinking') }}</div>
               </div>
-            </div>
-            <form class="research-chat-form" @submit.prevent="sendResearchMessage()">
-              <textarea v-model.trim="researchMessage" rows="3" :disabled="researchAiSending || researchPhaseMaxReached" :placeholder="researchStage === 2 ? t('research.sellerPlaceholder') : t('research.guardianPlaceholder')"></textarea>
+              <p v-else class="research-protocol-note">{{ t('research.protocolAiFeedbackEmpty') }}</p>
+            </section>
+            <form class="research-chat-form research-workspace-chat" @submit.prevent="sendResearchMessage()">
+              <textarea v-model.trim="researchMessage" rows="3" :disabled="researchAiSending || !researchChatReady" :placeholder="researchChatReady ? t('research.protocolChatPlaceholder') : t('research.protocolChatWaiting')"></textarea>
               <div class="research-chat-actions">
-                <small>{{ researchPhaseMaxReached ? t('research.chatLimitReached', { max: researchMaxTurnsPerPhase }) : t('research.chatHint') }}</small>
-                <button class="primary-btn" type="submit" :disabled="researchAiSending || researchPhaseMaxReached || !researchMessage.trim()">
+                <small>{{ researchChatReady ? t('research.protocolChatHint') : t('research.protocolChatWaiting') }}</small>
+                <button class="primary-btn" type="submit" :disabled="researchAiSending || !researchChatReady || !researchMessage.trim()">
                   <SendHorizontal :size="16" />
                   {{ t('research.send') }}
                 </button>
               </div>
             </form>
-            <div v-if="researchStage === 2 && researchSellerTurns >= 1" class="research-next-step">
-              <p>{{ researchSellerReady ? t('research.sellerReady') : t('research.sellerContinueChoice') }}</p>
-              <button class="secondary-btn" type="button" @click="beginGuardianResearch">
-                <ShieldCheck :size="16" />
-                {{ t('research.startGuardian') }}
-              </button>
+          </div>
+        </section>
+          <aside class="panel research-materials-panel">
+            <div>
+              <span class="eyebrow">{{ t('research.protocolMaterialsEyebrow') }}</span>
+              <h3>{{ researchCurrentProtocol?.id === 'comparative_choice' ? t('research.comparisonTitle') : t('research.protocolMaterialsTitle') }}</h3>
             </div>
-            <div v-if="researchStage === 3 && researchGuardianTurns >= 1" class="research-next-step">
-              <p>{{ researchGuardianReady ? t('research.guardianReady') : t('research.guardianContinueChoice') }}</p>
-              <button class="secondary-btn" type="button" @click="beginFinalResearch">
-                <ArrowRight :size="16" />
-                {{ t('research.finalChoice') }}
-              </button>
-            </div>
-          </section>
+            <template v-if="researchCurrentProtocol?.id === 'comparative_choice'">
+              <p>{{ researchComparisonProducts.length < 2 ? t('research.protocolComparisonUnavailable') : t('research.protocolComparison') }}</p>
+              <label v-for="product in researchComparisonProducts" :key="product.id" class="research-compare-option">
+                <input v-model="researchCompareIds" type="checkbox" :value="product.id" :disabled="researchCompareIds.length >= 3 && !researchCompareIds.includes(product.id)" @change="recordResearchComparison(product)" />
+                <span><strong>{{ product.name }}</strong><small>{{ formatMoney(product.price) }}</small></span>
+              </label>
+            </template>
+            <template v-else>
+              <p>{{ researchProfile.currentNeed }}</p>
+              <div v-if="researchContextProduct" class="research-step-product">
+                <span>{{ t('research.currentProduct') }}</span>
+                <strong>{{ researchContextProduct.name }}</strong>
+                <small>{{ formatMoney(researchContextProduct.price) }}</small>
+              </div>
+            </template>
+          </aside>
         </section>
 
         <section v-else-if="researchStage === 4" class="panel research-card final-choice-card">
@@ -1329,7 +1280,7 @@
             <span class="eyebrow">{{ t('research.resultTechniques') }}</span>
             <div>
               <span v-for="technique in researchTechniques" :key="technique.id" :class="{ active: researchTechniqueChecks[technique.id] }">
-                {{ t(technique.shortKey) }} {{ researchTechniqueChecks[technique.id] ? '✓' : '·' }}
+                {{ t(technique.shortKey) }} {{ researchTechniqueChecks[technique.id] ? '✓' : (researchTechniqueSkips[technique.id] ? '–' : '·') }}
               </span>
             </div>
           </div>
@@ -2339,6 +2290,18 @@ const researchTechniqueChecks = reactive({
   budget_calibration: false,
   implementation_intention: false,
 });
+const researchTechniqueSkips = reactive({
+  reflective_pause: false,
+  persuasion_reframe: false,
+  comparative_choice: false,
+  budget_calibration: false,
+  implementation_intention: false,
+});
+const researchTechniqueNotes = reactive({
+  reflective_pause: '',
+  budget_calibration: '',
+});
+const researchProtocolStep = ref(0);
 const researchCompareIds = ref([]);
 const researchDelayPlan = ref('ten_minutes');
 const researchFinalConfidence = ref('medium');
@@ -2385,6 +2348,13 @@ const researchTechniques = [
     actionKey: 'research.techniquePlanAction',
     sourceKey: 'research.techniquePlanSource',
   },
+];
+const researchProtocol = [
+  { id: 'persuasion_reframe', phase: 'seller' },
+  { id: 'comparative_choice', phase: 'seller' },
+  { id: 'reflective_pause', phase: 'seller' },
+  { id: 'budget_calibration', phase: 'guardian' },
+  { id: 'implementation_intention', phase: 'guardian' },
 ];
 
 const adminConfig = ref(null);
@@ -2587,20 +2557,21 @@ const researchSelectedProduct = computed(() =>
 const researchCurrentMessages = computed(() =>
   researchThreads[researchStage.value === 3 ? 'guardian' : 'seller'] || [],
 );
-const researchCurrentTurns = computed(() =>
-  researchStage.value === 3 ? researchGuardianTurns.value : researchSellerTurns.value,
+const researchLatestAssistantMessage = computed(() =>
+  researchCurrentMessages.value.slice().reverse().find((message) => message.role === 'assistant' && message.content) || null,
 );
-const researchPhaseMaxReached = computed(() => researchCurrentTurns.value >= researchMaxTurnsPerPhase);
-const researchTechniqueCompletedCount = computed(() =>
-  researchTechniques.filter((item) => researchTechniqueChecks[item.id]).length,
-);
-const researchVisibleTechniques = computed(() => {
-  if (researchStage.value === 2) return researchTechniques.slice(0, 3);
-  if (researchStage.value === 3) return researchTechniques.slice(3);
-  return researchTechniques;
+const researchChatReady = computed(() => Boolean(researchLatestAssistantMessage.value));
+const researchCurrentProtocol = computed(() => {
+  const step = researchProtocol[researchProtocolStep.value];
+  if (!step) return null;
+  const technique = researchTechniques.find((item) => item.id === step.id);
+  return technique ? { ...step, technique } : null;
 });
-const researchComparisonProducts = computed(() => researchRecommendations.value.slice(0, 6));
+const researchComparisonProducts = computed(() => researchCatalog.value.slice(0, 6));
 const researchComparisonSelection = computed(() => researchComparisonProducts.value.filter((product) => researchCompareIds.value.includes(String(product.id))));
+const researchContextProduct = computed(() =>
+  researchSelectedProduct.value || researchComparisonSelection.value[0] || null,
+);
 const researchProgressLabel = computed(() => {
   const labels = [
     t('research.progressConsent'),
@@ -2629,35 +2600,117 @@ const researchAgreementLabel = computed(() => {
   });
 });
 
-function researchTechniqueState(id) {
-  if (researchTechniqueChecks[id]) return 'completed';
-  const activeIds = researchVisibleTechniques.value.map((item) => item.id);
-  return activeIds.includes(id) ? 'active' : 'upcoming';
+function researchTechniqueIsReady(id) {
+  if (id === 'persuasion_reframe') return true;
+  if (id === 'comparative_choice') return researchComparisonProducts.value.length < 2 || researchCompareIds.value.length >= 2;
+  if (id === 'implementation_intention') return researchIfThenPlan.value.trim().length >= 12;
+  return researchTechniqueNotes[id]?.trim().length >= 4;
 }
 
-function researchTechniqueStateLabel(id) {
-  const state = researchTechniqueState(id);
-  return t(`research.techniqueState.${state}`);
+function buildResearchTechniqueContext(id) {
+  const selectedProduct = researchSelectedProduct.value;
+  const base = {
+    selectedProductId: selectedProduct?.id || null,
+    selectedProductName: selectedProduct?.name || null,
+    selectedProductPrice: selectedProduct?.price ?? null,
+  };
+  if (id === 'persuasion_reframe') return base;
+  if (id === 'comparative_choice') return {
+    ...base,
+    candidateIds: [...researchCompareIds.value],
+    candidateNames: researchComparisonSelection.value.map((item) => item.name),
+    catalogCandidateCount: researchComparisonProducts.value.length,
+  };
+  if (id === 'reflective_pause') return { ...base, reflection: researchTechniqueNotes.reflective_pause };
+  if (id === 'budget_calibration') return {
+    ...base,
+    budgetCap: researchProfile.maxBudget || null,
+    alternativeUseAndFrequency: researchTechniqueNotes.budget_calibration,
+  };
+  if (id === 'implementation_intention') return {
+    ...base,
+    ifThenPlan: researchIfThenPlan.value,
+    reviewTime: researchDelayPlan.value,
+  };
+  return base;
 }
 
-function toggleResearchTechnique(id) {
-  if (!Object.prototype.hasOwnProperty.call(researchTechniqueChecks, id)) return;
-  researchTechniqueChecks[id] = !researchTechniqueChecks[id];
-  saveResearchDraft();
+function buildResearchTechniqueMessage(id) {
+  const messages = {
+    persuasion_reframe: '请根据我提供的页面话术，完成本轮“劝服知识与话术重构”：清楚区分商家主张、可核验事实和未核实项，并给出中性表述。',
+    comparative_choice: '请根据当前数据库可用的候选商品，完成本轮“受控同类比较”：只使用数据库事实，以相同维度比较，并标注未核实项。如果候选不足两个，请明确记录样本不足，不要虚构比较对象。',
+    reflective_pause: '请根据我的暂停反思，帮助我区分即时刺激和持续需求；不要把购买或延迟预设为正确答案。',
+    budget_calibration: '请根据我的预算补充，完成本轮“预算校准”：将总价、预算上限、替代用途和使用频率放在一起核对。',
+    implementation_intention: '请根据我的如果—那么计划，确认下一步是否具体、时间是否有限，并保留购买或放弃两条路径。',
+  };
+  return messages[id] || '请根据本步骤的参与者输入继续。';
+}
+
+async function submitResearchTechnique() {
+  const step = researchCurrentProtocol.value;
+  if (!step || researchAiSending.value) return;
+  if (!researchTechniqueIsReady(step.id)) {
+    toast(t('research.protocolIncomplete'), 'error');
+    return;
+  }
+  const techniqueContext = buildResearchTechniqueContext(step.id);
+  const opening = step.id === 'persuasion_reframe' && researchSellerTurns.value === 0
+    ? `${buildSellerOpening()}\n\n`
+    : step.id === 'budget_calibration' && researchGuardianTurns.value === 0
+      ? `${buildGuardianOpening()}\n\n`
+      : '';
+  void trackBehavior('intervention_check', {
+    strategy: step.id,
+    productId: researchSelectedProductId.value || null,
+    metadata: {
+      researchEvent: 'technique_submitted',
+      researchRunId: researchRunId.value,
+      techniqueContext,
+    },
+  });
+  const sent = await sendResearchMessage(`${opening}${buildResearchTechniqueMessage(step.id)}`, step, techniqueContext);
+  if (!sent) return;
+  researchTechniqueChecks[step.id] = true;
+  advanceResearchProtocol(step.id, false);
+}
+
+function skipResearchTechnique() {
+  const step = researchCurrentProtocol.value;
+  if (!step || researchAiSending.value) return;
+  researchTechniqueSkips[step.id] = true;
+  advanceResearchProtocol(step.id, true);
+}
+
+function advanceResearchProtocol(id, skipped) {
   void trackBehavior('intervention_check', {
     strategy: id,
     productId: researchSelectedProductId.value || null,
     metadata: {
-      researchEvent: 'technique_checkpoint',
+      researchEvent: skipped ? 'technique_skipped' : 'technique_completed',
       researchRunId: researchRunId.value,
-      checked: researchTechniqueChecks[id],
     },
   });
+  researchProtocolStep.value += 1;
+  const nextStep = researchProtocol[researchProtocolStep.value];
+  if (!nextStep) {
+    recordResearchPhaseEnd('guardian');
+    researchStage.value = 4;
+  } else if (nextStep.phase === 'guardian' && researchStage.value !== 3) {
+    recordResearchPhaseEnd('seller');
+    researchStage.value = 3;
+    researchGuardianReady.value = false;
+    researchThreads.guardian = [];
+    void nextTick().then(() => sendResearchMessage(buildGuardianOpening(), null));
+  }
+  saveResearchDraft();
 }
 
 function recordResearchComparison(product) {
   if (!product?.id) return;
   researchCompareIds.value = researchCompareIds.value.map(String).slice(0, 3);
+  if (!researchSelectedProductId.value && researchCompareIds.value.length) {
+    researchSelectedProductId.value = researchCompareIds.value[0];
+  }
   void trackBehavior('intervention_check', {
     strategy: 'comparative_choice',
     productId: product.id,
@@ -2668,15 +2721,6 @@ function recordResearchComparison(product) {
     },
   });
   saveResearchDraft();
-}
-
-function researchTechniqueForTurn(type, turnCount) {
-  const sequence = type === 'seller'
-    ? ['persuasion_reframe', 'comparative_choice', 'reflective_pause']
-    : ['budget_calibration', 'implementation_intention', 'reflective_pause'];
-  if (turnCount < sequence.length) return sequence[turnCount];
-  const uncheckedTechnique = sequence.find((id) => !researchTechniqueChecks[id]);
-  return uncheckedTechnique || sequence[turnCount % sequence.length];
 }
 
 const cartCount = computed(() => cart.value.reduce((sum, item) => sum + Number(item.quantity || 0), 0));
@@ -3117,6 +3161,9 @@ function researchDraftPayload() {
     guardianInclination: researchGuardianInclination.value,
     finalDecision: researchFinalDecision.value,
     techniqueChecks: { ...researchTechniqueChecks },
+    techniqueSkips: { ...researchTechniqueSkips },
+    techniqueNotes: { ...researchTechniqueNotes },
+    protocolStep: researchProtocolStep.value,
     compareIds: [...researchCompareIds.value],
     delayPlan: researchDelayPlan.value,
     finalConfidence: researchFinalConfidence.value,
@@ -3179,6 +3226,13 @@ function restoreResearchDraft(account = user.value) {
     Object.keys(researchTechniqueChecks).forEach((key) => {
       researchTechniqueChecks[key] = Boolean(draft.techniqueChecks?.[key]);
     });
+    Object.keys(researchTechniqueSkips).forEach((key) => {
+      researchTechniqueSkips[key] = Boolean(draft.techniqueSkips?.[key]);
+    });
+    Object.keys(researchTechniqueNotes).forEach((key) => {
+      researchTechniqueNotes[key] = String(draft.techniqueNotes?.[key] || '');
+    });
+    researchProtocolStep.value = Math.max(0, Math.min(researchProtocol.length, Number(draft.protocolStep || 0)));
     researchCompareIds.value = Array.isArray(draft.compareIds) ? draft.compareIds.map(String).slice(0, 3) : [];
     researchDelayPlan.value = draft.delayPlan || 'ten_minutes';
     researchFinalConfidence.value = draft.finalConfidence || 'medium';
@@ -3223,6 +3277,9 @@ async function submitResearchProfile() {
     researchGuardianInclination.value = 'observe';
     researchFinalDecision.value = '';
     Object.keys(researchTechniqueChecks).forEach((key) => { researchTechniqueChecks[key] = false; });
+    Object.keys(researchTechniqueSkips).forEach((key) => { researchTechniqueSkips[key] = false; });
+    Object.keys(researchTechniqueNotes).forEach((key) => { researchTechniqueNotes[key] = ''; });
+    researchProtocolStep.value = 0;
     researchCompareIds.value = [];
     researchDelayPlan.value = 'ten_minutes';
     researchFinalConfidence.value = 'medium';
@@ -3240,7 +3297,7 @@ async function submitResearchProfile() {
       },
     });
     await nextTick();
-    await sendResearchMessage(buildSellerOpening());
+    await sendResearchMessage(buildSellerOpening(), null);
   } catch (error) {
     if (!isCurrentAccountContext(context)) return;
     if (error.status === 401) openAuth('login');
@@ -3335,10 +3392,10 @@ function selectResearchProduct(product) {
   });
 }
 
-async function sendResearchMessage(explicitMessage) {
+async function sendResearchMessage(explicitMessage, protocolStep = researchCurrentProtocol.value, techniqueContext = null) {
   if (!ensureStandardUser(t('toast.researchLoginRequired'))) return;
   const context = currentAccountContext();
-  const type = researchStage.value === 3 ? 'guardian' : 'seller';
+  const type = protocolStep?.phase || (researchStage.value === 3 ? 'guardian' : 'seller');
   const message = typeof explicitMessage === 'string'
     ? explicitMessage.trim()
     : researchMessage.value.trim();
@@ -3348,7 +3405,10 @@ async function sendResearchMessage(explicitMessage) {
 
   const conversationId = researchConversationId(type);
   const clientMessageId = createClientId('research-message');
-  const technique = researchTechniqueForTurn(type, type === 'seller' ? researchSellerTurns.value : researchGuardianTurns.value);
+  const technique = protocolStep === null
+    ? null
+    : (protocolStep?.id || researchCurrentProtocol.value?.id || null);
+  const resolvedTechniqueContext = techniqueContext || (technique ? buildResearchTechniqueContext(technique) : null);
   researchAiSending.value = true;
   researchMessage.value = '';
   researchThreads[type].push({ role: 'user', content: message, client_message_id: clientMessageId });
@@ -3385,6 +3445,7 @@ async function sendResearchMessage(explicitMessage) {
       {
         scope: 'research',
         researchTechnique: technique,
+        researchTechniqueContext: resolvedTechniqueContext,
         researchRunId: researchRunId.value,
         signal: controller.signal,
         onDelta: appendStreamDelta,
@@ -3413,37 +3474,20 @@ async function sendResearchMessage(explicitMessage) {
     else researchGuardianTurns.value += 1;
     saveResearchDraft();
     await nextTick();
+    return true;
   } catch (error) {
     if (!isCurrentAccountContext(context)) return;
     if (error?.name === 'AbortError' || researchAbortController.value !== controller) return;
     if (error.status === 401) openAuth('login');
     else toast(error.message || t('toast.aiFailed'), 'error');
     if (streamMessageIndex >= 0) researchThreads[type].splice(streamMessageIndex, 1);
+    return false;
   } finally {
     if (researchAbortController.value === controller) {
       researchAbortController.value = null;
       researchAiSending.value = false;
     }
   }
-}
-
-async function beginGuardianResearch() {
-  if (researchSellerTurns.value < 1 || researchAiSending.value) return;
-  recordResearchPhaseEnd('seller');
-  researchStage.value = 3;
-  researchGuardianTurns.value = 0;
-  researchGuardianReady.value = false;
-  researchThreads.guardian = [];
-  saveResearchDraft();
-  await nextTick();
-  await sendResearchMessage(buildGuardianOpening());
-}
-
-function beginFinalResearch() {
-  if (researchGuardianTurns.value < 1) return;
-  recordResearchPhaseEnd('guardian');
-  researchStage.value = 4;
-  saveResearchDraft();
 }
 
 function recordResearchPhaseEnd(type) {
@@ -3533,6 +3577,9 @@ function resetResearch({ clearDraft = true } = {}) {
   researchGuardianInclination.value = 'observe';
   researchFinalDecision.value = '';
   Object.keys(researchTechniqueChecks).forEach((key) => { researchTechniqueChecks[key] = false; });
+  Object.keys(researchTechniqueSkips).forEach((key) => { researchTechniqueSkips[key] = false; });
+  Object.keys(researchTechniqueNotes).forEach((key) => { researchTechniqueNotes[key] = ''; });
+  researchProtocolStep.value = 0;
   researchCompareIds.value = [];
   researchDelayPlan.value = 'ten_minutes';
   researchFinalConfidence.value = 'medium';

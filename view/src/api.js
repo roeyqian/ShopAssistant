@@ -300,6 +300,7 @@ export const AIAPI = {
         clientMessageId,
         scope: options.scope || null,
         researchTechnique: options.researchTechnique || null,
+        researchTechniqueContext: options.researchTechniqueContext || null,
         researchRunId: options.researchRunId || null,
       }),
       signal: options.signal,
