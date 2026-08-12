@@ -128,11 +128,13 @@ npm run db:ai-safety
 npm run db:product-chat-history
 npm run db:add-products
 npm run db:more-product-i18n
+npm run db:add-27-products
+npm run db:add-product-type-depth
 ```
 
 当前脚本使用的数据库名为 `zero-1-base`。如使用其他数据库名，请同步更新 `worker/package.json` 中的脚本。
 
-已有旧数据库时，请补跑 `worker/store/migrations/0003_order_events.sql`、`worker/store/migrations/0004_product_i18n.sql`、`worker/store/migrations/0006_intervention_behavior.sql`、`worker/store/migrations/0007_ai_conversation_safety.sql`、`worker/store/migrations/0008_product_chat_history.sql`、`worker/store/migrations/0009_add_more_products.sql` 和 `worker/store/migrations/0010_more_product_i18n.sql`。
+已有旧数据库时，请补跑 `worker/store/migrations/0003_order_events.sql`、`worker/store/migrations/0004_product_i18n.sql`、`worker/store/migrations/0006_intervention_behavior.sql`、`worker/store/migrations/0007_ai_conversation_safety.sql`、`worker/store/migrations/0008_product_chat_history.sql`、`worker/store/migrations/0009_add_more_products.sql`、`worker/store/migrations/0010_more_product_i18n.sql`、`worker/store/migrations/0011_add_27_products.sql` 和 `worker/store/migrations/0012_add_product_type_depth.sql`。
 
 ## AI 配置
 
