@@ -1206,7 +1206,7 @@
           <section class="panel research-chat-card">
             <div class="research-chat-head">
               <div>
-                <span class="eyebrow">{{ researchStage === 2 ? t('research.sellerRound', { count: researchSellerTurns }) : t('research.guardianRound', { count: researchGuardianTurns }) }}</span>
+                <span class="eyebrow">{{ researchStage === 2 ? t('research.sellerRound', { count: researchSellerTurns, max: researchMaxTurnsPerPhase }) : t('research.guardianRound', { count: researchGuardianTurns, max: researchMaxTurnsPerPhase }) }}</span>
                 <h2>{{ researchStage === 2 ? t('research.sellerChatTitle') : t('research.guardianChatTitle') }}</h2>
               </div>
               <span class="research-theory-note">{{ t('research.theoryNote') }}</span>
@@ -1229,24 +1229,24 @@
               </div>
             </div>
             <form class="research-chat-form" @submit.prevent="sendResearchMessage()">
-              <textarea v-model.trim="researchMessage" rows="3" :disabled="researchAiSending" :placeholder="researchStage === 2 ? t('research.sellerPlaceholder') : t('research.guardianPlaceholder')"></textarea>
+              <textarea v-model.trim="researchMessage" rows="3" :disabled="researchAiSending || researchPhaseMaxReached" :placeholder="researchStage === 2 ? t('research.sellerPlaceholder') : t('research.guardianPlaceholder')"></textarea>
               <div class="research-chat-actions">
-                <small>{{ t('research.chatHint') }}</small>
-                <button class="primary-btn" type="submit" :disabled="researchAiSending || !researchMessage.trim()">
+                <small>{{ researchPhaseMaxReached ? t('research.chatLimitReached', { max: researchMaxTurnsPerPhase }) : t('research.chatHint') }}</small>
+                <button class="primary-btn" type="submit" :disabled="researchAiSending || researchPhaseMaxReached || !researchMessage.trim()">
                   <SendHorizontal :size="16" />
                   {{ t('research.send') }}
                 </button>
               </div>
             </form>
-            <div v-if="researchStage === 2 && researchSellerTurns >= 3" class="research-next-step">
-              <p>{{ t('research.sellerDone') }}</p>
+            <div v-if="researchStage === 2 && researchSellerTurns >= 1" class="research-next-step">
+              <p>{{ researchSellerReady ? t('research.sellerReady') : t('research.sellerContinueChoice') }}</p>
               <button class="secondary-btn" type="button" @click="beginGuardianResearch">
                 <ShieldCheck :size="16" />
                 {{ t('research.startGuardian') }}
               </button>
             </div>
-            <div v-if="researchStage === 3 && researchGuardianTurns >= 3" class="research-next-step">
-              <p>{{ t('research.guardianDone') }}</p>
+            <div v-if="researchStage === 3 && researchGuardianTurns >= 1" class="research-next-step">
+              <p>{{ researchGuardianReady ? t('research.guardianReady') : t('research.guardianContinueChoice') }}</p>
               <button class="secondary-btn" type="button" @click="beginFinalResearch">
                 <ArrowRight :size="16" />
                 {{ t('research.finalChoice') }}
@@ -2321,6 +2321,9 @@ const researchAiSending = ref(false);
 const researchAbortController = ref(null);
 const researchSellerTurns = ref(0);
 const researchGuardianTurns = ref(0);
+const researchMaxTurnsPerPhase = 8;
+const researchSellerReady = ref(false);
+const researchGuardianReady = ref(false);
 const researchSellerRecommendation = ref('verify');
 const researchGuardianRecommendation = ref('verify');
 const researchFinalDecision = ref('');
@@ -2595,6 +2598,10 @@ const researchSelectedProduct = computed(() =>
 const researchCurrentMessages = computed(() =>
   researchThreads[researchStage.value === 3 ? 'guardian' : 'seller'] || [],
 );
+const researchCurrentTurns = computed(() =>
+  researchStage.value === 3 ? researchGuardianTurns.value : researchSellerTurns.value,
+);
+const researchPhaseMaxReached = computed(() => researchCurrentTurns.value >= researchMaxTurnsPerPhase);
 const researchTechniqueCompletedCount = computed(() =>
   researchTechniques.filter((item) => researchTechniqueChecks[item.id]).length,
 );
@@ -2667,10 +2674,12 @@ function recordResearchComparison(product) {
 }
 
 function researchTechniqueForTurn(type, turnCount) {
-  if (type === 'seller') {
-    return ['persuasion_reframe', 'comparative_choice', 'reflective_pause'][turnCount] || 'reflective_pause';
-  }
-  return ['budget_calibration', 'implementation_intention', 'reflective_pause'][turnCount] || 'reflective_pause';
+  const sequence = type === 'seller'
+    ? ['persuasion_reframe', 'comparative_choice', 'reflective_pause']
+    : ['budget_calibration', 'implementation_intention', 'reflective_pause'];
+  if (turnCount < sequence.length) return sequence[turnCount];
+  const uncheckedTechnique = sequence.find((id) => !researchTechniqueChecks[id]);
+  return uncheckedTechnique || sequence[turnCount % sequence.length];
 }
 
 const cartCount = computed(() => cart.value.reduce((sum, item) => sum + Number(item.quantity || 0), 0));
@@ -3105,6 +3114,8 @@ function researchDraftPayload() {
     selectedProductId: researchSelectedProductId.value,
     sellerTurns: researchSellerTurns.value,
     guardianTurns: researchGuardianTurns.value,
+    sellerReady: researchSellerReady.value,
+    guardianReady: researchGuardianReady.value,
     sellerRecommendation: researchSellerRecommendation.value,
     guardianRecommendation: researchGuardianRecommendation.value,
     finalDecision: researchFinalDecision.value,
@@ -3163,6 +3174,8 @@ function restoreResearchDraft(account = user.value) {
     }
     researchSellerTurns.value = Number(draft.sellerTurns || 0);
     researchGuardianTurns.value = Number(draft.guardianTurns || 0);
+    researchSellerReady.value = Boolean(draft.sellerReady);
+    researchGuardianReady.value = Boolean(draft.guardianReady);
     researchSellerRecommendation.value = draft.sellerRecommendation || 'verify';
     researchGuardianRecommendation.value = draft.guardianRecommendation || 'verify';
     researchFinalDecision.value = draft.finalDecision || '';
@@ -3207,6 +3220,8 @@ async function submitResearchProfile() {
     researchRunId.value = researchRunId.value || createClientId('research');
     researchSellerTurns.value = 0;
     researchGuardianTurns.value = 0;
+    researchSellerReady.value = false;
+    researchGuardianReady.value = false;
     researchSellerRecommendation.value = 'verify';
     researchGuardianRecommendation.value = 'verify';
     researchFinalDecision.value = '';
@@ -3277,8 +3292,13 @@ async function loadResearchHistory(type) {
     const latestAssessment = researchThreads[type].slice().reverse().find((item) => item.role === 'assistant' && item.assessment);
     revealResearchProducts(latestAssessment?.assessment, latestAssessment?.content);
     if (latestAssessment?.assessment?.recommendation) {
-      if (type === 'seller') researchSellerRecommendation.value = latestAssessment.assessment.recommendation;
-      else researchGuardianRecommendation.value = latestAssessment.assessment.recommendation;
+      if (type === 'seller') {
+        researchSellerRecommendation.value = latestAssessment.assessment.recommendation;
+        researchSellerReady.value = Boolean(latestAssessment.assessment.ready);
+      } else {
+        researchGuardianRecommendation.value = latestAssessment.assessment.recommendation;
+        researchGuardianReady.value = Boolean(latestAssessment.assessment.ready);
+      }
     }
   } catch (error) {
     if (!isCurrentAccountContext(context)) return;
@@ -3326,8 +3346,8 @@ async function sendResearchMessage(explicitMessage) {
     ? explicitMessage.trim()
     : researchMessage.value.trim();
   if (!message || researchAiSending.value) return;
-  if (type === 'seller' && researchSellerTurns.value >= 3) return;
-  if (type === 'guardian' && researchGuardianTurns.value >= 3) return;
+  if (type === 'seller' && researchSellerTurns.value >= researchMaxTurnsPerPhase) return;
+  if (type === 'guardian' && researchGuardianTurns.value >= researchMaxTurnsPerPhase) return;
 
   const conversationId = researchConversationId(type);
   const clientMessageId = createClientId('research-message');
@@ -3383,8 +3403,13 @@ async function sendResearchMessage(explicitMessage) {
       response.streaming = false;
       revealResearchProducts(response.assessment, response.content);
       if (response.assessment?.recommendation) {
-        if (type === 'seller') researchSellerRecommendation.value = response.assessment.recommendation;
-        else researchGuardianRecommendation.value = response.assessment.recommendation;
+        if (type === 'seller') {
+          researchSellerRecommendation.value = response.assessment.recommendation;
+          researchSellerReady.value = Boolean(response.assessment.ready);
+        } else {
+          researchGuardianRecommendation.value = response.assessment.recommendation;
+          researchGuardianReady.value = Boolean(response.assessment.ready);
+        }
       }
     }
     if (type === 'seller') researchSellerTurns.value += 1;
@@ -3406,9 +3431,11 @@ async function sendResearchMessage(explicitMessage) {
 }
 
 async function beginGuardianResearch() {
-  if (researchSellerTurns.value < 3 || researchAiSending.value) return;
+  if (researchSellerTurns.value < 1 || researchAiSending.value) return;
+  recordResearchPhaseEnd('seller');
   researchStage.value = 3;
   researchGuardianTurns.value = 0;
+  researchGuardianReady.value = false;
   researchThreads.guardian = [];
   saveResearchDraft();
   await nextTick();
@@ -3416,9 +3443,27 @@ async function beginGuardianResearch() {
 }
 
 function beginFinalResearch() {
-  if (researchGuardianTurns.value < 3) return;
+  if (researchGuardianTurns.value < 1) return;
+  recordResearchPhaseEnd('guardian');
   researchStage.value = 4;
   saveResearchDraft();
+}
+
+function recordResearchPhaseEnd(type) {
+  const turns = type === 'seller' ? researchSellerTurns.value : researchGuardianTurns.value;
+  const ready = type === 'seller' ? researchSellerReady.value : researchGuardianReady.value;
+  void trackBehavior('intervention_check', {
+    strategy: 'research_phase_end',
+    productId: researchSelectedProductId.value || null,
+    metadata: {
+      researchEvent: 'phase_ended',
+      researchRunId: researchRunId.value,
+      phase: type,
+      turns,
+      assessmentReady: ready,
+      participantEndedBeforeReady: !ready,
+    },
+  });
 }
 
 function submitResearchDecision(decision) {
@@ -3436,6 +3481,10 @@ function submitResearchDecision(decision) {
       userDecision: decision,
       sellerRecommendation: researchSellerRecommendation.value,
       guardianRecommendation: researchGuardianRecommendation.value,
+      sellerTurns: researchSellerTurns.value,
+      guardianTurns: researchGuardianTurns.value,
+      sellerReady: researchSellerReady.value,
+      guardianReady: researchGuardianReady.value,
       techniqueChecks: { ...researchTechniqueChecks },
       compareIds: [...researchCompareIds.value],
       delayPlan: researchDelayPlan.value,
@@ -3481,6 +3530,8 @@ function resetResearch({ clearDraft = true } = {}) {
   researchAiSending.value = false;
   researchSellerTurns.value = 0;
   researchGuardianTurns.value = 0;
+  researchSellerReady.value = false;
+  researchGuardianReady.value = false;
   researchSellerRecommendation.value = 'verify';
   researchGuardianRecommendation.value = 'verify';
   researchFinalDecision.value = '';
