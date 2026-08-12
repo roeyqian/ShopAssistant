@@ -1087,7 +1087,7 @@
           </form>
         </section>
 
-        <section v-else-if="researchStage === 2 || researchStage === 3" class="research-workspace-layout">
+        <section v-else-if="researchStage === 2 || researchStage === 3" class="research-workspace-layout" :class="{ 'research-workspace-layout--locked': !researchStepUnlocked }">
           <section class="panel research-workspace">
           <div class="research-workspace-content">
             <div class="research-chat-head">
@@ -1097,7 +1097,7 @@
               </div>
               <span class="research-workspace-progress">{{ researchProtocolStep + 1 }} / 5</span>
             </div>
-            <section v-if="researchCurrentProtocol" class="research-protocol-card">
+            <section v-if="researchStepUnlocked && researchCurrentProtocol" class="research-protocol-card">
               <div class="research-protocol-heading">
                 <div>
                   <span class="eyebrow">{{ t('research.protocolEyebrow') }} {{ researchProtocolStep + 1 }}/5</span>
@@ -1159,6 +1159,10 @@
                 </button>
               </div>
             </section>
+            <div v-else class="research-dialogue-gate" aria-live="polite">
+              <span class="eyebrow">{{ t('research.protocolUnlockEyebrow') }}</span>
+              <p>{{ t('research.protocolUnlockProgress', { count: researchRemainingDialogueTurns }) }}</p>
+            </div>
             <section class="research-ai-feedback" aria-live="polite">
               <span class="eyebrow">{{ t('research.protocolAiFeedback') }}</span>
               <div v-if="researchLatestAssistantMessage" class="research-chat-row assistant">
@@ -1174,7 +1178,7 @@
             <form class="research-chat-form research-workspace-chat" @submit.prevent="sendResearchMessage()">
               <textarea v-model.trim="researchMessage" rows="3" :disabled="researchAiSending || !researchChatReady" :placeholder="researchChatReady ? t('research.protocolChatPlaceholder') : t('research.protocolChatWaiting')"></textarea>
               <div class="research-chat-actions">
-                <small>{{ researchChatReady ? t('research.protocolChatHint') : t('research.protocolChatWaiting') }}</small>
+                <small>{{ researchChatReady ? (researchStepUnlocked ? t('research.protocolChatHint') : t('research.protocolUnlockProgress', { count: researchRemainingDialogueTurns })) : t('research.protocolChatWaiting') }}</small>
                 <button class="primary-btn" type="submit" :disabled="researchAiSending || !researchChatReady || !researchMessage.trim()">
                   <SendHorizontal :size="16" />
                   {{ t('research.send') }}
@@ -1183,7 +1187,7 @@
             </form>
           </div>
         </section>
-          <aside class="panel research-materials-panel">
+          <aside v-if="researchStepUnlocked && researchCurrentProtocol" class="panel research-materials-panel">
             <div>
               <span class="eyebrow">{{ t('research.protocolMaterialsEyebrow') }}</span>
               <h3>{{ researchCurrentProtocol?.id === 'comparative_choice' ? t('research.comparisonTitle') : t('research.protocolMaterialsTitle') }}</h3>
@@ -2261,7 +2265,10 @@ const researchAiSending = ref(false);
 const researchAbortController = ref(null);
 const researchSellerTurns = ref(0);
 const researchGuardianTurns = ref(0);
+const researchSellerDialogueTurns = ref(0);
+const researchGuardianDialogueTurns = ref(0);
 const researchMaxTurnsPerPhase = 8;
+const researchMinimumDialogueTurns = 3;
 const researchSellerReady = ref(false);
 const researchGuardianReady = ref(false);
 const researchSellerInclination = ref('observe');
@@ -2561,6 +2568,13 @@ const researchLatestAssistantMessage = computed(() =>
   researchCurrentMessages.value.slice().reverse().find((message) => message.role === 'assistant' && message.content) || null,
 );
 const researchChatReady = computed(() => Boolean(researchLatestAssistantMessage.value));
+const researchCompletedDialogueTurns = computed(() =>
+  researchSellerDialogueTurns.value + researchGuardianDialogueTurns.value,
+);
+const researchStepUnlocked = computed(() => researchCompletedDialogueTurns.value >= researchMinimumDialogueTurns);
+const researchRemainingDialogueTurns = computed(() =>
+  Math.max(0, researchMinimumDialogueTurns - researchCompletedDialogueTurns.value),
+);
 const researchCurrentProtocol = computed(() => {
   const step = researchProtocol[researchProtocolStep.value];
   if (!step) return null;
@@ -2649,6 +2663,10 @@ function buildResearchTechniqueMessage(id) {
 async function submitResearchTechnique() {
   const step = researchCurrentProtocol.value;
   if (!step || researchAiSending.value) return;
+  if (!researchStepUnlocked.value) {
+    toast(t('research.protocolUnlockRequired'), 'error');
+    return;
+  }
   if (!researchTechniqueIsReady(step.id)) {
     toast(t('research.protocolIncomplete'), 'error');
     return;
@@ -2677,6 +2695,10 @@ async function submitResearchTechnique() {
 function skipResearchTechnique() {
   const step = researchCurrentProtocol.value;
   if (!step || researchAiSending.value) return;
+  if (!researchStepUnlocked.value) {
+    toast(t('research.protocolUnlockRequired'), 'error');
+    return;
+  }
   researchTechniqueSkips[step.id] = true;
   advanceResearchProtocol(step.id, true);
 }
@@ -3155,6 +3177,8 @@ function researchDraftPayload() {
     selectedProductId: researchSelectedProductId.value,
     sellerTurns: researchSellerTurns.value,
     guardianTurns: researchGuardianTurns.value,
+    sellerDialogueTurns: researchSellerDialogueTurns.value,
+    guardianDialogueTurns: researchGuardianDialogueTurns.value,
     sellerReady: researchSellerReady.value,
     guardianReady: researchGuardianReady.value,
     sellerInclination: researchSellerInclination.value,
@@ -3218,6 +3242,8 @@ function restoreResearchDraft(account = user.value) {
     }
     researchSellerTurns.value = Number(draft.sellerTurns || 0);
     researchGuardianTurns.value = Number(draft.guardianTurns || 0);
+    researchSellerDialogueTurns.value = Math.max(0, Number(draft.sellerDialogueTurns || 0));
+    researchGuardianDialogueTurns.value = Math.max(0, Number(draft.guardianDialogueTurns || 0));
     researchSellerReady.value = Boolean(draft.sellerReady);
     researchGuardianReady.value = Boolean(draft.guardianReady);
     researchSellerInclination.value = draft.sellerInclination || legacyRecommendationToInclination(draft.sellerRecommendation);
@@ -3271,6 +3297,8 @@ async function submitResearchProfile() {
     researchRunId.value = researchRunId.value || createClientId('research');
     researchSellerTurns.value = 0;
     researchGuardianTurns.value = 0;
+    researchSellerDialogueTurns.value = 0;
+    researchGuardianDialogueTurns.value = 0;
     researchSellerReady.value = false;
     researchGuardianReady.value = false;
     researchSellerInclination.value = 'observe';
@@ -3399,6 +3427,7 @@ async function sendResearchMessage(explicitMessage, protocolStep = researchCurre
   const message = typeof explicitMessage === 'string'
     ? explicitMessage.trim()
     : researchMessage.value.trim();
+  const isParticipantDialogue = typeof explicitMessage !== 'string';
   if (!message || researchAiSending.value) return;
   if (type === 'seller' && researchSellerTurns.value >= researchMaxTurnsPerPhase) return;
   if (type === 'guardian' && researchGuardianTurns.value >= researchMaxTurnsPerPhase) return;
@@ -3472,6 +3501,12 @@ async function sendResearchMessage(explicitMessage, protocolStep = researchCurre
     }
     if (type === 'seller') researchSellerTurns.value += 1;
     else researchGuardianTurns.value += 1;
+    const receivedAssistantReply = streamMessageIndex >= 0
+      && Boolean(researchThreads[type][streamMessageIndex]?.content?.trim());
+    if (isParticipantDialogue && receivedAssistantReply) {
+      if (type === 'seller') researchSellerDialogueTurns.value += 1;
+      else researchGuardianDialogueTurns.value += 1;
+    }
     saveResearchDraft();
     await nextTick();
     return true;

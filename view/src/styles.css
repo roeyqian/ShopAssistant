@@ -3951,6 +3951,10 @@ textarea:focus-visible {
   margin-top: 20px;
 }
 
+.research-workspace-layout--locked {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .research-workspace-content {
   display: grid;
   gap: 18px;
@@ -4002,6 +4006,22 @@ textarea:focus-visible {
   border-top: 1px solid var(--line);
   margin-top: 0;
   padding-top: 18px;
+}
+
+.research-dialogue-gate {
+  background: var(--surface-soft);
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+}
+
+.research-dialogue-gate p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 0;
 }
 
 .research-materials-panel {
