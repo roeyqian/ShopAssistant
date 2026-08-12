@@ -951,7 +951,7 @@
           </div>
           <div class="research-header-actions">
             <span class="research-progress-label">{{ researchProgressLabel }}</span>
-            <button class="ghost-btn" type="button" @click="exitResearch">
+            <button v-if="researchStage !== 5" class="ghost-btn" type="button" @click="exitResearch">
               <X :size="16" />
               {{ t('research.exit') }}
             </button>
@@ -1257,13 +1257,13 @@
             <p class="research-autonomy-note">{{ t('research.autonomyNote') }}</p>
           </div>
           <div class="research-choice-grid">
-            <button class="research-final-choice buy" type="button" @click="submitResearchDecision('buy')">
+            <button class="research-final-choice buy" type="button" :disabled="researchArchiving" @click="submitResearchDecision('buy')">
               <strong>{{ t('research.buy') }}</strong><span>{{ t('research.buyHint') }}</span>
             </button>
-            <button class="research-final-choice observe" type="button" @click="submitResearchDecision('observe')">
+            <button class="research-final-choice observe" type="button" :disabled="researchArchiving" @click="submitResearchDecision('observe')">
               <strong>{{ t('research.observe') }}</strong><span>{{ t('research.observeHint') }}</span>
             </button>
-            <button class="research-final-choice not-buy" type="button" @click="submitResearchDecision('not_buy')">
+            <button class="research-final-choice not-buy" type="button" :disabled="researchArchiving" @click="submitResearchDecision('not_buy')">
               <strong>{{ t('research.notBuy') }}</strong><span>{{ t('research.notBuyHint') }}</span>
             </button>
           </div>
@@ -1280,6 +1280,7 @@
             <div><span>{{ t('research.resultUser') }}</span><strong :class="researchDecisionClass(researchFinalDecision)">{{ researchDecisionLabel(researchFinalDecision) }}</strong></div>
           </div>
           <p class="research-result-note">{{ researchAgreementLabel }}</p>
+          <p class="research-result-note">{{ t('research.archiveNotice') }}</p>
           <div class="research-result-techniques">
             <span class="eyebrow">{{ t('research.resultTechniques') }}</span>
             <div>
@@ -1324,10 +1325,6 @@
             <button class="primary-btn" type="button" @click="resetResearch">
               <RefreshCcw :size="16" />
               {{ t('research.startAgain') }}
-            </button>
-            <button class="ghost-btn" type="button" @click="go('products')">
-              <Package2 :size="16" />
-              {{ t('common.backProducts') }}
             </button>
           </div>
         </section>
@@ -2274,6 +2271,7 @@ const researchGuardianReady = ref(false);
 const researchSellerInclination = ref('observe');
 const researchGuardianInclination = ref('observe');
 const researchFinalDecision = ref('');
+const researchArchiving = ref(false);
 const researchFeedbackSubmitted = ref(false);
 const researchFeedback = reactive({ confidence: '', helpful: '', note: '' });
 const researchThreads = reactive({ seller: [], guardian: [] });
@@ -3090,10 +3088,20 @@ function readRoute() {
 }
 
 function syncRoute() {
-  route.value = readRoute();
+  const nextRoute = readRoute();
+  if (researchStage.value === 5 && nextRoute.page !== 'research') {
+    window.location.hash = '/research';
+    route.value = { page: 'research' };
+    return;
+  }
+  route.value = nextRoute;
 }
 
 function go(pageName) {
+  if (researchStage.value === 5 && pageName !== 'research') {
+    toast(t('toast.researchArchivedLocked'), 'error');
+    return;
+  }
   if ((pageName === 'cart' || pageName === 'orders' || pageName === 'admin' || pageName === 'checkout') && !token.value) {
     openAuth('login');
     return;
@@ -3141,25 +3149,31 @@ function researchConversationId(type) {
 
 function startResearch() {
   if (!researchConsentChecked.value) return;
+  researchRunId.value = createClientId('research');
   researchConsentGiven.value = true;
   researchStage.value = 1;
   saveResearchDraft();
   if (token.value && !isAdminUser.value) {
     void trackBehavior('intervention_check', {
       strategy: 'research_consent',
-      metadata: { researchEvent: 'consent_agreed' },
+      metadata: { researchEvent: 'consent_agreed', researchRunId: researchRunId.value },
     });
   }
 }
 
 async function exitResearch() {
+  if (researchStage.value === 5) {
+    toast(t('toast.researchArchivedLocked'), 'error');
+    return;
+  }
+  const activeResearchRunId = researchRunId.value;
   const shouldClearServerData = Boolean(token.value && !isAdminUser.value);
   resetResearch();
   go('products');
 
   if (!shouldClearServerData) return;
   try {
-    await ResearchAPI.clearData();
+    if (activeResearchRunId) await ResearchAPI.clearData(activeResearchRunId);
     toast(t('research.clearedExit'));
   } catch (error) {
     toast(error.message || t('toast.researchClearFailed'), 'error');
@@ -3320,6 +3334,7 @@ async function submitResearchProfile() {
       strategy: 'research_profile',
       metadata: {
         researchEvent: 'profile_submitted',
+        researchRunId: researchRunId.value,
         profile: { ...researchProfile },
         catalogSize: researchCatalog.value.length,
       },
@@ -3542,13 +3557,35 @@ function recordResearchPhaseEnd(type) {
   });
 }
 
-function submitResearchDecision(decision) {
-  if (!['buy', 'observe', 'not_buy'].includes(decision)) return;
-  researchFinalDecision.value = decision;
-  researchStage.value = 5;
-  AccountState.remove(RESEARCH_DRAFT_STATE_KEY);
-  researchDraftAvailable.value = false;
-  void trackBehavior('intervention_check', {
+function researchArchiveRecord(decision) {
+  return {
+    finalDecision: decision,
+    profile: { ...researchProfile },
+    selectedProductId: researchSelectedProductId.value || null,
+    catalog: [...researchCatalog.value],
+    recommendations: [...researchRecommendations.value],
+    sellerTurns: researchSellerTurns.value,
+    guardianTurns: researchGuardianTurns.value,
+    sellerDialogueTurns: researchSellerDialogueTurns.value,
+    guardianDialogueTurns: researchGuardianDialogueTurns.value,
+    sellerInclination: researchSellerInclination.value,
+    guardianInclination: researchGuardianInclination.value,
+    techniqueChecks: { ...researchTechniqueChecks },
+    techniqueSkips: { ...researchTechniqueSkips },
+    techniqueNotes: { ...researchTechniqueNotes },
+    compareIds: [...researchCompareIds.value],
+    delayPlan: researchDelayPlan.value,
+    finalConfidence: researchFinalConfidence.value,
+    ifThenPlan: researchIfThenPlan.value,
+  };
+}
+
+async function submitResearchDecision(decision) {
+  if (!['buy', 'observe', 'not_buy'].includes(decision) || researchArchiving.value) return;
+  if (!ensureStandardUser(t('toast.researchLoginRequired'))) return;
+  if (!researchRunId.value) return;
+  researchArchiving.value = true;
+  await trackBehavior('intervention_check', {
     strategy: 'research_final_decision',
     productId: researchSelectedProductId.value || null,
     metadata: {
@@ -3569,6 +3606,18 @@ function submitResearchDecision(decision) {
       profile: { ...researchProfile },
     },
   });
+  try {
+    await ResearchAPI.archive(researchRunId.value, researchArchiveRecord(decision));
+    researchFinalDecision.value = decision;
+    researchStage.value = 5;
+    AccountState.remove(RESEARCH_DRAFT_STATE_KEY);
+    researchDraftAvailable.value = false;
+  } catch (error) {
+    if (error.status === 401) openAuth('login');
+    else toast(error.message || t('toast.researchArchiveFailed'), 'error');
+  } finally {
+    researchArchiving.value = false;
+  }
 }
 
 function submitResearchFeedback() {
@@ -3611,6 +3660,7 @@ function resetResearch({ clearDraft = true } = {}) {
   researchSellerInclination.value = 'observe';
   researchGuardianInclination.value = 'observe';
   researchFinalDecision.value = '';
+  researchArchiving.value = false;
   Object.keys(researchTechniqueChecks).forEach((key) => { researchTechniqueChecks[key] = false; });
   Object.keys(researchTechniqueSkips).forEach((key) => { researchTechniqueSkips[key] = false; });
   Object.keys(researchTechniqueNotes).forEach((key) => { researchTechniqueNotes[key] = ''; });

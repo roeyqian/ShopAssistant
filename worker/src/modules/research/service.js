@@ -2,21 +2,31 @@ import { json, readJsonBody, requireAdmin, requireAuth, requireStandardUser, get
 import { getLocaleFromRequest } from "../shop/utils.js";
 import { normalizeProduct } from "../shop/utils.js";
 
-export async function clearUserResearchData({ request, env }) {
+export async function clearUserResearchData({ request, env, url }) {
   const { session } = await requireStandardUser(request, env);
+  const researchRunId = requireResearchRunId(url.searchParams.get('runId'));
 
-  // Research conversations use a dedicated conversation ID prefix. Research
-  // behavior records are marked with researchEvent so normal shop browsing,
-  // cart, order, and product-consultation records remain untouched.
+  const archived = await env.db.prepare(`
+    SELECT id FROM completed_research_archives
+    WHERE user_id = ? AND research_run_id = ?
+  `).bind(session.userId, researchRunId).first();
+
+  if (archived) {
+    throw { status: 409, message: 'Completed research cannot be cleared' };
+  }
+
+  // A run ID isolates a participant's active study from previous and archived
+  // studies. Leaving an unfinished run must never delete another run's data.
   const results = await env.db.batch([
     env.db.prepare(`
       DELETE FROM ai_conversations
-      WHERE user_id = ? AND conversation_id LIKE 'research-%'
-    `).bind(session.userId),
+      WHERE user_id = ? AND conversation_id LIKE ?
+    `).bind(session.userId, `research-${researchRunId}-%`),
     env.db.prepare(`
       DELETE FROM user_behaviors
-      WHERE user_id = ? AND json_extract(metadata_json, '$.researchEvent') IS NOT NULL
-    `).bind(session.userId),
+      WHERE user_id = ?
+        AND json_extract(metadata_json, '$.researchRunId') = ?
+    `).bind(session.userId, researchRunId),
   ]);
 
   return json({
@@ -24,6 +34,84 @@ export async function clearUserResearchData({ request, env }) {
     conversationsCleared: Number(results[0]?.meta?.changes || 0),
     behaviorsCleared: Number(results[1]?.meta?.changes || 0),
   });
+}
+
+export async function archiveCompletedResearch({ request, env }) {
+  const { session } = await requireStandardUser(request, env);
+  const body = await readJsonBody(request);
+  const researchRunId = requireResearchRunId(body?.researchRunId);
+  const finalDecision = String(body?.record?.finalDecision || '').trim();
+  if (!['buy', 'observe', 'not_buy'].includes(finalDecision)) {
+    throw { status: 400, message: 'A final research decision is required' };
+  }
+
+  const clientRecord = body?.record && typeof body.record === 'object' ? body.record : {};
+  const clientRecordJson = JSON.stringify(clientRecord);
+  if (clientRecordJson.length > 750_000) {
+    throw { status: 413, message: 'Research archive is too large' };
+  }
+
+  // The archive is a self-contained snapshot. New research runs can keep
+  // writing to the live conversation and behavior tables without changing it.
+  const [conversationResult, behaviorResult] = await Promise.all([
+    env.db.prepare(`
+      SELECT id, session_id, conversation_id, ai_type, role, content, product_id, metadata_json, timestamp
+      FROM ai_conversations
+      WHERE user_id = ? AND conversation_id LIKE ?
+      ORDER BY timestamp ASC, id ASC
+    `).bind(session.userId, `research-${researchRunId}-%`).all(),
+    env.db.prepare(`
+      SELECT id, session_id, behavior_type, product_id, duration_ms, metadata_json, timestamp
+      FROM user_behaviors
+      WHERE user_id = ? AND json_extract(metadata_json, '$.researchRunId') = ?
+      ORDER BY timestamp ASC, id ASC
+    `).bind(session.userId, researchRunId).all(),
+  ]);
+
+  const profile = clientRecord.profile && typeof clientRecord.profile === 'object'
+    ? clientRecord.profile
+    : {};
+  const snapshotJson = JSON.stringify({
+    schemaVersion: 1,
+    researchRunId,
+    clientRecord,
+    conversations: conversationResult.results || [],
+    behaviors: behaviorResult.results || [],
+  });
+  const archiveId = `research_archive_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+  const insertResult = await env.db.prepare(`
+    INSERT OR IGNORE INTO completed_research_archives (
+      id, user_id, research_run_id, final_decision, selected_product_id,
+      profile_json, snapshot_json, completed_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+  `).bind(
+    archiveId,
+    session.userId,
+    researchRunId,
+    finalDecision,
+    clientRecord.selectedProductId ? String(clientRecord.selectedProductId) : null,
+    JSON.stringify(profile),
+    snapshotJson,
+  ).run();
+
+  const archive = await env.db.prepare(`
+    SELECT id, completed_at FROM completed_research_archives
+    WHERE user_id = ? AND research_run_id = ?
+  `).bind(session.userId, researchRunId).first();
+
+  return json({
+    archiveId: archive?.id,
+    completedAt: archive?.completed_at,
+    alreadyArchived: Number(insertResult.meta?.changes || 0) === 0,
+  });
+}
+
+function requireResearchRunId(value) {
+  const researchRunId = String(value || '').trim();
+  if (!/^[a-zA-Z0-9_-]{12,100}$/.test(researchRunId)) {
+    throw { status: 400, message: 'A valid research run ID is required' };
+  }
+  return researchRunId;
 }
 
 export async function getRecommendations({ request, env, url }) {

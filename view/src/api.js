@@ -323,7 +323,12 @@ export const AIAPI = {
 };
 
 export const ResearchAPI = {
-  clearData: () => request('/research/data', { method: 'DELETE' }),
+  clearData: (researchRunId) => request(`/research/data?runId=${encodeURIComponent(researchRunId)}`, { method: 'DELETE' }),
+  archive: (researchRunId, record) =>
+    request('/research/archive', {
+      method: 'POST',
+      body: JSON.stringify({ researchRunId, record }),
+    }),
   recommendations: (profile) =>
     request('/research/recommendations', {
       method: 'POST',
