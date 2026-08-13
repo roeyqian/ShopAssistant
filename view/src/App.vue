@@ -1165,9 +1165,23 @@
             </div>
             <section class="research-ai-feedback" aria-live="polite">
               <span class="eyebrow">{{ t('research.protocolAiFeedback') }}</span>
-              <div v-if="researchLatestAssistantMessage" class="research-chat-row assistant">
-                <div class="research-chat-label">{{ researchStage === 2 ? t('common.sellerAi') : t('common.guardianAi') }}</div>
-                <div class="research-chat-bubble markdown" v-html="renderMarkdown(researchLatestAssistantMessage.content)"></div>
+              <div ref="researchMessagesEl" v-if="researchCurrentMessages.length" class="research-chat-list">
+                <div
+                  v-for="(chatMessage, index) in researchCurrentMessages"
+                  :key="chatMessage.client_message_id || `${chatMessage.role}-${index}`"
+                  class="research-chat-row"
+                  :class="chatMessage.role"
+                >
+                  <div class="research-chat-label">
+                    {{ chatMessage.role === 'user' ? t('research.you') : (researchStage === 2 ? t('common.sellerAi') : t('common.guardianAi')) }}
+                  </div>
+                  <div
+                    v-if="chatMessage.role === 'assistant'"
+                    class="research-chat-bubble markdown"
+                    v-html="renderMarkdown(chatMessage.content)"
+                  ></div>
+                  <div v-else class="research-chat-bubble">{{ chatMessage.content }}</div>
+                </div>
               </div>
               <div v-else-if="researchAiSending" class="research-chat-row assistant">
                 <div class="research-chat-label">{{ researchStage === 2 ? t('common.sellerAi') : t('common.guardianAi') }}</div>
@@ -2260,6 +2274,7 @@ const researchSelectedProductId = ref('');
 const researchMessage = ref('');
 const researchAiSending = ref(false);
 const researchAbortController = ref(null);
+const researchMessagesEl = ref(null);
 const researchSellerTurns = ref(0);
 const researchGuardianTurns = ref(0);
 const researchSellerDialogueTurns = ref(0);
@@ -2565,6 +2580,11 @@ const researchCurrentMessages = computed(() =>
 const researchLatestAssistantMessage = computed(() =>
   researchCurrentMessages.value.slice().reverse().find((message) => message.role === 'assistant' && message.content) || null,
 );
+const researchCurrentMessageTail = computed(() => {
+  const messages = researchCurrentMessages.value;
+  const latestMessage = messages[messages.length - 1];
+  return `${messages.length}:${latestMessage?.content || ''}`;
+});
 const researchChatReady = computed(() => Boolean(researchLatestAssistantMessage.value));
 const researchCompletedDialogueTurns = computed(() =>
   researchSellerDialogueTurns.value + researchGuardianDialogueTurns.value,
@@ -2573,6 +2593,24 @@ const researchStepUnlocked = computed(() => researchCompletedDialogueTurns.value
 const researchRemainingDialogueTurns = computed(() =>
   Math.max(0, researchMinimumDialogueTurns - researchCompletedDialogueTurns.value),
 );
+
+let researchChatScrollScheduled = false;
+function keepResearchChatAtLatestMessage() {
+  if (researchChatScrollScheduled) return;
+  researchChatScrollScheduled = true;
+  requestAnimationFrame(() => {
+    researchChatScrollScheduled = false;
+    const container = researchMessagesEl.value;
+    if (container) container.scrollTop = container.scrollHeight;
+  });
+}
+
+watch(
+  [() => researchStage.value, researchCurrentMessageTail],
+  keepResearchChatAtLatestMessage,
+  { flush: 'post' },
+);
+
 const researchCurrentProtocol = computed(() => {
   const step = researchProtocol[researchProtocolStep.value];
   if (!step) return null;

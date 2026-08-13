@@ -3995,11 +3995,22 @@ textarea:focus-visible {
   border-top: 1px solid var(--line);
   display: grid;
   gap: 10px;
+  min-width: 0;
   padding-top: 18px;
 }
 
 .research-ai-feedback .research-chat-row {
   margin: 0;
+}
+
+.research-ai-feedback .research-chat-list {
+  flex: none;
+  min-height: 0;
+  max-height: clamp(560px, 84vh, 1040px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 4px 10px 4px 4px;
+  scroll-behavior: smooth;
 }
 
 .research-workspace-chat {
