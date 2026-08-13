@@ -3991,6 +3991,22 @@ textarea:focus-visible {
   font-size: 13px;
 }
 
+.research-step-product--multiple {
+  align-items: start;
+}
+
+.research-step-product-list {
+  display: grid;
+  gap: 6px;
+}
+
+.research-step-product-list > div {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .research-ai-feedback {
   border-top: 1px solid var(--line);
   display: grid;

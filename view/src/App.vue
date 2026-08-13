@@ -1145,10 +1145,14 @@
                   {{ t('research.protocolComparisonUnavailable') }}
                 </p>
               </div>
-              <div v-else-if="researchContextProduct" class="research-step-product">
-                <span>{{ t('research.currentProduct') }}</span>
-                <strong>{{ researchContextProduct.name }}</strong>
-                <small>{{ formatMoney(researchContextProduct.price) }}</small>
+              <div v-else-if="researchContextProducts.length" class="research-step-product" :class="{ 'research-step-product--multiple': researchContextProducts.length > 1 }">
+                <span>{{ researchContextProducts.length > 1 ? t('research.currentProducts') : t('research.currentProduct') }}</span>
+                <div class="research-step-product-list">
+                  <div v-for="product in researchContextProducts" :key="product.id">
+                    <strong>{{ product.name }}</strong>
+                    <small>{{ formatMoney(product.price) }}</small>
+                  </div>
+                </div>
               </div>
               <div class="research-protocol-actions">
                 <button class="primary-btn" type="button" :disabled="researchAiSending" @click="submitResearchTechnique">
@@ -1221,10 +1225,14 @@
             </template>
             <template v-else>
               <p>{{ researchProfile.currentNeed }}</p>
-              <div v-if="researchContextProduct" class="research-step-product">
-                <span>{{ t('research.currentProduct') }}</span>
-                <strong>{{ researchContextProduct.name }}</strong>
-                <small>{{ formatMoney(researchContextProduct.price) }}</small>
+              <div v-if="researchContextProducts.length" class="research-step-product" :class="{ 'research-step-product--multiple': researchContextProducts.length > 1 }">
+                <span>{{ researchContextProducts.length > 1 ? t('research.currentProducts') : t('research.currentProduct') }}</span>
+                <div class="research-step-product-list">
+                  <div v-for="product in researchContextProducts" :key="product.id">
+                    <strong>{{ product.name }}</strong>
+                    <small>{{ formatMoney(product.price) }}</small>
+                  </div>
+                </div>
               </div>
             </template>
           </aside>
@@ -2579,7 +2587,9 @@ const selectedProduct = computed(() => {
 });
 
 const researchSelectedProduct = computed(() =>
-  researchRecommendations.value.find((item) => item.id === researchSelectedProductId.value) || null,
+  researchCatalog.value.find((item) => String(item.id) === String(researchSelectedProductId.value))
+  || researchRecommendations.value.find((item) => String(item.id) === String(researchSelectedProductId.value))
+  || null,
 );
 const researchCurrentMessages = computed(() =>
   researchThreads[researchStage.value === 3 ? 'guardian' : 'seller'] || [],
@@ -2631,8 +2641,13 @@ const researchComparisonProducts = computed(() =>
   researchCatalog.value.slice(0, RESEARCH_COMPARISON_CANDIDATE_LIMIT),
 );
 const researchComparisonSelection = computed(() => researchComparisonProducts.value.filter((product) => researchCompareIds.value.includes(String(product.id))));
-const researchContextProduct = computed(() =>
-  researchSelectedProduct.value || researchComparisonSelection.value[0] || null,
+// Once participants select alternatives in the comparison step, every later
+// research step must retain that full set rather than silently narrowing back
+// to the first item selected as the primary product.
+const researchContextProducts = computed(() =>
+  researchComparisonSelection.value.length
+    ? researchComparisonSelection.value
+    : (researchSelectedProduct.value ? [researchSelectedProduct.value] : []),
 );
 const researchProgressLabel = computed(() => {
   const labels = [
@@ -2671,10 +2686,14 @@ function researchTechniqueIsReady(id) {
 
 function buildResearchTechniqueContext(id) {
   const selectedProduct = researchSelectedProduct.value;
+  const contextProducts = researchContextProducts.value;
   const base = {
     selectedProductId: selectedProduct?.id || null,
     selectedProductName: selectedProduct?.name || null,
     selectedProductPrice: selectedProduct?.price ?? null,
+    selectedProductIds: contextProducts.map((product) => String(product.id)),
+    selectedProductNames: contextProducts.map((product) => product.name),
+    selectedProductPrices: contextProducts.map((product) => product.price),
   };
   if (id === 'persuasion_reframe') return base;
   if (id === 'comparative_choice') return {
@@ -3412,10 +3431,10 @@ function buildSellerOpening() {
 }
 
 function buildGuardianOpening() {
-  const selectedName = researchSelectedProduct.value?.name;
+  const selectedNames = researchContextProducts.value.map((product) => product.name).filter(Boolean);
   const recommendationNames = researchRecommendations.value.map((item) => item.name).filter(Boolean).join('、');
-  const productContext = selectedName
-    ? `我当前选中了：${selectedName}。`
+  const productContext = selectedNames.length
+    ? `我当前选中了这些商品：${selectedNames.join('、')}。请保留全部商品作为后续核验对象，不要只聚焦其中一件。`
     : recommendationNames
       ? `卖家 AI 刚才推荐了这些商品：${recommendationNames}。`
       : '卖家 AI 刚才提供了商品建议。';
