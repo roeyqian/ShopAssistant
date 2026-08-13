@@ -5,6 +5,7 @@ import { normalizeProduct } from "../shop/utils.js";
 export async function clearUserResearchData({ request, env, url }) {
   const { session } = await requireStandardUser(request, env);
   const researchRunId = requireResearchRunId(url.searchParams.get('runId'));
+  const conversationIds = researchConversationIds(researchRunId);
 
   const archived = await env.db.prepare(`
     SELECT id FROM completed_research_archives
@@ -20,8 +21,8 @@ export async function clearUserResearchData({ request, env, url }) {
   const results = await env.db.batch([
     env.db.prepare(`
       DELETE FROM ai_conversations
-      WHERE user_id = ? AND conversation_id LIKE ?
-    `).bind(session.userId, `research-${researchRunId}-%`),
+      WHERE user_id = ? AND conversation_id IN (?, ?)
+    `).bind(session.userId, ...conversationIds),
     env.db.prepare(`
       DELETE FROM user_behaviors
       WHERE user_id = ?
@@ -40,6 +41,7 @@ export async function archiveCompletedResearch({ request, env }) {
   const { session } = await requireStandardUser(request, env);
   const body = await readJsonBody(request);
   const researchRunId = requireResearchRunId(body?.researchRunId);
+  const conversationIds = researchConversationIds(researchRunId);
   const finalDecision = String(body?.record?.finalDecision || '').trim();
   if (!['buy', 'observe', 'not_buy'].includes(finalDecision)) {
     throw { status: 400, message: 'A final research decision is required' };
@@ -57,9 +59,9 @@ export async function archiveCompletedResearch({ request, env }) {
     env.db.prepare(`
       SELECT id, session_id, conversation_id, ai_type, role, content, product_id, metadata_json, timestamp
       FROM ai_conversations
-      WHERE user_id = ? AND conversation_id LIKE ?
+      WHERE user_id = ? AND conversation_id IN (?, ?)
       ORDER BY timestamp ASC, id ASC
-    `).bind(session.userId, `research-${researchRunId}-%`).all(),
+    `).bind(session.userId, ...conversationIds).all(),
     env.db.prepare(`
       SELECT id, session_id, behavior_type, product_id, duration_ms, metadata_json, timestamp
       FROM user_behaviors
@@ -112,6 +114,13 @@ function requireResearchRunId(value) {
     throw { status: 400, message: 'A valid research run ID is required' };
   }
   return researchRunId;
+}
+
+function researchConversationIds(researchRunId) {
+  return [
+    `research-${researchRunId}-seller`,
+    `research-${researchRunId}-guardian`,
+  ];
 }
 
 export async function getRecommendations({ request, env, url }) {
