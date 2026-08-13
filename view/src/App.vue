@@ -1208,10 +1208,16 @@
             </div>
             <template v-if="researchCurrentProtocol?.id === 'comparative_choice'">
               <p>{{ researchComparisonProducts.length < 2 ? t('research.protocolComparisonUnavailable') : t('research.protocolComparison') }}</p>
-              <label v-for="product in researchComparisonProducts" :key="product.id" class="research-compare-option">
-                <input v-model="researchCompareIds" type="checkbox" :value="product.id" :disabled="researchCompareIds.length >= 3 && !researchCompareIds.includes(product.id)" @change="recordResearchComparison(product)" />
-                <span><strong>{{ product.name }}</strong><small>{{ formatMoney(product.price) }}</small></span>
-              </label>
+              <div class="research-comparison-options">
+                <label v-for="product in researchComparisonProducts" :key="product.id" class="research-compare-option">
+                  <input v-model="researchCompareIds" type="checkbox" :value="product.id" :disabled="researchCompareIds.length >= 3 && !researchCompareIds.includes(product.id)" @change="recordResearchComparison(product)" />
+                  <span>
+                    <strong>{{ product.name }}</strong>
+                    <small>{{ formatMoney(product.price) }}</small>
+                    <small v-if="product.matchReasons?.[0]" class="research-match-reason">{{ product.matchReasons[0] }}</small>
+                  </span>
+                </label>
+              </div>
             </template>
             <template v-else>
               <p>{{ researchProfile.currentNeed }}</p>
@@ -2263,6 +2269,7 @@ const synthesisAssessment = ref(null);
 const synthesisLoading = ref(false);
 
 const RESEARCH_DRAFT_STATE_KEY = 'research_draft';
+const RESEARCH_COMPARISON_CANDIDATE_LIMIT = 12;
 const researchStage = ref(0);
 const researchConsentChecked = ref(false);
 const researchConsentGiven = ref(false);
@@ -2617,7 +2624,12 @@ const researchCurrentProtocol = computed(() => {
   const technique = researchTechniques.find((item) => item.id === step.id);
   return technique ? { ...step, technique } : null;
 });
-const researchComparisonProducts = computed(() => researchCatalog.value.slice(0, 6));
+// The catalog arrives pre-ranked by the research matching endpoint. Keep a
+// wider set here so step two offers meaningful alternatives without exposing
+// the entire hidden catalog at once.
+const researchComparisonProducts = computed(() =>
+  researchCatalog.value.slice(0, RESEARCH_COMPARISON_CANDIDATE_LIMIT),
+);
 const researchComparisonSelection = computed(() => researchComparisonProducts.value.filter((product) => researchCompareIds.value.includes(String(product.id))));
 const researchContextProduct = computed(() =>
   researchSelectedProduct.value || researchComparisonSelection.value[0] || null,

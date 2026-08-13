@@ -4082,9 +4082,18 @@ textarea:focus-visible {
   cursor: pointer;
 }
 
+.research-comparison-options {
+  display: grid;
+  gap: 6px;
+}
+
 .research-compare-option input {
   accent-color: var(--accent);
   margin-top: 3px;
+}
+
+.research-match-reason {
+  color: var(--accent) !important;
 }
 
 .research-compare-table {

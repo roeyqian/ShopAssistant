@@ -146,6 +146,37 @@ export async function getRecommendations({ request, env, url }) {
   });
 }
 
+// The input field is free-form, so literal keyword matching alone often puts a
+// cheap but unrelated item above the product type the participant actually
+// named (for example, "电脑" versus a catalog entry called "笔记本"). These
+// aliases give product-type intent a stronger signal than popularity or price.
+const RESEARCH_NEED_INTENTS = [
+  { zh: '笔记本电脑', en: 'laptop', aliases: ['电脑', '笔记本', '轻薄本', 'laptop', 'notebook', 'macbook'], productTerms: ['笔记本', '轻薄本', 'laptop', 'notebook', 'macbook'] },
+  { zh: '手机', en: 'phone', aliases: ['手机', 'iphone', '安卓', 'android', 'phone', 'mobile'], productTerms: ['手机', 'iphone', 'android', 'phone', 'galaxy', 'find x'] },
+  { zh: '平板', en: 'tablet', aliases: ['平板', 'ipad', 'tablet', 'pad'], productTerms: ['平板', 'ipad', 'tablet', 'matepad', 'galaxy tab'] },
+  { zh: '耳机', en: 'headphones', aliases: ['耳机', '降噪', 'headphone', 'headset', 'noise cancelling'], productTerms: ['耳机', '降噪', 'headphone', 'wh-'] },
+  { zh: '音箱', en: 'speaker', aliases: ['音箱', '音响', 'speaker'], productTerms: ['音箱', '音响', 'speaker', 'soundlink', 'flip'] },
+  { zh: '显示器', en: 'monitor', aliases: ['显示器', 'monitor'], productTerms: ['显示器', 'monitor'] },
+  { zh: '相机', en: 'camera', aliases: ['相机', '摄影', '拍摄', 'camera', 'gopro'], productTerms: ['相机', 'camera', 'gopro', '影像'] },
+  { zh: '游戏主机', en: 'game console', aliases: ['游戏机', '游戏主机', 'switch', 'console'], productTerms: ['游戏主机', 'switch', 'console', '游戏'] },
+  { zh: '智能手表', en: 'smartwatch', aliases: ['手表', '智能表', '智能手表', 'watch', 'smartwatch'], productTerms: ['手表', 'watch'] },
+  { zh: '鞋', en: 'shoes', aliases: ['鞋', '跑鞋', '运动鞋', 'shoe', 'sneaker'], productTerms: ['鞋', 'shoe', 'sneaker', 'xt-6', '574'] },
+  { zh: '包', en: 'bag', aliases: ['包', '双肩包', '手提包', '背包', 'bag', 'backpack', 'tote'], productTerms: ['包', 'bag', 'backpack', 'tote', 'kånken'] },
+  { zh: '护肤', en: 'skincare', aliases: ['护肤', '面霜', '乳液', '保湿', '修护', 'skincare', 'cream', 'lotion'], productTerms: ['面霜', '乳液', '保湿', '修护', 'cream', 'lotion', 'b5'] },
+  { zh: '防晒', en: 'sunscreen', aliases: ['防晒', 'sunscreen', 'uv'], productTerms: ['防晒', 'sunscreen', 'uv'] },
+  { zh: '美发工具', en: 'hair tool', aliases: ['吹风机', '直发器', '卷发棒', '美发', 'hair dryer', 'hair styler', 'curling'], productTerms: ['吹风机', '直发器', '卷发棒', '美发', 'hair dryer', 'hair styler', 'curling'] },
+  { zh: '咖啡机', en: 'coffee machine', aliases: ['咖啡机', 'coffee machine', 'espresso'], productTerms: ['咖啡机', 'coffee machine', 'espresso', 'nespresso', 'magnifica'] },
+  { zh: '咖啡', en: 'coffee', aliases: ['咖啡', 'coffee'], productTerms: ['咖啡', 'coffee'] },
+  { zh: '扫地机器人', en: 'robot vacuum', aliases: ['扫地机器人', '机器人吸尘器', 'robot vacuum'], productTerms: ['扫地机器人', 'robot vacuum', 'irobot', '石头', '科沃斯'] },
+  { zh: '零食', en: 'snacks', aliases: ['零食', '坚果', '巧克力', 'snack', 'nuts', 'chocolate'], productTerms: ['零食', '坚果', '巧克力', 'snack', 'nuts', 'chocolate'] },
+  { zh: '果汁', en: 'juice', aliases: ['果汁', 'juice'], productTerms: ['果汁', 'juice'] },
+  { zh: '学习与阅读', en: 'study and reading', aliases: ['学习', '阅读', '上课', '笔记', 'study', 'reading'], productTerms: ['笔记本', '平板', '阅读器', 'kindle', '台灯', '显示器', 'laptop', 'tablet', 'e-reader', 'desk lamp', 'monitor'], weight: 30 },
+  { zh: '办公', en: 'work', aliases: ['办公', '工作', '通勤', 'office', 'work'], productTerms: ['笔记本', '鼠标', '显示器', '双肩包', '手提包', 'laptop', 'mouse', 'monitor', 'backpack', 'tote'], weight: 30 },
+  { zh: '创作与视频', en: 'creation and video', aliases: ['剪视频', '视频剪辑', '创作', '拍片', 'edit video', 'video editing', 'creation'], productTerms: ['笔记本', '平板', '显示器', '相机', '手机', 'laptop', 'tablet', 'monitor', 'camera', 'phone'], weight: 34 },
+  { zh: '旅行与户外', en: 'travel and outdoors', aliases: ['旅行', '出行', '户外', '露营', 'travel', 'outdoor', 'camping'], productTerms: ['双肩包', '音箱', '耳机', '相机', '跑鞋', '保温杯', 'backpack', 'speaker', 'headphone', 'camera', 'shoes', 'tumbler'], weight: 30 },
+  { zh: '居家', en: 'home use', aliases: ['居家', '家里', '家用', 'home'], productTerms: ['家居服', '保鲜盒', '休闲椅', '台灯', '咖啡机', '扫地机器人', 'loungewear', 'food container', 'armchair', 'desk lamp', 'coffee machine', 'robot vacuum'], weight: 30 },
+];
+
 function scoreResearchProduct(product, profile, locale) {
   const need = String(profile.currentNeed || '').trim().toLowerCase();
   const target = String(profile.purchaseTarget || '').trim().toLowerCase();
@@ -159,14 +190,22 @@ function scoreResearchProduct(product, profile, locale) {
   ].join(' ').toLowerCase();
   const terms = splitSearchTerms(`${need} ${target}`);
   const matchedTerms = terms.filter((term) => haystack.includes(term));
-  let matchScore = matchedTerms.length * 12;
+  const matchedIntents = RESEARCH_NEED_INTENTS.filter((intent) =>
+    intent.aliases.some((alias) => need.includes(alias))
+      && intent.productTerms.some((term) => haystack.includes(term)),
+  );
+
+  // Product type is the primary relevance signal; secondary scene/feature
+  // matches and budget only refine the order within that type.
+  let matchScore = matchedIntents.reduce((score, intent) => score + Number(intent.weight || 80), 0)
+    + matchedTerms.length * 12;
   const maxBudget = Number(profile.maxBudget || 0);
   const price = Number(product.price || 0);
 
   if (maxBudget > 0) {
-    if (price <= maxBudget) matchScore += 30;
-    else if (price <= maxBudget * 1.2) matchScore += 8;
-    else matchScore -= 24;
+    if (price <= maxBudget) matchScore += 24;
+    else if (price <= maxBudget * 1.2) matchScore += 4;
+    else matchScore -= 18;
   }
 
   if (String(profile.urgency || '') === 'high' && Number(product.stock || 0) > 0) matchScore += 3;
@@ -174,6 +213,12 @@ function scoreResearchProduct(product, profile, locale) {
   if (String(profile.purchaseTarget || '') === 'self' && !/礼|gift/.test(haystack)) matchScore += 3;
 
   const matchReasons = [];
+  if (matchedIntents.length) {
+    const intentLabels = matchedIntents.map((intent) => locale === 'en-US' ? intent.en : intent.zh);
+    matchReasons.push(locale === 'en-US'
+      ? `Matches your requested product type or use: ${intentLabels.slice(0, 2).join(', ')}`
+      : `符合你提出的品类或使用需求：${intentLabels.slice(0, 2).join('、')}`);
+  }
   if (matchedTerms.length) {
     matchReasons.push(locale === 'en-US'
       ? `Matches your stated need: ${matchedTerms.slice(0, 3).join(', ')}`
