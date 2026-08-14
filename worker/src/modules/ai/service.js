@@ -38,6 +38,7 @@ export async function chat({ request, env, url }) {
     ? normalizeResearchTechniqueContext(body.researchTechniqueContext)
     : null;
   const researchRunId = isResearchChat ? String(body.researchRunId || '').slice(0, 100) : null;
+  const researchDialogueTurn = isResearchChat ? normalizeResearchDialogueTurn(body.researchDialogueTurn) : null;
   const conversationId = requireConversationId(body.conversationId);
   const clientMessageId = requireClientMessageId(body.clientMessageId);
 
@@ -95,6 +96,7 @@ export async function chat({ request, env, url }) {
   const structuredSystemPrompt = [
     systemPrompt,
     researchTechnique ? buildResearchTechniquePrompt(researchTechnique, aiType, locale, researchTechniqueContext) : '',
+    buildResearchDialoguePrompt(aiType, researchDialogueTurn, locale),
     getStructuredAgentPrompt(locale),
   ].filter(Boolean).join('\n\n');
 
@@ -119,6 +121,7 @@ export async function chat({ request, env, url }) {
       researchTechnique,
       researchTechniqueContext,
       researchRunId,
+      researchDialogueTurn,
     }),
     userTimestamp
   ).run().catch(async (error) => {
@@ -176,6 +179,7 @@ export async function chat({ request, env, url }) {
         researchTechnique,
         researchTechniqueContext,
         researchRunId,
+        researchDialogueTurn,
         finishReason: result.finishReason || null,
         providerError: result.providerError || null,
       }),
@@ -606,6 +610,29 @@ function buildResearchTechniquePrompt(technique, aiType, locale, context = null)
     return appendResearchTechniqueContext(english[technique] || '', context, locale);
   }
   return appendResearchTechniqueContext(prompts[technique] || '', context, locale);
+}
+
+function buildResearchDialoguePrompt(aiType, dialogueTurn, locale) {
+  if (aiType !== 'seller' || dialogueTurn !== 3) return '';
+
+  if (locale === 'en-US') {
+    return [
+      'This is the third required participant dialogue turn at the start of the research flow.',
+      'Make this reply a concise interim conclusion based only on the conversation so far: briefly restate the user\'s need and the most relevant product or products, balance the main fit with any limits or unknowns, then state a clear provisional conclusion from the seller perspective.',
+      'Do not present it as the user\'s final decision, do not invent facts, and do not end with a new information-gathering question. The user may continue the conversation after this summary.',
+    ].join('\n');
+  }
+
+  return [
+    '这是研究流程开始阶段中参与者的第 3 轮必答对话。',
+    '本轮回复必须基于目前对话给出简洁的阶段性总结：简要重述用户需求及最相关的商品，平衡说明主要匹配点与限制或未知信息，然后以卖家视角给出清晰的暂定结论。',
+    '不得把它说成用户的最终决定，不得编造事实，也不要以新的信息收集问题结束。用户在这份总结后仍可继续对话。',
+  ].join('\n');
+}
+
+function normalizeResearchDialogueTurn(value) {
+  const turn = Number(value);
+  return Number.isInteger(turn) && turn >= 1 && turn <= 8 ? turn : null;
 }
 
 function normalizeResearchTechniqueContext(value) {

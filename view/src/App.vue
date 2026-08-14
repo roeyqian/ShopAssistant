@@ -1198,7 +1198,7 @@
             <form class="research-chat-form research-workspace-chat" @submit.prevent="sendResearchMessage()">
               <textarea v-model.trim="researchMessage" rows="3" :disabled="researchAiSending || !researchChatReady" :placeholder="researchChatReady ? t('research.protocolChatPlaceholder') : t('research.protocolChatWaiting')"></textarea>
               <div class="research-chat-actions">
-                <small>{{ researchChatReady ? (researchStepUnlocked ? t('research.protocolChatHint') : t('research.protocolUnlockProgress', { count: researchRemainingDialogueTurns })) : t('research.protocolChatWaiting') }}</small>
+                <small>{{ researchChatReady ? (researchStepUnlocked ? t('research.protocolChatHint') : (researchThirdDialogueSummaryDue ? t('research.protocolThirdDialogueHint') : t('research.protocolUnlockProgress', { count: researchRemainingDialogueTurns }))) : t('research.protocolChatWaiting') }}</small>
                 <button class="primary-btn" type="submit" :disabled="researchAiSending || !researchChatReady || !researchMessage.trim()">
                   <SendHorizontal :size="16" />
                   {{ t('research.send') }}
@@ -2612,6 +2612,11 @@ const researchStepUnlocked = computed(() => researchCompletedDialogueTurns.value
 const researchRemainingDialogueTurns = computed(() =>
   Math.max(0, researchMinimumDialogueTurns - researchCompletedDialogueTurns.value),
 );
+const researchThirdDialogueSummaryDue = computed(() =>
+  researchStage.value === 2
+  && !researchStepUnlocked.value
+  && researchRemainingDialogueTurns.value === 1,
+);
 
 let researchChatScrollScheduled = false;
 function keepResearchChatAtLatestMessage() {
@@ -3539,6 +3544,9 @@ async function sendResearchMessage(explicitMessage, protocolStep = researchCurre
   const technique = protocolStep === null
     ? null
     : (protocolStep?.id || researchCurrentProtocol.value?.id || null);
+  const researchDialogueTurn = isParticipantDialogue
+    ? (type === 'seller' ? researchSellerDialogueTurns.value + 1 : researchGuardianDialogueTurns.value + 1)
+    : null;
   const resolvedTechniqueContext = techniqueContext || (technique ? buildResearchTechniqueContext(technique) : null);
   researchAiSending.value = true;
   researchMessage.value = '';
@@ -3578,6 +3586,7 @@ async function sendResearchMessage(explicitMessage, protocolStep = researchCurre
         researchTechnique: technique,
         researchTechniqueContext: resolvedTechniqueContext,
         researchRunId: researchRunId.value,
+        researchDialogueTurn,
         signal: controller.signal,
         onDelta: appendStreamDelta,
         onDone: (data) => { streamedAssessment = data.assessment || null; },

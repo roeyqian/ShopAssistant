@@ -302,6 +302,7 @@ export const AIAPI = {
         researchTechnique: options.researchTechnique || null,
         researchTechniqueContext: options.researchTechniqueContext || null,
         researchRunId: options.researchRunId || null,
+        researchDialogueTurn: options.researchDialogueTurn || null,
       }),
       signal: options.signal,
     }, options),
