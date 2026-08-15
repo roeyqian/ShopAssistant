@@ -3216,19 +3216,10 @@ function readRoute() {
 
 function syncRoute() {
   const nextRoute = readRoute();
-  if (researchStage.value === 5 && nextRoute.page !== 'research') {
-    window.location.hash = '/research';
-    route.value = { page: 'research' };
-    return;
-  }
   route.value = nextRoute;
 }
 
 function go(pageName) {
-  if (researchStage.value === 5 && pageName !== 'research') {
-    toast(t('toast.researchArchivedLocked'), 'error');
-    return;
-  }
   if ((pageName === 'cart' || pageName === 'orders' || pageName === 'admin' || pageName === 'checkout') && !token.value) {
     openAuth('login');
     return;
@@ -3290,7 +3281,10 @@ function startResearch() {
 
 async function exitResearch() {
   if (researchStage.value === 5) {
-    toast(t('toast.researchArchivedLocked'), 'error');
+    // A completed run is already safely archived. Leaving it must not issue a
+    // clear request, but it should return the participant to normal shopping.
+    resetResearch();
+    go('products');
     return;
   }
   const activeResearchRunId = researchRunId.value;
