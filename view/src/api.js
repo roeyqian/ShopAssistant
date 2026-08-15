@@ -284,6 +284,13 @@ export const OrderAPI = {
 };
 
 export const AIAPI = {
+  getResearchReport: (researchRunId) =>
+    request(`/ai/research-report?researchRunId=${encodeURIComponent(researchRunId)}`),
+  createResearchReport: (researchRunId) =>
+    request('/ai/research-report', {
+      method: 'POST',
+      body: JSON.stringify({ researchRunId }),
+    }),
   synthesize: (productId, sellerConversationId, guardianConversationId) =>
     request('/ai/synthesis', {
       method: 'POST',

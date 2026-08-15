@@ -4,6 +4,7 @@ import { getSellerPrompt } from "./seller.js";
 import { getGuardianPrompt } from "./guardian.js";
 import { getDecisionPrompt, getSynthesisPrompt, parseDecisionResponse, parseStoredAssessment } from "./decision.js";
 import { getStructuredAgentPrompt, parseStructuredAgentResponse, parseStoredAssessment as parseAgentAssessment } from "./structured.js";
+import { getResearchReportPrompt, parseResearchReport } from "./research-report.js";
 import { getLocaleFromRequest, normalizeProduct } from "../shop/utils.js";
 
 const HIDDEN_METADATA_KEY = 'hiddenFromUser';
@@ -389,6 +390,76 @@ export async function synthesis({ request, env, url }) {
   });
 }
 
+export async function researchReport({ request, env, url }) {
+  const { token, session } = await requireStandardUser(request, env);
+  const locale = getLocaleFromRequest(request, url);
+  const body = await readJsonBody(request);
+  const researchRunId = requireResearchRunId(body.researchRunId);
+  const archive = await env.db.prepare(`
+    SELECT final_decision, selected_product_id, profile_json
+    FROM completed_research_archives
+    WHERE user_id = ? AND research_run_id = ?
+  `).bind(session.userId, researchRunId).first();
+  if (!archive) throw { status: 409, message: locale === 'en-US' ? 'Complete the study before generating its report.' : '请先完成研究流程，再生成报告。' };
+
+  const existing = await getStoredResearchReport(env, session.userId, researchRunId, locale);
+  if (existing) return json({ report: existing, cached: true });
+
+  const config = await env.db.prepare("SELECT * FROM ai_config WHERE id = 1").first();
+  if (!config?.deepseek_api_key) {
+    throw { status: 503, message: locale === 'en-US' ? 'AI service is not configured.' : 'AI 服务尚未配置。' };
+  }
+
+  const [sellerRows, guardianRows] = await Promise.all([
+    getAgentConversationRows(env, session.userId, 'seller', `research-${researchRunId}-seller`),
+    getAgentConversationRows(env, session.userId, 'guardian', `research-${researchRunId}-guardian`),
+  ]);
+  if (!sellerRows.some((item) => item.role === 'assistant') || !guardianRows.some((item) => item.role === 'assistant')) {
+    throw { status: 400, message: locale === 'en-US' ? 'Both saved conversations need an AI reply before reporting.' : '两段已保存的对话都至少需要一条 AI 回复才能生成报告。' };
+  }
+
+  let productInfo = null;
+  if (archive.selected_product_id) {
+    const product = await env.db.prepare('SELECT * FROM products WHERE id = ?').bind(archive.selected_product_id).first();
+    productInfo = product ? normalizeProduct(product, locale) : null;
+  }
+  let profile = {};
+  try { profile = JSON.parse(archive.profile_json || '{}'); } catch { /* preserve a safe empty context */ }
+  const result = await streamDeepSeek(
+    config,
+    getResearchReportPrompt({
+      productInfo,
+      profile,
+      finalDecision: archive.final_decision,
+      sellerTranscript: buildAgentTranscript(sellerRows, locale),
+      guardianTranscript: buildAgentTranscript(guardianRows, locale),
+      locale,
+    }),
+    [],
+    locale === 'en-US' ? 'Generate the structured research report now.' : '请现在生成结构化研究报告。',
+    { signal: request.signal },
+  );
+  const report = parseResearchReport(result.content, locale);
+  const timestamp = new Date().toISOString();
+  await env.db.prepare(
+    "INSERT INTO ai_conversations (id, user_id, session_id, conversation_id, ai_type, role, content, product_id, metadata_json, timestamp) VALUES (?, ?, ?, ?, 'neutral', 'assistant', ?, ?, ?, ?)",
+  ).bind(
+    createId('research_report'), session.userId, token, `report-${researchRunId}`, report.summary,
+    archive.selected_product_id || null,
+    JSON.stringify({ source: 'research-report', researchRunId, report, model: config.deepseek_model || 'deepseek-chat', finishReason: result.finishReason || null }),
+    timestamp,
+  ).run();
+  return json({ report, cached: false });
+}
+
+export async function getResearchReport({ request, env, url }) {
+  const { session } = await requireStandardUser(request, env);
+  const locale = getLocaleFromRequest(request, url);
+  const researchRunId = requireResearchRunId(url.searchParams.get('researchRunId'));
+  const report = await getStoredResearchReport(env, session.userId, researchRunId, locale);
+  return json({ report });
+}
+
 export async function sellerNudge({ request, env, url }) {
   const { token, session } = await requireStandardUser(request, env);
   const locale = getLocaleFromRequest(request, url);
@@ -738,6 +809,33 @@ async function getAgentConversationRows(env, userId, aiType, conversationId) {
     "ORDER BY timestamp ASC, id ASC LIMIT " + HISTORY_LIMIT,
   ).bind(userId, aiType, conversationId).all();
   return result.results || [];
+}
+
+async function getStoredResearchReport(env, userId, researchRunId, locale) {
+  const row = await env.db.prepare(`
+    SELECT metadata_json
+    FROM ai_conversations
+    WHERE user_id = ? AND ai_type = 'neutral' AND conversation_id = ?
+    ORDER BY timestamp DESC, id DESC
+    LIMIT 1
+  `).bind(userId, `report-${researchRunId}`).first();
+  if (!row?.metadata_json) return null;
+  try {
+    const metadata = JSON.parse(row.metadata_json);
+    return metadata?.source === 'research-report' && metadata?.report
+      ? parseResearchReport(JSON.stringify(metadata.report), locale)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function requireResearchRunId(value) {
+  const researchRunId = String(value || '').trim();
+  if (!/^[a-zA-Z0-9_-]{12,100}$/.test(researchRunId)) {
+    throw { status: 400, message: 'A valid research run ID is required' };
+  }
+  return researchRunId;
 }
 
 async function getProductCatalog(env, locale) {

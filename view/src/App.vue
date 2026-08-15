@@ -1319,6 +1319,77 @@
           </div>
           <p class="research-result-note">{{ researchAgreementLabel }}</p>
           <p class="research-result-note">{{ t('research.archiveNotice') }}</p>
+          <section class="research-insight-report" :aria-busy="researchReportLoading">
+            <div class="research-report-head">
+              <div>
+                <span class="eyebrow">{{ t('research.reportEyebrow') }}</span>
+                <h3>{{ t('research.reportTitle') }}</h3>
+                <p>{{ t('research.reportLead') }}</p>
+              </div>
+              <BarChart3 :size="24" />
+            </div>
+            <div v-if="researchReportLoading" class="research-report-loading" aria-live="polite">
+              <span></span><span></span><span></span>
+              {{ t('research.reportLoading') }}
+            </div>
+            <template v-else-if="researchReport">
+              <p class="research-report-summary">{{ researchReport.summary }}</p>
+              <div class="research-report-visuals">
+                <div class="research-radar-card">
+                  <div class="research-radar-heading">
+                    <strong>{{ t('research.reportRadarTitle') }}</strong>
+                    <small>{{ t('research.reportIndexNote') }}</small>
+                  </div>
+                  <svg class="research-radar" viewBox="0 0 280 280" role="img" :aria-label="t('research.reportRadarTitle')">
+                    <polygon v-for="scale in [25, 50, 75, 100]" :key="scale" class="research-radar-grid" :points="researchRadarGridPoints(scale)" />
+                    <line v-for="axis in researchRadarAxes" :key="axis.id" class="research-radar-axis" x1="140" y1="140" :x2="axis.x" :y2="axis.y" />
+                    <polygon class="research-radar-value" :points="researchRadarPoints" />
+                    <circle v-for="axis in researchRadarValueAxes" :key="axis.id" class="research-radar-dot" :cx="axis.valueX" :cy="axis.valueY" r="4" />
+                    <text v-for="axis in researchRadarAxes" :key="`${axis.id}-label`" class="research-radar-label" :x="axis.labelX" :y="axis.labelY">{{ t(`research.reportMetric.${axis.id}`) }}</text>
+                  </svg>
+                </div>
+                <div class="research-evidence-card">
+                  <div class="research-radar-heading">
+                    <strong>{{ t('research.reportEvidenceTitle') }}</strong>
+                    <small>{{ t('research.reportEvidenceNote') }}</small>
+                  </div>
+                  <div class="research-evidence-stack" aria-hidden="true">
+                    <span class="supported" :style="{ flex: researchEvidenceFlex('supported') }"></span>
+                    <span class="uncertain" :style="{ flex: researchEvidenceFlex('uncertain') }"></span>
+                    <span class="needs-verification" :style="{ flex: researchEvidenceFlex('needs_verification') }"></span>
+                  </div>
+                  <div class="research-evidence-legend">
+                    <div><i class="supported"></i><span>{{ t('research.reportEvidenceSupported') }}</span><strong>{{ researchReport.evidence.supported }}</strong></div>
+                    <div><i class="uncertain"></i><span>{{ t('research.reportEvidenceUncertain') }}</span><strong>{{ researchReport.evidence.uncertain }}</strong></div>
+                    <div><i class="needs-verification"></i><span>{{ t('research.reportEvidenceVerify') }}</span><strong>{{ researchReport.evidence.needs_verification }}</strong></div>
+                  </div>
+                </div>
+              </div>
+              <div class="research-report-metrics">
+                <article v-for="metric in researchReport.metrics" :key="metric.id">
+                  <div><strong>{{ t(`research.reportMetric.${metric.id}`) }}</strong><span>{{ metric.score }}</span></div>
+                  <div class="research-metric-track"><i :style="{ width: `${metric.score}%` }"></i></div>
+                  <p>{{ metric.observation }}</p>
+                </article>
+              </div>
+              <div v-if="researchReport.highlights.length" class="research-report-highlights">
+                <article v-for="item in researchReport.highlights" :key="`${item.title}-${item.detail}`"><strong>{{ item.title }}</strong><p>{{ item.detail }}</p></article>
+              </div>
+              <div class="research-theory-notes">
+                <div class="research-radar-heading"><strong>{{ t('research.reportTheoryTitle') }}</strong><small>{{ t('research.reportTheoryNote') }}</small></div>
+                <article v-for="note in researchReport.theory_notes" :key="note.id">
+                  <strong>{{ t(`research.reportTheory.${note.id}`) }}</strong>
+                  <small>{{ t(`research.reportTheorySource.${note.id}`) }}</small>
+                  <p>{{ note.observation }}</p>
+                </article>
+              </div>
+              <p class="research-report-disclaimer">{{ t('research.reportDisclaimer') }}</p>
+            </template>
+            <div v-else class="research-report-unavailable">
+              <p>{{ researchReportError || t('research.reportUnavailable') }}</p>
+              <button class="ghost-btn" type="button" @click="generateResearchReport"><RefreshCcw :size="15" />{{ t('research.reportRetry') }}</button>
+            </div>
+          </section>
           <div class="research-result-techniques">
             <span class="eyebrow">{{ t('research.resultTechniques') }}</span>
             <div>
@@ -2313,6 +2384,9 @@ const researchSellerInclination = ref('observe');
 const researchGuardianInclination = ref('observe');
 const researchFinalDecision = ref('');
 const researchArchiving = ref(false);
+const researchReport = ref(null);
+const researchReportLoading = ref(false);
+const researchReportError = ref('');
 const researchFeedbackSubmitted = ref(false);
 const researchFeedback = reactive({ confidence: '', helpful: '', note: '' });
 const researchThreads = reactive({ seller: [], guardian: [] });
@@ -2692,6 +2766,30 @@ const researchAgreementLabel = computed(() => {
     user: researchDecisionLabel(userChoice),
   });
 });
+const researchRadarAxes = computed(() => {
+  const radius = 104;
+  const labelRadius = 124;
+  return ['need_clarity', 'evidence_grounding', 'budget_alignment', 'pressure_awareness', 'action_plan'].map((id, index) => {
+    const angle = (-90 + index * 72) * Math.PI / 180;
+    return {
+      id,
+      x: 140 + Math.cos(angle) * radius,
+      y: 140 + Math.sin(angle) * radius,
+      labelX: 140 + Math.cos(angle) * labelRadius,
+      labelY: 144 + Math.sin(angle) * labelRadius,
+    };
+  });
+});
+const researchRadarValueAxes = computed(() => researchRadarAxes.value.map((axis) => {
+  const metric = researchReport.value?.metrics?.find((item) => item.id === axis.id);
+  const score = Math.min(100, Math.max(0, Number(metric?.score || 0)));
+  return {
+    ...axis,
+    valueX: 140 + (axis.x - 140) * score / 100,
+    valueY: 140 + (axis.y - 140) * score / 100,
+  };
+}));
+const researchRadarPoints = computed(() => researchRadarValueAxes.value.map((axis) => `${axis.valueX.toFixed(1)},${axis.valueY.toFixed(1)}`).join(' '));
 
 function researchTechniqueIsReady(id) {
   if (id === 'persuasion_reframe') return true;
@@ -3721,6 +3819,42 @@ function researchArchiveRecord(decision) {
   };
 }
 
+function researchRadarGridPoints(scale) {
+  return researchRadarAxes.value.map((axis) => {
+    const x = 140 + (axis.x - 140) * scale / 100;
+    const y = 140 + (axis.y - 140) * scale / 100;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+}
+
+function researchEvidenceFlex(key) {
+  return Math.max(1, Number(researchReport.value?.evidence?.[key] || 0));
+}
+
+async function generateResearchReport() {
+  if (!researchRunId.value || researchReportLoading.value) return;
+  const context = currentAccountContext();
+  researchReportLoading.value = true;
+  researchReportError.value = '';
+  try {
+    const result = await AIAPI.createResearchReport(researchRunId.value);
+    if (!isCurrentAccountContext(context)) return;
+    researchReport.value = result.report || null;
+    if (!researchReport.value) throw new Error(t('research.reportUnavailable'));
+    void trackBehavior('intervention_check', {
+      strategy: 'research_report_generated',
+      productId: researchSelectedProductId.value || null,
+      metadata: { researchEvent: 'report_generated', researchRunId: researchRunId.value, cached: Boolean(result.cached) },
+    });
+  } catch (error) {
+    if (!isCurrentAccountContext(context)) return;
+    if (error.status === 401) openAuth('login');
+    else researchReportError.value = error.message || t('research.reportUnavailable');
+  } finally {
+    if (isCurrentAccountContext(context)) researchReportLoading.value = false;
+  }
+}
+
 async function submitResearchDecision(decision) {
   if (!['buy', 'observe', 'not_buy'].includes(decision) || researchArchiving.value) return;
   if (!ensureStandardUser(t('toast.researchLoginRequired'))) return;
@@ -3751,8 +3885,11 @@ async function submitResearchDecision(decision) {
     await ResearchAPI.archive(researchRunId.value, researchArchiveRecord(decision));
     researchFinalDecision.value = decision;
     researchStage.value = 5;
+    researchReport.value = null;
+    researchReportError.value = '';
     AccountState.remove(RESEARCH_DRAFT_STATE_KEY);
     researchDraftAvailable.value = false;
+    void generateResearchReport();
   } catch (error) {
     if (error.status === 401) openAuth('login');
     else toast(error.message || t('toast.researchArchiveFailed'), 'error');
@@ -3796,6 +3933,8 @@ function resetResearch({ clearDraft = true } = {}) {
   researchAiSending.value = false;
   researchSellerTurns.value = 0;
   researchGuardianTurns.value = 0;
+  researchSellerDialogueTurns.value = 0;
+  researchGuardianDialogueTurns.value = 0;
   researchSellerReady.value = false;
   researchGuardianReady.value = false;
   researchSellerHandoffPending.value = false;
@@ -3803,6 +3942,9 @@ function resetResearch({ clearDraft = true } = {}) {
   researchGuardianInclination.value = 'observe';
   researchFinalDecision.value = '';
   researchArchiving.value = false;
+  researchReport.value = null;
+  researchReportLoading.value = false;
+  researchReportError.value = '';
   Object.keys(researchTechniqueChecks).forEach((key) => { researchTechniqueChecks[key] = false; });
   Object.keys(researchTechniqueSkips).forEach((key) => { researchTechniqueSkips[key] = false; });
   Object.keys(researchTechniqueNotes).forEach((key) => { researchTechniqueNotes[key] = ''; });
