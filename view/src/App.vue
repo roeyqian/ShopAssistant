@@ -2702,7 +2702,16 @@ function buildResearchTechniqueContext(id) {
     selectedProductNames: contextProducts.map((product) => product.name),
     selectedProductPrices: contextProducts.map((product) => product.price),
   };
-  if (id === 'persuasion_reframe') return base;
+  if (id === 'persuasion_reframe') {
+    const pageMaterialProducts = contextProducts.length
+      ? contextProducts
+      : (researchRecommendations.value.length ? researchRecommendations.value : researchCatalog.value.slice(0, 3));
+    return {
+      ...base,
+      pageMaterialProductIds: pageMaterialProducts.map((product) => String(product.id)),
+      pageMaterials: buildResearchPageMaterials(pageMaterialProducts),
+    };
+  }
   if (id === 'comparative_choice') return {
     ...base,
     candidateIds: [...researchCompareIds.value],
@@ -2723,10 +2732,33 @@ function buildResearchTechniqueContext(id) {
   return base;
 }
 
+function buildResearchPageMaterials(products) {
+  if (!products.length) return '当前研究样本未提供可供重构的商品页面字段。';
+  const compact = (value, fallback = '当前样本未提供', limit = 180) => {
+    const text = String(value ?? '').trim();
+    return text ? text.slice(0, limit) : fallback;
+  };
+  return products.slice(0, 3).map((product) => [
+    `[${product.id}] ${compact(product.name, '未命名商品', 100)}`,
+    `副标题：${compact(product.subtitle, '当前样本未提供', 100)}`,
+    `描述：${compact(product.description)}`,
+    `页面价格：¥${product.price ?? '当前样本未提供'}`,
+    `页面原价：¥${product.original_price ?? product.price ?? '当前样本未提供'}`,
+    `页面库存：${product.stock ?? '当前样本未提供'}`,
+    `页面销量：${product.sales_count ?? '当前样本未提供'}`,
+    `页面评分：${product.rating ?? '当前样本未提供'}`,
+  ].join('；')).join('\n');
+}
+
 function buildResearchTechniqueMessage(id) {
   const budgetCap = Number(researchProfile.maxBudget || 0);
   const messages = {
-    persuasion_reframe: '请根据我提供的页面话术，完成本轮“劝服知识与话术重构”：清楚区分商家主张、可核验事实和未核实项，并给出中性表述。',
+    persuasion_reframe: [
+      '请完成本轮“劝服知识与话术重构”：清楚区分商家主张、可核验事实和未核实项，并给出中性表述。',
+      '请直接分析下方由系统从当前研究样本读取的页面材料；这些材料不是参与者填写的内容，不要要求我补充或解释促销话术。',
+      '本轮页面材料：',
+      buildResearchTechniqueContext('persuasion_reframe').pageMaterials,
+    ].join('\n'),
     comparative_choice: '请根据当前数据库可用的候选商品，完成本轮“受控同类比较”：只使用数据库事实，以相同维度比较，并标注未核实项。如果候选不足两个，请明确记录样本不足，不要虚构比较对象。',
     reflective_pause: '请根据我的暂停反思，帮助我区分即时刺激和持续需求；不要把购买或延迟预设为正确答案。',
     budget_calibration: budgetCap > 0
