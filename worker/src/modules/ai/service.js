@@ -547,6 +547,9 @@ async function getStructuredAgentResponse({ config, systemPrompt, messages, user
   try {
     const result = await streamDeepSeek(config, systemPrompt, messages, userMessage, {
       signal: request.signal,
+      // The assistant response is parsed before it reaches the participant.
+      // Ask OpenAI-compatible providers to enforce that contract at generation time.
+      responseFormat: { type: 'json_object' },
     });
     const parsed = parseStructuredAgentResponse(result.content, locale);
     sendDelta(parsed.reply);

@@ -33,10 +33,13 @@ export function parseStructuredAgentResponse(raw, locale = 'zh-CN') {
   try {
     parsed = JSON.parse(stripJsonFence(text));
   } catch {
-    // Preserve a provider response even if it did not follow the JSON contract.
+    // Some providers occasionally leave a natural-language quote unescaped in
+    // `reply`. Recover the user-facing reply and any independently valid
+    // analysis instead of displaying the protocol JSON in the conversation.
+    parsed = recoverStructuredResponse(text);
   }
 
-  const reply = String(parsed?.reply || parsed?.message || text || '').trim();
+  const reply = String(parsed?.reply || parsed?.message || fallbackReply(text, locale)).trim();
   return { reply, assessment: normalizeAssessment(parsed, locale) };
 }
 
@@ -96,6 +99,104 @@ function stripJsonFence(text) {
   if (value.startsWith(fence)) value = value.slice(fence.length).replace(/^json\s*/i, '');
   if (value.endsWith(fence)) value = value.slice(0, -fence.length);
   return value.trim();
+}
+
+function recoverStructuredResponse(text) {
+  const reply = extractJsonStringField(text, ['reply', 'message']);
+  const analysis = extractJsonObjectField(text, 'analysis');
+  const recommendedProductIds = extractJsonArrayField(text, 'recommended_product_ids');
+  return {
+    ...(reply ? { reply } : {}),
+    ...(analysis ? { analysis } : {}),
+    ...(recommendedProductIds ? { recommended_product_ids: recommendedProductIds } : {}),
+  };
+}
+
+function extractJsonStringField(text, keys) {
+  for (const key of keys) {
+    const startMatch = new RegExp(`"${key}"\\s*:\\s*"`).exec(text);
+    if (!startMatch) continue;
+    const start = startMatch.index + startMatch[0].length;
+    const nextField = /"\s*,\s*"(?:analysis|recommended_product_ids|product_ids|recommendedProductIds)"\s*:/g;
+    nextField.lastIndex = start;
+    const boundary = nextField.exec(text);
+    const value = text.slice(start, boundary ? boundary.index : findClosingQuote(text, start));
+    if (value) return decodePossiblyMalformedJsonString(value);
+  }
+  return '';
+}
+
+function findClosingQuote(text, start) {
+  for (let index = start; index < text.length; index += 1) {
+    if (text[index] !== '"' || text[index - 1] === '\\') continue;
+    return index;
+  }
+  return text.length;
+}
+
+function decodePossiblyMalformedJsonString(value) {
+  try {
+    return JSON.parse(`"${value}"`);
+  } catch {
+    // Keep an unescaped quote as text while decoding common JSON escapes.
+    return value
+      .replace(/\\u([0-9a-fA-F]{4})/g, (_, code) => String.fromCharCode(Number.parseInt(code, 16)))
+      .replace(/\\(["\\/bfnrt])/g, (_, character) => ({
+        b: '\b', f: '\f', n: '\n', r: '\r', t: '\t',
+      })[character] ?? character);
+  }
+}
+
+function extractJsonObjectField(text, key) {
+  const match = new RegExp(`"${key}"\\s*:\\s*\\{`).exec(text);
+  if (!match) return null;
+  const start = match.index + match[0].length - 1;
+  const end = findJsonContainerEnd(text, start, '{', '}');
+  if (end < 0) return null;
+  try {
+    return JSON.parse(text.slice(start, end + 1));
+  } catch {
+    return null;
+  }
+}
+
+function extractJsonArrayField(text, key) {
+  const match = new RegExp(`"${key}"\\s*:\\s*\\[`).exec(text);
+  if (!match) return null;
+  const start = match.index + match[0].length - 1;
+  const end = findJsonContainerEnd(text, start, '[', ']');
+  if (end < 0) return null;
+  try {
+    return JSON.parse(text.slice(start, end + 1));
+  } catch {
+    return null;
+  }
+}
+
+function findJsonContainerEnd(text, start, open, close) {
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let index = start; index < text.length; index += 1) {
+    const character = text[index];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (character === '\\') escaped = true;
+      else if (character === '"') inString = false;
+      continue;
+    }
+    if (character === '"') inString = true;
+    else if (character === open) depth += 1;
+    else if (character === close && --depth === 0) return index;
+  }
+  return -1;
+}
+
+function fallbackReply(text, locale) {
+  if (!text.includes('"reply"') && !text.includes('"message"')) return text;
+  return locale === 'en-US'
+    ? 'The AI response could not be read. Please try again.'
+    : 'AI 回复无法读取，请重试。';
 }
 
 function normalizeConfidence(value) {

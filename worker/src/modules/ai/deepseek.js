@@ -27,6 +27,7 @@ export async function streamDeepSeek(config, systemPrompt, messageHistory, userM
       temperature: 0.7,
       max_tokens: maxTokens,
       stream: true,
+      ...(options.responseFormat ? { response_format: options.responseFormat } : {}),
     }, options);
     const result = await readDeepSeekStream(response, options.onDelta, options.signal);
     content += result.content;
