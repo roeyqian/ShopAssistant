@@ -1097,7 +1097,15 @@
               </div>
               <span class="research-workspace-progress">{{ researchProtocolStep + 1 }} / 5</span>
             </div>
-            <section v-if="researchStepUnlocked && researchCurrentProtocol" class="research-protocol-card">
+            <section v-if="researchSellerHandoffPending" class="research-dialogue-gate research-handoff-confirmation" aria-live="polite">
+              <span class="eyebrow">{{ t('research.sellerHandoffTitle') }}</span>
+              <p>{{ t('research.sellerHandoffLead') }}</p>
+              <button class="primary-btn" type="button" :disabled="researchAiSending" @click="confirmSellerHandoff">
+                <ArrowRight :size="16" />
+                {{ t('research.sellerHandoffConfirm') }}
+              </button>
+            </section>
+            <section v-else-if="researchStepUnlocked && researchCurrentProtocol" class="research-protocol-card">
               <div class="research-protocol-heading">
                 <div>
                   <span class="eyebrow">{{ t('research.protocolEyebrow') }} {{ researchProtocolStep + 1 }}/5</span>
@@ -1196,10 +1204,10 @@
               <p v-else class="research-protocol-note">{{ t('research.protocolAiFeedbackEmpty') }}</p>
             </section>
             <form class="research-chat-form research-workspace-chat" @submit.prevent="sendResearchMessage()">
-              <textarea v-model.trim="researchMessage" rows="3" :disabled="researchAiSending || !researchChatReady" :placeholder="researchChatReady ? t('research.protocolChatPlaceholder') : t('research.protocolChatWaiting')"></textarea>
+              <textarea v-model.trim="researchMessage" rows="3" :disabled="researchAiSending || !researchChatReady || researchSellerHandoffPending" :placeholder="researchSellerHandoffPending ? t('research.sellerHandoffWaiting') : (researchChatReady ? t('research.protocolChatPlaceholder') : t('research.protocolChatWaiting'))"></textarea>
               <div class="research-chat-actions">
-                <small>{{ researchChatReady ? (researchStepUnlocked ? t('research.protocolChatHint') : (researchThirdDialogueSummaryDue ? t('research.protocolThirdDialogueHint') : t('research.protocolUnlockProgress', { count: researchRemainingDialogueTurns }))) : t('research.protocolChatWaiting') }}</small>
-                <button class="primary-btn" type="submit" :disabled="researchAiSending || !researchChatReady || !researchMessage.trim()">
+                <small>{{ researchSellerHandoffPending ? t('research.sellerHandoffWaiting') : (researchChatReady ? (researchStepUnlocked ? t('research.protocolChatHint') : (researchThirdDialogueSummaryDue ? t('research.protocolThirdDialogueHint') : t('research.protocolUnlockProgress', { count: researchRemainingDialogueTurns }))) : t('research.protocolChatWaiting')) }}</small>
+                <button class="primary-btn" type="submit" :disabled="researchAiSending || !researchChatReady || researchSellerHandoffPending || !researchMessage.trim()">
                   <SendHorizontal :size="16" />
                   {{ t('research.send') }}
                 </button>
@@ -1207,7 +1215,7 @@
             </form>
           </div>
         </section>
-          <aside v-if="researchStepUnlocked && researchCurrentProtocol" class="panel research-materials-panel">
+          <aside v-if="!researchSellerHandoffPending && researchStepUnlocked && researchCurrentProtocol" class="panel research-materials-panel">
             <div>
               <span class="eyebrow">{{ t('research.protocolMaterialsEyebrow') }}</span>
               <h3>{{ researchCurrentProtocol?.id === 'comparative_choice' ? t('research.comparisonTitle') : t('research.protocolMaterialsTitle') }}</h3>
@@ -2300,6 +2308,7 @@ const researchMaxTurnsPerPhase = 8;
 const researchMinimumDialogueTurns = 3;
 const researchSellerReady = ref(false);
 const researchGuardianReady = ref(false);
+const researchSellerHandoffPending = ref(false);
 const researchSellerInclination = ref('observe');
 const researchGuardianInclination = ref('observe');
 const researchFinalDecision = ref('');
@@ -2827,13 +2836,20 @@ function advanceResearchProtocol(id, skipped) {
     recordResearchPhaseEnd('guardian');
     researchStage.value = 4;
   } else if (nextStep.phase === 'guardian' && researchStage.value !== 3) {
-    recordResearchPhaseEnd('seller');
-    researchStage.value = 3;
-    researchGuardianReady.value = false;
-    researchThreads.guardian = [];
-    void nextTick().then(() => sendResearchMessage(buildGuardianOpening(), null));
+    researchSellerHandoffPending.value = true;
   }
   saveResearchDraft();
+}
+
+function confirmSellerHandoff() {
+  if (!researchSellerHandoffPending.value || researchAiSending.value) return;
+  researchSellerHandoffPending.value = false;
+  recordResearchPhaseEnd('seller');
+  researchStage.value = 3;
+  researchGuardianReady.value = false;
+  researchThreads.guardian = [];
+  saveResearchDraft();
+  void nextTick().then(() => sendResearchMessage(buildGuardianOpening(), null));
 }
 
 function recordResearchComparison(product) {
@@ -3306,6 +3322,7 @@ function researchDraftPayload() {
     guardianDialogueTurns: researchGuardianDialogueTurns.value,
     sellerReady: researchSellerReady.value,
     guardianReady: researchGuardianReady.value,
+    sellerHandoffPending: researchSellerHandoffPending.value,
     sellerInclination: researchSellerInclination.value,
     guardianInclination: researchGuardianInclination.value,
     finalDecision: researchFinalDecision.value,
@@ -3371,6 +3388,7 @@ function restoreResearchDraft(account = user.value) {
     researchGuardianDialogueTurns.value = Math.max(0, Number(draft.guardianDialogueTurns || 0));
     researchSellerReady.value = Boolean(draft.sellerReady);
     researchGuardianReady.value = Boolean(draft.guardianReady);
+    researchSellerHandoffPending.value = Boolean(draft.sellerHandoffPending);
     researchSellerInclination.value = draft.sellerInclination || legacyRecommendationToInclination(draft.sellerRecommendation);
     researchGuardianInclination.value = draft.guardianInclination || legacyRecommendationToInclination(draft.guardianRecommendation);
     researchFinalDecision.value = draft.finalDecision || '';
@@ -3426,6 +3444,7 @@ async function submitResearchProfile() {
     researchGuardianDialogueTurns.value = 0;
     researchSellerReady.value = false;
     researchGuardianReady.value = false;
+    researchSellerHandoffPending.value = false;
     researchSellerInclination.value = 'observe';
     researchGuardianInclination.value = 'observe';
     researchFinalDecision.value = '';
@@ -3785,6 +3804,7 @@ function resetResearch({ clearDraft = true } = {}) {
   researchGuardianTurns.value = 0;
   researchSellerReady.value = false;
   researchGuardianReady.value = false;
+  researchSellerHandoffPending.value = false;
   researchSellerInclination.value = 'observe';
   researchGuardianInclination.value = 'observe';
   researchFinalDecision.value = '';
