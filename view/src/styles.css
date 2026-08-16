@@ -1244,6 +1244,20 @@ img {
   grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
 }
 
+.admin-dashboard-grid {
+  align-items: start;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+}
+
+.admin-column {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  min-width: 0;
+}
+
 .research-grid,
 .insight-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -3472,6 +3486,7 @@ textarea:focus-visible {
   .hero,
   .content-grid,
   .admin-grid,
+  .admin-dashboard-grid,
   .games-layout {
     grid-template-columns: 1fr;
   }

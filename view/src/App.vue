@@ -622,7 +622,8 @@
             </div>
           </div>
 
-          <div class="content-grid admin-grid">
+          <div class="admin-dashboard-grid">
+            <div class="admin-column">
             <section class="panel">
               <div class="panel-head">
                 <div>
@@ -688,38 +689,6 @@
                 </div>
               </form>
             </section>
-
-            <aside class="panel">
-              <div class="panel-head">
-                <div>
-                  <h2>{{ t('admin.statusTitle') }}</h2>
-                  <p>{{ t('admin.statusSubtitle') }}</p>
-                </div>
-              </div>
-
-              <div class="admin-notes">
-                <div class="note-row">
-                  <UserRound :size="16" />
-                  <span>{{ user?.username || user?.email || t('common.currentNotLoggedIn') }}</span>
-                </div>
-                <div class="note-row">
-                  <ShieldCheck :size="16" />
-                  <span>{{ isAdminUser ? t('admin.statusEnabled') : t('admin.noAccess') }}</span>
-                </div>
-                <div class="note-row">
-                  <MessageSquareMore :size="16" />
-                  <span>{{ t('admin.aiSharedBackend') }}</span>
-                </div>
-                <div v-for="item in behaviorBreakdown" :key="item.key" class="note-row">
-                  <BarChart3 :size="16" />
-                  <span>{{ behaviorLabel(item.key) }}</span>
-                  <strong>{{ item.value }}</strong>
-                </div>
-              </div>
-            </aside>
-          </div>
-
-          <div class="content-grid admin-grid">
             <section class="panel">
               <div class="panel-head">
                 <div>
@@ -828,6 +797,38 @@
                 </div>
               </div>
             </section>
+
+            </div>
+
+            <div class="admin-column">
+              <aside class="panel">
+                <div class="panel-head">
+                  <div>
+                    <h2>{{ t('admin.statusTitle') }}</h2>
+                    <p>{{ t('admin.statusSubtitle') }}</p>
+                  </div>
+                </div>
+
+                <div class="admin-notes">
+                  <div class="note-row">
+                    <UserRound :size="16" />
+                    <span>{{ user?.username || user?.email || t('common.currentNotLoggedIn') }}</span>
+                  </div>
+                  <div class="note-row">
+                    <ShieldCheck :size="16" />
+                    <span>{{ isAdminUser ? t('admin.statusEnabled') : t('admin.noAccess') }}</span>
+                  </div>
+                  <div class="note-row">
+                    <MessageSquareMore :size="16" />
+                    <span>{{ t('admin.aiSharedBackend') }}</span>
+                  </div>
+                  <div v-for="item in behaviorBreakdown" :key="item.key" class="note-row">
+                    <BarChart3 :size="16" />
+                    <span>{{ behaviorLabel(item.key) }}</span>
+                    <strong>{{ item.value }}</strong>
+                  </div>
+                </div>
+              </aside>
 
             <aside class="panel">
               <div class="panel-head">
@@ -938,6 +939,7 @@
                 </div>
               </div>
             </aside>
+            </div>
           </div>
         </div>
       </section>
