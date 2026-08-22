@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="ShopAssistant 研究项目文档">
+  <title>ShopAssistant 研究项目文档</title>
+  <style>
+:root { color-scheme: light; font-family: Inter, "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif; color: #1f2937; background: #f5f7fb; }
+* { box-sizing: border-box; }
+body { margin: 0; padding: 48px 24px; }
+main { max-width: 1040px; margin: 0 auto; padding: 56px 64px; background: #fff; border: 1px solid #e6eaf0; border-radius: 16px; box-shadow: 0 12px 40px rgba(15, 23, 42, .08); }
+h1, h2, h3, h4 { color: #111827; line-height: 1.3; scroll-margin-top: 24px; }
+h1 { margin: 0 0 1.25rem; font-size: 2.25rem; border-bottom: 3px solid #2563eb; padding-bottom: .55rem; }
+h2 { margin-top: 2.8rem; padding-bottom: .45rem; font-size: 1.55rem; border-bottom: 1px solid #e5e7eb; }
+h3 { margin-top: 2rem; font-size: 1.22rem; }
+p, li { font-size: 1rem; line-height: 1.82; }
+a { color: #1d4ed8; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+a:hover { color: #1e40af; }
+blockquote { margin: 1.25rem 0; padding: .85rem 1.1rem; border-left: 4px solid #60a5fa; color: #475569; background: #eff6ff; }
+code { padding: .12em .35em; border-radius: 4px; background: #f1f5f9; color: #0f172a; font-family: "Cascadia Code", Consolas, monospace; }
+table { width: 100%; margin: 1.35rem 0; border-collapse: collapse; font-size: .95rem; }
+th, td { padding: .78rem .9rem; vertical-align: top; text-align: left; border: 1px solid #dbe3ee; line-height: 1.65; }
+th { background: #eff6ff; color: #1e3a8a; font-weight: 650; }
+tr:nth-child(even) td { background: #fafcff; }
+ol, ul { padding-left: 1.55rem; }
+hr { border: 0; border-top: 1px solid #e5e7eb; margin: 2rem 0; }
+@media (max-width: 720px) { body { padding: 0; } main { padding: 28px 20px; border: 0; border-radius: 0; box-shadow: none; } h1 { font-size: 1.8rem; } table { display: block; overflow-x: auto; white-space: normal; } }
+@page { size: A4; margin: 14mm 12mm 16mm; }
+@media print {
+  :root { color-scheme: light; background: #fff; }
+  blockquote, th, tr:nth-child(even) td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { padding: 0; background: #fff; color: #111827; font-size: 10.5pt; }
+  main { max-width: none; margin: 0; padding: 0; border: 0; border-radius: 0; box-shadow: none; }
+  h1, h2, h3, h4 { break-after: avoid-page; page-break-after: avoid; }
+  h1 { margin: 0 0 8pt; padding-bottom: 5pt; font-size: 22pt; }
+  h2 { margin-top: 21pt; padding-bottom: 4pt; font-size: 15pt; }
+  h3 { margin-top: 16pt; font-size: 12pt; }
+  h4 { font-size: 11pt; }
+  p, li { font-size: 10.5pt; line-height: 1.65; orphans: 3; widows: 3; }
+  p { margin: 0 0 8pt; }
+  ol, ul { margin: 6pt 0 9pt; }
+  blockquote { break-inside: avoid; page-break-inside: avoid; margin: 9pt 0; padding: 6pt 9pt; background: #eff6ff !important; }
+  table { display: table; overflow: visible; width: 100%; margin: 10pt 0; font-size: 8.5pt; table-layout: auto; break-inside: auto; page-break-inside: auto; }
+  thead { display: table-header-group; }
+  tfoot { display: table-footer-group; }
+  tr { break-inside: avoid; page-break-inside: avoid; }
+  th, td { padding: 4pt 5pt; line-height: 1.4; }
+  a { color: inherit; overflow-wrap: anywhere; }
+}
+</style>
+</head>
+<body>
+  <main>
+<h1>ShopAssistant 研究项目文档</h1>
+<blockquote>
+<p>实现核对日期：2026-08-17。本文区分当前原型已记录的数据、可由数据推断的指标，以及正式研究前仍需实现的能力。</p>
+</blockquote>
+<h2>摘要</h2>
+<p>ShopAssistant 是一个面向在线消费决策研究的原型系统，关注人工智能干预在降低冲动购买之外可能带来的另一类风险：<strong>过度克制</strong>。BuyMate（ACM CHI 2026）探索了如何利用 AI 干预促进直播电商中的理性消费；本项目以其“在关键决策时刻提供支持”的理念为起点，进一步追问：当系统持续提醒风险、延迟购买或鼓励放弃时，是否会无意中使用户推迟或回避那些真实需要、预算允许且信息充分的购买？</p>
+<p>在本项目中，系统不再将“阻止购买”视为默认成功结果，而是帮助用户判断当下是否适合购买。卖家代理与管家代理以互补视角引导用户审视需求、预算、信息掌握情况与情绪压力；在普通商品咨询中，系统可综合两方对话给出“立即购买、进一步核实信息、暂不购买”三类建议。分阶段研究流程则保留两位代理对用户当前购买倾向的独立分析，由用户自行作出买、观望或不买的最终选择。系统会记录对话、技术检查、行为事件与最终研究记录。</p>
+<h2>1. 研究背景</h2>
+<p>在线购物环境中的倒计时、库存稀缺、社交证明、划线价和限时优惠会压缩用户反思需求与比较选项的时间，并可能促发冲动购买。直播电商是这些线索高度集中的情境，但类似压力同样存在于一般电商平台、团购、预售和订阅消费中。</p>
+<p>现有的理性消费干预通常强调暂停、冷静、预算校准、延迟或取消购买。这些策略能够降低即时冲动，却也可能隐含“少买总是更好”的价值取向。对于存在明确需求、预算充足、商品信息充分或购买窗口确有合理限制的用户，过度防御性的系统可能导致不必要的延迟、决策疲劳、机会成本，甚至降低用户对 AI 建议的信任。</p>
+<p>因此，ShopAssistant 将消费决策理解为“购买适切性”判断，而非单向抑制购买：系统既应识别冲动、信息不足与预算压力，也应在证据充分时支持用户自信地完成合理购买。</p>
+<h2>2. 研究目标</h2>
+<p>本项目旨在：</p>
+<ol>
+<li>构建可配置、可记录的在线消费决策实验环境。</li>
+<li>检验 AI 干预是否会无意中导致过度克制、延迟或回避合理购买。</li>
+<li>探索 AI 如何在减少冲动购买与支持合理购买之间取得平衡。</li>
+<li>比较卖家代理、管家代理及其组合对用户判断过程与决策结果的影响。</li>
+<li>将需求、预算、信息充分性和情绪压力转化为可解释、可触发、可记录的决策检查。</li>
+<li>为后续实验、问卷、访谈和行为日志分析提供可扩展的研究基础。</li>
+</ol>
+<h2>3. 理论视角</h2>
+<p>ShopAssistant 的设计并不把“理性”等同于“少买”。以下理论共同支持系统将购买、核实与暂缓视为同等正当的可能结果。</p>
+<table>
+<thead>
+<tr>
+<th>理论与证据</th>
+<th>对本研究的含义</th>
+<th>对系统设计的约束</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>双过程决策与冲动购买倾向 [1][2]</td>
+<td>限时、稀缺与情绪唤起容易缩短审慎比较；冲动购买同时包含情感性和认知性成分。</td>
+<td>在高压时提示暂停、预算与信息缺口，但不以压力线索本身推断用户一定不应购买。</td>
+</tr>
+<tr>
+<td>自我调节、享乐预支与过度克制（hyperopia）[3]</td>
+<td>自我控制不足会造成冲动；但过度偏好“应该做”的选择也会使人错失合理、能带来价值的消费。</td>
+<td>将“非必要延迟或放弃符合需求与预算的购买”作为独立结果测量，而非把未购买直接记为成功。</td>
+</tr>
+<tr>
+<td>计划行为理论 [4]</td>
+<td>态度、主观规范与感知行为控制共同影响行动意图；“别人都在买”会改变规范感知，预算和信息影响控制感。</td>
+<td>分别询问真实需要、他人影响、预算余量与信息掌握，避免用单一压力分替代完整判断。</td>
+</tr>
+<tr>
+<td>劝服知识模型 [5]</td>
+<td>当用户理解营销信息的意图与策略时，能更有意识地评估其主张。</td>
+<td>将促销话术重写为可核验的中性事实，区分“商家声称”和“已验证证据”，而不是用反向劝说压制购买。</td>
+</tr>
+<tr>
+<td>自我决定理论 [6]</td>
+<td>被强制或羞耻化的建议会损害自主性；能够选择、理解理由并获得胜任感的支持更可能被内化。</td>
+<td>每项建议说明理由和不确定性，保留忽略、补充信息和自主决定的路径，禁止以“你应该”强迫用户。</td>
+</tr>
+<tr>
+<td>自动化信任校准 [7][8]</td>
+<td>用户可能过度依赖算法，也可能因一次错误建议而完全弃用；可解释性本身不等于适当信任。</td>
+<td>显示建议依据、证据来源、置信边界和待核实项；高影响情境不输出确定性购买结论。</td>
+</tr>
+</tbody>
+</table>
+<h3>3.1 三类决策风险的操作性定义</h3>
+<p>为避免价值判断混淆，正式研究应预先为每个商品情境建立独立的“购买适切性”标注，而非由 AI 或结果行为倒推用户是否理性：</p>
+<table>
+<thead>
+<tr>
+<th>结果</th>
+<th>最低识别条件</th>
+<th>不应据此直接推断的事项</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>冲动购买</td>
+<td>用户在需求不明确、预算不匹配或关键信息缺失时，在压力线索后快速提交。</td>
+<td>一次快速购买不自动等于冲动；急需且信息充分的购买可能是适切的。</td>
+</tr>
+<tr>
+<td>合理购买</td>
+<td>需求、预算、商品匹配与关键信息均达到研究预设门槛，用户能说明主要理由。</td>
+<td>合理购买不等于无风险，也不要求 AI 推荐。</td>
+</tr>
+<tr>
+<td>过度克制</td>
+<td>在合理购买门槛已满足时，用户因 AI 建议或干预而发生非必要延迟、放弃或回避，并在延迟复评中确认该结果不符合自身利益。</td>
+<td>单次“暂不购买”不等于过度克制；延迟可能帮助用户获得更好信息或价格。</td>
+</tr>
+</tbody>
+</table>
+<p>该定义与 [3] 对过度自我控制的讨论一致，也回应 [6] 所强调的自主性：是否适合购买必须由透明的研究标准、用户理由和延迟后评价共同判断。</p>
+<h3>3.2 可检验假设</h3>
+<ul>
+<li>H1：相较无 AI 条件，管家代理可能降低高压力、低适切性情境中的即时提交，但在高适切性情境中增加暂缓比例。</li>
+<li>H2：相较单一管家代理，双代理协作在高适切性情境中会减少过度克制，并在低适切性情境中维持或降低冲动购买。</li>
+<li>H3：呈现证据、待核实项与可忽略选项的建议，比确定性指令更能提升自主性感和适当信任，并降低盲从建议的概率。</li>
+</ul>
+<h2>4. 与 BuyMate 的关系</h2>
+<p>ShopAssistant 受 BuyMate《Making AI Interventions Effective in Promoting Rational Consumption in Live Commerce》启发，延续其在消费决策关键时刻通过 AI 支持用户反思的研究关切，但不复刻其完整实验流程、量表、统计模型或直播间能力。</p>
+<p>两者的关键差异在于研究边界：BuyMate 的研究重点是让 AI 干预更有效地促进理性消费；ShopAssistant 则把“干预本身是否过度”纳入研究对象。它考察的不仅是系统能否减少冲动购买，还包括系统是否错误地阻止了适合购买的决策，以及何种建议方式能够同时降低冲动风险和减少不必要的购买犹豫。</p>
+<p>当前原型不包含主播音频转写、实时商品切换识别、直播互动复刻或自动化 <code>G1 → G2 → G3</code> 话术分析流水线。直播电商只作为可选的高压力研究情境；话术类别、压力分和同类商品排序均服务于 ShopAssistant 的通用消费决策研究。</p>
+<h2>5. 研究问题</h2>
+<ul>
+<li>RQ1：人工智能干预是否会在无意中导致过度克制，例如不必要的延迟、放弃或回避本应适合购买的商品？</li>
+<li>RQ2：卖家代理与管家代理分别如何影响用户对需求、预算、信息充分性和情绪压力的评估？</li>
+<li>RQ3：何种 AI 建议策略能够在减少冲动购买与支持合理购买之间取得平衡？</li>
+<li>RQ4：何种情境、用户状态或商品特征更容易出现“冲动购买”“合理购买”与“过度克制”三类结果？</li>
+<li>RQ5：当两个代理的判断一致或冲突时，用户如何理解建议、寻求核实，并形成最终决定？</li>
+<li>RQ6：解释建议依据、不确定性与替代行动，是否能提升用户自主性、决策信心和对 AI 的适当信任？</li>
+</ul>
+<h2>6. 概念模型</h2>
+<p>ShopAssistant 的研究模型可概括为：</p>
+<p><strong>情境与用户状态 → 双代理对话与倾向分析 → 用户三选一 → 归档与过程报告</strong></p>
+<p>情境与用户状态包括促销压力、商品信息质量、真实需求紧迫度、可支配预算、替代方案、情绪压力与时间限制。卖家代理从商品价值、使用情境、售后与替代方案等角度积极促成购买；管家代理检查冲动线索、预算压力、信息缺口与可逆性风险，并优先劝用户不买或继续观望。两者的结构化输出不再是对用户的建议，而是对用户当前言语购买倾向（买、继续观望或不买）的分析。</p>
+<p>在普通商品咨询中，用户可在卖家与管家均已有回复后主动生成综合建议。综合建议以理由和待确认事项呈现以下三种结果之一：</p>
+<table>
+<thead>
+<tr>
+<th>建议</th>
+<th>适用情形</th>
+<th>系统支持</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>立即购买</td>
+<td>需求明确、预算允许、关键信息充分，且未发现显著情绪或促销压力风险</td>
+<td>总结购买依据、提醒核对关键条款，并支持用户完成模拟决策</td>
+</tr>
+<tr>
+<td>进一步核实信息</td>
+<td>商品、价格、适配性、售后或替代方案仍有关键不确定性</td>
+<td>列出具体待核实项、提供比较和查询路径，再由用户决定</td>
+</tr>
+<tr>
+<td>暂不购买</td>
+<td>需求不明确、预算受压、情绪高度波动或风险明显超过当前价值</td>
+<td>说明暂缓依据、提供冷静或延后复查路径，避免将暂缓表述为失败</td>
+</tr>
+</tbody>
+</table>
+<p>研究流程不把代理分析当作面向用户的最终指令：两位代理的结构化输出记录的是用户当下表述的“买、观望或不买”倾向及其证据。完成流程后，界面并列展示两方倾向与用户最终选择，并允许用户提交决策信心、流程帮助程度和开放反馈。当前没有独立的“接受／拒绝／忽略建议”事件，也没有自动化的延迟后复评；两者应作为正式研究的额外测量，而不能由一次未购买或一次退出直接推断。</p>
+<h3>6.1 五项心理学技术协议</h3>
+<p>为了让“研究流程”不只是一段卖家／管家聊天，当前研究页将 BuyMate 的两个核心模块扩展为五项可观察、可复核、可记录的技术。每项技术由界面动作、AI 轮次提示和 <code>intervention_check</code> 行为事件共同组成；它们是决策支持工具，不是把参与者推向“不买”的固定脚本。</p>
+<table>
+<thead>
+<tr>
+<th>技术</th>
+<th>实验动作</th>
+<th>ShopAssistant agent 的使用方式</th>
+<th>主要理论来源（期刊为 JCR Q1 研究标注）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>反思性暂停</td>
+<td>询问促销线索消失后需求是否仍然存在，允许暂停后购买</td>
+<td>第三轮卖家／管家对话邀请 10 秒认知暂停，只保留会改变判断的问题</td>
+<td>Mischel, Shoda, &amp; Rodriguez (1989), <em>Journal of Personality and Social Psychology</em></td>
+</tr>
+<tr>
+<td>劝服知识与话术中性重构</td>
+<td>把商家说法拆成主张、事实和证据缺口</td>
+<td>卖家首轮识别并重构限时、爆款、从众等表达，不制造反向压力</td>
+<td>Friestad &amp; Wright (1994), <em>Journal of Consumer Research</em></td>
+</tr>
+<tr>
+<td>受控同类比较</td>
+<td>最多选择三个候选，用同一组维度比较</td>
+<td>卖家第二轮引用商品库事实，缺失字段标为未核实，不把最低价当答案</td>
+<td>Iyengar &amp; Lepper (2000), <em>Journal of Personality and Social Psychology</em></td>
+</tr>
+<tr>
+<td>预算校准与心理账户</td>
+<td>将总价、预算上限、替代用途、使用频率与机会成本放在一起</td>
+<td>管家首轮只使用参与者明确提供的数字；预算舒适且需求充分时可以支持购买</td>
+<td>Kivetz &amp; Simonson (2002), <em>Journal of Consumer Research</em></td>
+</tr>
+<tr>
+<td>执行意图计划</td>
+<td>写一个允许购买或放弃的“如果—那么”短期计划</td>
+<td>管家第二轮帮助参与者设定可执行复核时间和下一项核实事实</td>
+<td>Gollwitzer (1999), <em>American Psychologist</em></td>
+</tr>
+</tbody>
+</table>
+<p>自我决定理论（Deci &amp; Ryan, 2000, <em>Psychological Inquiry</em>, JCR Q1）作为五项技术的共同交互约束：AI 说明依据和不确定性，保留忽略建议、补充信息、延迟或立即购买的路径。期刊 Q1 取决于年份和学科分类；界面中的 Q1 标签用于研究设计溯源，正式论文或预注册应按机构可访问的最新 Journal Citation Reports 版本再次核对。</p>
+<h2>7. 双代理研究条件</h2>
+<p>当前原型可被配置为以下研究条件：</p>
+<ul>
+<li>卖家代理：以澄清商品价值和使用匹配为主，倾向于帮助用户确认需求、功能、价格构成、替代方案与购买时机并促成购买；不得使用催促、稀缺或从众表达制造压力。</li>
+<li>管家代理：以识别冲动、预算压力、信息缺口和情绪影响为主，倾向于帮助用户不买或继续观望，并帮助用户核验风险、区分真实需求与即时诱因。</li>
+<li>双代理协作：在同一决策中呈现互补视角，并明确显示共识、分歧、证据与尚待用户确认的信息。</li>
+<li>中性或无 AI 对照：用于比较 AI 建议本身及其措辞、时机对购买适切性和过度克制的影响。</li>
+<li>决策支持工具：需求反思、预算校准、同类比较、话术中性重构、信息核实清单、冷静延迟与结算前检查。</li>
+</ul>
+<h2>8. 原型作为研究工具</h2>
+<p>ShopAssistant 不是真实电商系统，也不依赖直播平台。系统中的商品是研究样本，待购清单表示购买意向，订单表示模拟决策记录。研究者可通过行为日志、AI 对话、代理建议、压力画像和提交记录分析用户的判断过程。</p>
+<p>主要研究事件包括：</p>
+<table>
+<thead>
+<tr>
+<th>事件</th>
+<th>研究含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>浏览样本</td>
+<td>商品曝光、初始兴趣与停留</td>
+</tr>
+<tr>
+<td>加入待购</td>
+<td>初步购买倾向</td>
+</tr>
+<tr>
+<td>移除待购</td>
+<td>决策撤回，需结合原因判断是否为过度克制</td>
+</tr>
+<tr>
+<td>卖家／管家代理对话</td>
+<td>用户主动获取何种决策视角</td>
+</tr>
+<tr>
+<td>普通商品咨询中的综合建议</td>
+<td>在双方商品咨询均有回复后，由用户主动生成的三类建议、理由、证据状态与待核实项</td>
+</tr>
+<tr>
+<td>信息核实与比较</td>
+<td>用户是否补足决策所需信息</td>
+</tr>
+<tr>
+<td>压力测试与压力画像</td>
+<td>情境压力感知及高频线索</td>
+</tr>
+<tr>
+<td>研究同意</td>
+<td>已登录参与者同意后记录知情同意事件，并生成独立研究轮次 ID</td>
+</tr>
+<tr>
+<td>研究页中途退出</td>
+<td>清除该未完成轮次在服务端的对话与行为数据，不将“退出”保留为研究事件</td>
+</tr>
+<tr>
+<td>最终选择与归档</td>
+<td>保存用户资料、商品候选、技术检查、双方对话、相关行为和最终三选一的不可变快照</td>
+</tr>
+<tr>
+<td>完成后反馈与过程报告</td>
+<td>记录决策信心、流程帮助程度和开放反馈；另可基于两段代理对话生成解释性过程报告</td>
+</tr>
+</tbody>
+</table>
+<p>研究后台当前可汇总行为量、会话、代理使用、干预使用频次和压力分布；尚不提供研究流程中三类综合建议的分布或“接受／拒绝建议”汇总。商品洞察页可展示单个样本的浏览、加购、决策、AI 使用与最近行为时间线。</p>
+<h2>9. 变量与指标</h2>
+<h3>自变量</h3>
+<ul>
+<li>AI 条件：卖家代理、管家代理、双代理、中性 AI 或无 AI。</li>
+<li>AI 建议：立即购买、进一步核实信息、暂不购买，以及建议理由、确定性和呈现时机。</li>
+<li>情境因素：限时、稀缺、社交证明、折扣锚定、商品信息完整性和购买窗口。</li>
+<li>用户状态：需求紧迫度、预算余量、替代方案可得性、先验知识与情绪压力。</li>
+<li>支持策略：需求反思、预算校准、同类比较、话术重构、信息核实、冷静延迟和结算前检查。</li>
+</ul>
+<h3>过程指标</h3>
+<ul>
+<li>两类代理的使用频次、对话轮次、用户购买倾向分析及双方分歧。</li>
+<li>技术检查、同类比较、信息补充、压力探针与结算前检查等可观察行为。</li>
+<li>压力分、压力等级及各类压力线索的出现频次。</li>
+<li>已记录事件之间的时间间隔，例如浏览到加购、咨询到最终选择；“建议接受／拒绝／忽略”须在正式实验中新增显式事件后方可分析。</li>
+</ul>
+<h3>结果指标</h3>
+<ul>
+<li>购买适切性：结合预先定义的需求、预算、信息充分性与商品匹配标准，对最终选择进行多维评估。</li>
+<li>冲动购买倾向：在高压力、低需求、预算不匹配或信息不足下的即时提交。</li>
+<li>过度克制倾向：在需求明确、预算允许、信息充分且商品匹配时，仍因 AI 干预而出现的非必要延迟、放弃或回避。</li>
+<li>当前可直接收集的体验反馈：最终决策信心、流程帮助程度和开放式说明。</li>
+<li>正式研究可补充的体验反馈：自主性感、后悔预期、认知负荷、对建议公平性与 AI 信任。</li>
+</ul>
+<p>“过度克制”不应仅由一次未购买操作判定；应结合实验材料的适切性标准、用户自述理由、延迟后的复评和后续评价共同识别。</p>
+<h2>10. 数据分析方向</h2>
+<p>研究者可以进行：</p>
+<ul>
+<li>描述性统计：浏览、加购、提交、暂缓、信息核实与建议触发次数。</li>
+<li>条件比较：比较不同代理条件下冲动购买、合理购买与过度克制相关指标的差异。</li>
+<li>建议校准分析：检验 AI 的三类建议与预先定义的购买适切性标准、用户最终选择和后续评价之间的一致性。</li>
+<li>路径分析：观察“浏览 - 代理咨询 - 信息核实 - 建议 - 提交／暂缓”等会话路径。</li>
+<li>分歧分析：分析卖家代理与管家代理意见不一致时，用户如何处理不确定性与冲突建议。</li>
+<li>异质性分析：考察预算压力、需求紧迫度、情绪状态、信息素养和冲动购买倾向等因素的调节作用。</li>
+<li>混合方法研究：结合日志、问卷、访谈和开放式反馈，解释用户何时感到被恰当地支持、被过度阻拦或被不当推动。</li>
+</ul>
+<h2>11. 伦理与边界</h2>
+<p>ShopAssistant 是研究原型，不应被解释为真实、专业或个性化的消费建议系统。正式研究中应：</p>
+<ul>
+<li>告知参与者系统会记录行为、AI 对话、技术检查、最终研究记录及可选的完成后报告。</li>
+<li>说明系统中的“订单”不是真实购买，AI 建议不构成财务、法律或专业意见。</li>
+<li>禁止卖家代理使用操纵性、催促性或基于脆弱状态的劝购策略。</li>
+<li>禁止管家代理以羞耻、恐惧或一律否定的方式劝阻购买。</li>
+<li>呈现建议依据、局限和不确定性，并保留用户绕过建议或要求更多信息的权利。</li>
+<li>说明数据生命周期：未完成研究可由参与者退出并清除该轮服务端对话和行为数据；已完成研究会保存不可变归档，当前原型不支持参与者自行删除该归档。正式研究须在知情同意中明确保留期限、撤回边界、删除流程和研究者联系人。</li>
+<li>在收集正式数据前实现去标识化导出、访问控制与所需的撤回流程，并完成知情同意与伦理审查。</li>
+<li>记录模型、提示词、参数、样本材料、AI 启用状态、建议规则和项目版本，以保障可复现性。</li>
+</ul>
+<h2>12. 项目限制</h2>
+<ul>
+<li>当前原型不包含 BuyMate 的完整实验流程、量表和统计脚本。</li>
+<li>“购买适切性”与“过度克制”需要根据研究情境预先操作化，不能由模型输出或单一行为指标直接判定。</li>
+<li>压力分是启发式指标，不等同于经验证的心理测量量表。</li>
+<li>样本材料、预算情境、商品信息与合理购买标准仍需根据具体研究问题系统化设计。</li>
+<li>AI 输出受模型、提示词和参数影响，双代理的观点也可能同时不完整或带有偏差。</li>
+<li>行为日志只能记录可观察操作，无法完全解释用户动机；需要结合自述、访谈和延迟复评。</li>
+<li>尚未内置随机分组、问卷管理、匿名化导出、建议校准标注和预注册分析工具。</li>
+<li>完成后的“决策过程报告”由 AI 仅根据双方对话中的明确表述生成五项 0–100 可视化指数；它不是经过校准的心理测量、诊断、人格判断或购买建议。</li>
+<li>完成后反馈发生在研究归档之后，当前归档快照不自动包含该反馈；如需将其作为正式研究主数据，应设计独立且可关联的保留策略。</li>
+<li>直播特定能力不在当前研究范围内，也不包含自动化 <code>G1 → G2 → G3</code> 话术分析流水线。</li>
+</ul>
+<h2>13. 后续扩展</h2>
+<p>后续可增加：</p>
+<ul>
+<li>卖家代理、管家代理、双代理、中性 AI 与无 AI 的随机分组实验。</li>
+<li>面向不同商品类别的购买适切性标注规则，以及由研究者、用户和独立评估者组成的多源评估。</li>
+<li>冲动购买倾向、预算压力、决策后悔、过度克制、AI 信任与自主性感量表。</li>
+<li>建议理由、证据来源、不确定性和代理分歧的可视化界面。</li>
+<li>在延迟后重新询问用户的需求、预算变化与决策满意度，以区分有益延迟和非必要回避。</li>
+<li>数据导出、匿名化、会话路径可视化和 AI 回复质量人工标注。</li>
+<li>不同干预时机、语言风格、双代理轮次与研究流程任务时长的比较研究。</li>
+</ul>
+<h2>14. 实现范围</h2>
+<p>当前仓库提供：</p>
+<table>
+<thead>
+<tr>
+<th>位置</th>
+<th>研究用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>view/</code></td>
+<td>参与者界面、知情同意、用户资料、商品匹配、双代理 AI 交互、最终决策与后台界面</td>
+</tr>
+<tr>
+<td><code>worker/src/modules/shop/</code></td>
+<td>商品样本与样本洞察</td>
+</tr>
+<tr>
+<td><code>worker/src/modules/cart/</code></td>
+<td>待购清单</td>
+</tr>
+<tr>
+<td><code>worker/src/modules/order/</code></td>
+<td>模拟决策记录</td>
+</tr>
+<tr>
+<td><code>worker/src/modules/ai/</code></td>
+<td>卖家代理与管家代理</td>
+</tr>
+<tr>
+<td><code>worker/src/modules/ai/research-report.js</code></td>
+<td>基于已完成研究中双方对话生成的解释性决策过程报告</td>
+</tr>
+<tr>
+<td><code>worker/src/modules/research/</code></td>
+<td>行为追踪、压力画像、未完成轮次清理、完成研究归档与研究汇总</td>
+</tr>
+<tr>
+<td><code>worker/src/modules/admin/</code></td>
+<td>研究后台与 AI 配置</td>
+</tr>
+<tr>
+<td><code>worker/store/migrations/</code></td>
+<td>数据结构、样本数据，以及 <code>0013_completed_research_archives.sql</code> 中的完成研究归档表</td>
+</tr>
+</tbody>
+</table>
+<p>技术实现服务于“何时适合购买”的研究问题。正式收集数据前，应记录项目版本、样本材料、AI 提示词、实验条件、购买适切性标准与分析方案，并先验证双代理输出不会系统性地推动冲动购买或过度克制。</p>
+<h2>15. 参考文献与链接</h2>
+<p>以下文献为本文档中理论主张与实现约束的主要依据；正式论文写作时仍应按目标会议格式核对版本、页码与引用样式。</p>
+<ol>
+<li>Verplanken, B., &amp; Herabadi, A. (2001). <em>Individual differences in impulse buying tendency: Feeling and no thinking</em>. European Journal of Personality, 15(S1), S71–S83. <a href="https://doi.org/10.1002/per.423">https://doi.org/10.1002/per.423</a></li>
+<li>Dhar, R., &amp; Wertenbroch, K. (2000). <em>Consumer choice between hedonic and utilitarian goods</em>. Journal of Marketing Research, 37(1), 60–71. <a href="https://doi.org/10.1509/jmkr.37.1.60.18718">https://doi.org/10.1509/jmkr.37.1.60.18718</a></li>
+<li>Kivetz, R., &amp; Simonson, I. (2002). <em>Self-control for the righteous: Toward a theory of precommitment to indulgence</em>. Journal of Consumer Research, 29(2), 199–217. <a href="https://doi.org/10.1086/339925">https://doi.org/10.1086/339925</a></li>
+<li>Ajzen, I. (1991). <em>The theory of planned behavior</em>. Organizational Behavior and Human Decision Processes, 50(2), 179–211. <a href="https://doi.org/10.1016/0749-5978(91)90020-T">https://doi.org/10.1016/0749-5978(91)90020-T</a></li>
+<li>Friestad, M., &amp; Wright, P. (1994). <em>The persuasion knowledge model: How people cope with persuasion attempts</em>. Journal of Consumer Research, 21(1), 1–31. <a href="https://doi.org/10.1086/209380">https://doi.org/10.1086/209380</a></li>
+<li>Deci, E. L., &amp; Ryan, R. M. (2000). <em>The “what” and “why” of goal pursuits: Human needs and the self-determination of behavior</em>. Psychological Inquiry, 11(4), 227–268. <a href="https://doi.org/10.1207/S15327965PLI1104_01">https://doi.org/10.1207/S15327965PLI1104_01</a></li>
+<li>Lee, J. D., &amp; See, K. A. (2004). <em>Trust in automation: Designing for appropriate reliance</em>. Human Factors, 46(1), 50–80. <a href="https://doi.org/10.1518/hfes.46.1.50_30392">https://doi.org/10.1518/hfes.46.1.50_30392</a></li>
+<li>Dietvorst, B. J., Simmons, J. P., &amp; Massey, C. (2015). <em>Algorithm aversion: People erroneously avoid algorithms after seeing them err</em>. Journal of Experimental Psychology: General, 144(1), 114–126. <a href="https://doi.org/10.1037/xge0000033">https://doi.org/10.1037/xge0000033</a></li>
+</ol>
+  </main>
+</body>
+</html>

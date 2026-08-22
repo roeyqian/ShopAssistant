@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="ShopAssistant Research Project Documentation">
+  <title>ShopAssistant Research Project Documentation</title>
+  <style>
+:root { color-scheme: light; font-family: Inter, "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif; color: #1f2937; background: #f5f7fb; }
+* { box-sizing: border-box; }
+body { margin: 0; padding: 48px 24px; }
+main { max-width: 1040px; margin: 0 auto; padding: 56px 64px; background: #fff; border: 1px solid #e6eaf0; border-radius: 16px; box-shadow: 0 12px 40px rgba(15, 23, 42, .08); }
+h1, h2, h3, h4 { color: #111827; line-height: 1.3; scroll-margin-top: 24px; }
+h1 { margin: 0 0 1.25rem; font-size: 2.25rem; border-bottom: 3px solid #2563eb; padding-bottom: .55rem; }
+h2 { margin-top: 2.8rem; padding-bottom: .45rem; font-size: 1.55rem; border-bottom: 1px solid #e5e7eb; }
+h3 { margin-top: 2rem; font-size: 1.22rem; }
+p, li { font-size: 1rem; line-height: 1.82; }
+a { color: #1d4ed8; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+a:hover { color: #1e40af; }
+blockquote { margin: 1.25rem 0; padding: .85rem 1.1rem; border-left: 4px solid #60a5fa; color: #475569; background: #eff6ff; }
+code { padding: .12em .35em; border-radius: 4px; background: #f1f5f9; color: #0f172a; font-family: "Cascadia Code", Consolas, monospace; }
+table { width: 100%; margin: 1.35rem 0; border-collapse: collapse; font-size: .95rem; }
+th, td { padding: .78rem .9rem; vertical-align: top; text-align: left; border: 1px solid #dbe3ee; line-height: 1.65; }
+th { background: #eff6ff; color: #1e3a8a; font-weight: 650; }
+tr:nth-child(even) td { background: #fafcff; }
+ol, ul { padding-left: 1.55rem; }
+hr { border: 0; border-top: 1px solid #e5e7eb; margin: 2rem 0; }
+@media (max-width: 720px) { body { padding: 0; } main { padding: 28px 20px; border: 0; border-radius: 0; box-shadow: none; } h1 { font-size: 1.8rem; } table { display: block; overflow-x: auto; white-space: normal; } }
+@page { size: A4; margin: 14mm 12mm 16mm; }
+@media print {
+  :root { color-scheme: light; background: #fff; }
+  blockquote, th, tr:nth-child(even) td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { padding: 0; background: #fff; color: #111827; font-size: 10.5pt; }
+  main { max-width: none; margin: 0; padding: 0; border: 0; border-radius: 0; box-shadow: none; }
+  h1, h2, h3, h4 { break-after: avoid-page; page-break-after: avoid; }
+  h1 { margin: 0 0 8pt; padding-bottom: 5pt; font-size: 22pt; }
+  h2 { margin-top: 21pt; padding-bottom: 4pt; font-size: 15pt; }
+  h3 { margin-top: 16pt; font-size: 12pt; }
+  h4 { font-size: 11pt; }
+  p, li { font-size: 10.5pt; line-height: 1.65; orphans: 3; widows: 3; }
+  p { margin: 0 0 8pt; }
+  ol, ul { margin: 6pt 0 9pt; }
+  blockquote { break-inside: avoid; page-break-inside: avoid; margin: 9pt 0; padding: 6pt 9pt; background: #eff6ff !important; }
+  table { display: table; overflow: visible; width: 100%; margin: 10pt 0; font-size: 8.5pt; table-layout: auto; break-inside: auto; page-break-inside: auto; }
+  thead { display: table-header-group; }
+  tfoot { display: table-footer-group; }
+  tr { break-inside: avoid; page-break-inside: avoid; }
+  th, td { padding: 4pt 5pt; line-height: 1.4; }
+  a { color: inherit; overflow-wrap: anywhere; }
+}
+</style>
+</head>
+<body>
+  <main>
+<h1>ShopAssistant Research Project Documentation</h1>
+<blockquote>
+<p>Implementation verified: 2026-08-17. This document distinguishes data the current prototype records, measures that can only be inferred from those data, and capabilities still required before a formal study.</p>
+</blockquote>
+<h2>Abstract</h2>
+<p>ShopAssistant is a prototype system for research on online consumption decisions. It examines a risk that AI interventions may create beyond reducing impulse purchases: <strong>over-restraint</strong>. BuyMate (ACM CHI 2026) explored how AI interventions can promote rational consumption in live commerce. Building on its idea of offering support at pivotal decision points, this project asks a further question: when a system repeatedly warns of risk, delays purchases, or encourages users to forgo them, might it inadvertently cause users to postpone or avoid purchases that they genuinely need, can afford, and understand well enough to make?</p>
+<p>This project no longer treats “preventing a purchase” as the default measure of success. Instead, it helps users decide whether purchasing is appropriate at that moment. A seller agent and a steward agent offer complementary perspectives on needs, budgets, available information, and emotional pressure. In ordinary product consultations, the system can synthesize their conversations into one of three recommendations: buy now, verify more information, or do not make this purchase for now. The staged research flow instead retains each agent’s independent analysis of the participant’s current inclination, while the participant chooses buy, observe, or do not buy. The system records conversations, technique checks, behavior events, and the final study record.</p>
+<h2>1. Research Background</h2>
+<p>Countdowns, stock scarcity, social proof, strikethrough prices, and limited-time offers in online shopping compress the time users have to reflect on their needs and compare options, potentially triggering impulse purchases. Live commerce concentrates these cues, but similar pressure also exists on general e-commerce platforms, in group buying, pre-sales, and subscription consumption.</p>
+<p>Existing rational-consumption interventions commonly emphasize pausing, cooling down, budget calibration, delaying, or cancelling a purchase. Although these strategies can reduce immediate impulses, they may also imply a value stance that “buying less is always better.” For users with a clear need, sufficient budget, adequate product information, or a genuinely constrained purchase window, an excessively defensive system can create unnecessary delay, decision fatigue, opportunity costs, and even lower trust in AI advice.</p>
+<p>ShopAssistant therefore understands consumption decisions as judgments of <strong>purchase appropriateness</strong>, rather than unilateral suppression of buying. The system should identify impulse, information gaps, and budget pressure, while also supporting users in confidently completing a reasonable purchase when the evidence is sufficient.</p>
+<h2>2. Research Objectives</h2>
+<p>This project aims to:</p>
+<ol>
+<li>Build a configurable and loggable experimental environment for online consumption decisions.</li>
+<li>Test whether AI interventions may unintentionally lead to over-restraint, delay, or avoidance of reasonable purchases.</li>
+<li>Explore how AI can balance reducing impulse purchases with supporting reasonable purchases.</li>
+<li>Compare how seller agents, steward agents, and their combination affect users’ judgment processes and decision outcomes.</li>
+<li>Translate need, budget, information sufficiency, and emotional pressure into explainable, triggerable, and recordable decision checks.</li>
+<li>Provide an extensible foundation for subsequent experiments, questionnaires, interviews, and behavioral-log analysis.</li>
+</ol>
+<h2>3. Theoretical Perspectives</h2>
+<p>ShopAssistant’s design does not equate “rationality” with “buying less.” The following theories jointly support treating purchase, verification, and postponement as equally legitimate possible outcomes.</p>
+<table>
+<thead>
+<tr>
+<th>Theory and evidence</th>
+<th>Implications for this research</th>
+<th>Constraints on system design</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Dual-process decision making and impulse-buying tendency [1][2]</td>
+<td>Time pressure, scarcity, and emotional arousal can shorten careful comparison; impulse buying has both affective and cognitive components.</td>
+<td>Under high pressure, prompt users to pause and consider their budget and information gaps, but do not infer from pressure cues alone that they should not buy.</td>
+</tr>
+<tr>
+<td>Self-regulation, hedonic precommitment, and hyperopia [3]</td>
+<td>Insufficient self-control can cause impulse purchases, but an excessive preference for “should” choices can also make people miss reasonable, valuable consumption.</td>
+<td>Treat “unnecessary delay of or withdrawal from a purchase that fits the user’s needs and budget” as an independent outcome measure, rather than counting non-purchase as success by default.</td>
+</tr>
+<tr>
+<td>Theory of planned behavior [4]</td>
+<td>Attitudes, subjective norms, and perceived behavioral control jointly shape behavioral intention; “everyone else is buying” changes perceived norms, while budget and information affect perceived control.</td>
+<td>Ask separately about genuine need, social influence, budget headroom, and information available; do not replace a complete assessment with a single pressure score.</td>
+</tr>
+<tr>
+<td>Persuasion knowledge model [5]</td>
+<td>When users understand the intent and tactics behind marketing messages, they can assess claims more consciously.</td>
+<td>Rewrite promotional language as verifiable neutral facts, distinguishing “seller claims” from “verified evidence,” rather than suppressing purchases through counter-persuasion.</td>
+</tr>
+<tr>
+<td>Self-determination theory [6]</td>
+<td>Coercive or shaming advice undermines autonomy; support that preserves choice, explains reasons, and builds competence is more likely to be internalized.</td>
+<td>Explain the rationale and uncertainty behind every recommendation, preserve paths to ignore it, add information, and decide independently, and never coerce users with “you should.”</td>
+</tr>
+<tr>
+<td>Calibration of trust in automation [7][8]</td>
+<td>Users may over-rely on algorithms, or abandon them entirely after one error; explainability alone does not ensure appropriate trust.</td>
+<td>Show the basis for recommendations, evidence sources, confidence boundaries, and items still to verify; do not provide definitive purchase conclusions in high-impact situations.</td>
+</tr>
+</tbody>
+</table>
+<h3>3.1 Operational Definitions of Three Decision Risks</h3>
+<p>To avoid conflating value judgments, formal studies should establish an independent annotation of “purchase appropriateness” for each product scenario in advance, rather than inferring whether a user was rational from AI output or behavioral outcomes.</p>
+<table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Minimum identification criteria</th>
+<th>What must not be inferred directly</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Impulse purchase</td>
+<td>After pressure cues, the user quickly submits a purchase while needs are unclear, the budget is unsuitable, or key information is missing.</td>
+<td>A fast purchase does not automatically equal an impulse purchase; an urgent and well-informed purchase may be appropriate.</td>
+</tr>
+<tr>
+<td>Reasonable purchase</td>
+<td>Need, budget, product fit, and key information all meet research-defined thresholds, and the user can state the main reasons.</td>
+<td>A reasonable purchase is not risk-free, nor does it require an AI recommendation.</td>
+</tr>
+<tr>
+<td>Over-restraint</td>
+<td>After the threshold for a reasonable purchase has been met, the user unnecessarily delays, abandons, or avoids it because of AI advice or intervention, and confirms on delayed reassessment that this result was not in their own interest.</td>
+<td>A single “do not buy now” decision does not equal over-restraint; a delay may yield better information or pricing.</td>
+</tr>
+</tbody>
+</table>
+<p>This definition is consistent with the discussion of excessive self-control in [3] and responds to the emphasis on autonomy in [6]: whether a purchase is appropriate must be judged jointly through transparent research criteria, user reasons, and post-delay evaluation.</p>
+<h3>3.2 Testable Hypotheses</h3>
+<ul>
+<li>H1: Compared with a no-AI condition, a steward agent may reduce immediate submission in high-pressure, low-appropriateness scenarios, but increase the rate of postponement in high-appropriateness scenarios.</li>
+<li>H2: Compared with a single steward agent, dual-agent collaboration will reduce over-restraint in high-appropriateness scenarios while maintaining or reducing impulse purchases in low-appropriateness scenarios.</li>
+<li>H3: Recommendations that present evidence, items to verify, and an option to ignore them will better increase perceived autonomy and appropriate trust than deterministic directives, while reducing the likelihood of blindly following advice.</li>
+</ul>
+<h3>3.3 Five-technique protocol</h3>
+<p>To make the research page more than a seller/butler chat, the current flow extends BuyMate’s two core modules into five observable, reviewable, and logged techniques. Each technique combines an interface action, an agent instruction for a specific round, and an <code>intervention_check</code> event. None treats “do not buy” as the default success outcome.</p>
+<table>
+<thead>
+<tr>
+<th>Technique</th>
+<th>Participant action</th>
+<th>ShopAssistant agent behavior</th>
+<th>Main source (JCR Q1 research label)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Reflective pause</td>
+<td>Ask whether the need remains if the promotion cue disappears, while keeping buying after the pause legitimate.</td>
+<td>The third seller/butler round invites a 10-second pause and records the participant’s reason, certainty, and information gap.</td>
+<td>Mischel, Shoda, &amp; Rodriguez (1989), <em>Journal of Personality and Social Psychology</em></td>
+</tr>
+<tr>
+<td>Persuasion knowledge and neutral reframing</td>
+<td>Separate seller claims, checkable facts, and evidence gaps.</td>
+<td>The first seller round reframes urgency, popularity, and scarcity language without creating counter-pressure.</td>
+<td>Friestad &amp; Wright (1994), <em>Journal of Consumer Research</em></td>
+</tr>
+<tr>
+<td>Controlled comparison</td>
+<td>Select up to three candidates and compare them on the same dimensions.</td>
+<td>The second seller round uses only catalog facts and marks missing fields as unverified; it does not treat the cheapest option as correct.</td>
+<td>Iyengar &amp; Lepper (2000), <em>Journal of Personality and Social Psychology</em></td>
+</tr>
+<tr>
+<td>Budget calibration and mental accounting</td>
+<td>Place total price, budget cap, alternatives, frequency of use, and opportunity cost together.</td>
+<td>The first butler round uses only participant-provided numbers; a comfortable budget and clear need may support buying.</td>
+<td>Kivetz &amp; Simonson (2002), <em>Journal of Consumer Research</em></td>
+</tr>
+<tr>
+<td>Implementation intention</td>
+<td>Write a short, executable “if–then” plan that permits either buying or declining.</td>
+<td>The second butler round sets a bounded review time and one fact to verify.</td>
+<td>Gollwitzer (1999), <em>American Psychologist</em></td>
+</tr>
+</tbody>
+</table>
+<p>Self-determination theory (Deci &amp; Ryan, 2000, <em>Psychological Inquiry</em>, JCR Q1) is the interaction constraint across all five techniques: the AI explains reasons and uncertainty and preserves paths to ignore advice, add information, delay, or buy now. Q1 depends on year and category; the UI label is a research-provenance marker and should be rechecked against the institution’s latest Journal Citation Reports before preregistration or publication.</p>
+<h2>4. Relationship to BuyMate</h2>
+<p>ShopAssistant is inspired by BuyMate, <em>Making AI Interventions Effective in Promoting Rational Consumption in Live Commerce</em>. It carries forward BuyMate’s research interest in using AI to support reflection at key consumption-decision moments, but does not reproduce its full experimental procedure, scales, statistical models, or live-streaming capabilities.</p>
+<p>The key difference lies in the research boundary: BuyMate focuses on making AI interventions more effective in promoting rational consumption; ShopAssistant makes the possibility that <strong>the intervention itself is excessive</strong> part of the research object. It examines not only whether a system can reduce impulse purchases, but also whether it wrongly prevents purchases that are appropriate, and which forms of advice can both reduce impulse risk and minimize unnecessary purchase hesitation.</p>
+<p>The current prototype does not include streamer-audio transcription, real-time product-switch detection, live-interaction replication, or an automated <code>G1 → G2 → G3</code> sales-language analysis pipeline. Live commerce serves only as an optional high-pressure research context; sales-language categories, pressure scores, and similar-product rankings all serve ShopAssistant’s general consumption-decision research.</p>
+<h2>5. Research Questions</h2>
+<ul>
+<li>RQ1: Can AI interventions inadvertently cause over-restraint, such as unnecessary delay, abandonment, or avoidance of products that would otherwise be appropriate to purchase?</li>
+<li>RQ2: How do seller agents and steward agents respectively affect users’ assessments of need, budget, information sufficiency, and emotional pressure?</li>
+<li>RQ3: What AI recommendation strategies can balance reducing impulse purchases with supporting reasonable purchases?</li>
+<li>RQ4: Which situations, user states, or product characteristics are more likely to produce impulse-purchase, reasonable-purchase, and over-restraint outcomes?</li>
+<li>RQ5: When the two agents agree or disagree, how do users interpret the advice, seek verification, and reach a final decision?</li>
+<li>RQ6: Can explaining the basis, uncertainty, and alternative actions behind recommendations improve user autonomy, decision confidence, and appropriate trust in AI?</li>
+</ul>
+<h2>6. Conceptual Model</h2>
+<p>ShopAssistant’s research model can be summarized as:</p>
+<p><strong>Context and user state → dual-agent dialogue and inclination analysis → participant’s three-way decision → archive and process report</strong></p>
+<p>Context and user state include promotional pressure, product-information quality, urgency of genuine need, disposable budget, alternatives, emotional pressure, and time constraints. The seller agent actively encourages buying from the perspectives of product value, use context, after-sales service, and alternatives. The steward agent checks for impulse cues, budget pressure, information gaps, and irreversibility risk, and preferentially encourages not buying or continued observation. Their structured output is no longer advice to the user; it analyzes whether the user’s current language leans toward buying, continuing to observe, or not buying.</p>
+<p>In ordinary product consultations, the user can explicitly generate a synthesis after both the seller and steward have replied. The synthesis presents one of the following outcomes together with its reasons and matters to confirm:</p>
+<table>
+<thead>
+<tr>
+<th>Recommendation</th>
+<th>Applicable situation</th>
+<th>System support</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Buy now</td>
+<td>The need is clear, the budget permits it, key information is sufficient, and no significant emotional or promotional-pressure risk is found.</td>
+<td>Summarize the basis for purchase, remind users to check key terms, and support completion of a simulated decision.</td>
+</tr>
+<tr>
+<td>Verify more information</td>
+<td>Key uncertainties remain about the product, price, fit, after-sales service, or alternatives.</td>
+<td>List specific items to verify, provide comparison and lookup paths, then let the user decide.</td>
+</tr>
+<tr>
+<td>Do not make this purchase for now</td>
+<td>Need is unclear, budget is under pressure, emotions are highly volatile, or risks clearly outweigh the current value.</td>
+<td>Explain the basis for postponement, offer a cooling-off or delayed-review path, and avoid framing postponement as failure.</td>
+</tr>
+</tbody>
+</table>
+<p>The research flow does not treat agent analysis as a final instruction to the participant: each agent’s structured output records the participant’s currently expressed inclination—buy, observe, or do not buy—and its evidence. When the flow is complete, the interface displays both inclinations alongside the participant’s final choice and allows feedback on decision confidence, process helpfulness, and an open comment. The current prototype has no separate “accepted / rejected / ignored recommendation” event and no automated delayed reassessment. Those require additional instruments in a formal study and must not be inferred from a single non-purchase or exit.</p>
+<h2>7. Dual-Agent Study Conditions</h2>
+<p>The current prototype can be configured with the following study conditions:</p>
+<ul>
+<li><strong>Seller agent:</strong> focuses on clarifying product value and fit for use and preferentially encourages buying by connecting needs, functions, price composition, alternatives, and timing; it must not create pressure through urgency, scarcity, or social-proof language.</li>
+<li><strong>Steward agent:</strong> focuses on identifying impulse, budget pressure, information gaps, and emotional influence, preferentially encouraging not buying or continued observation while helping users verify risks and distinguish genuine needs from immediate triggers.</li>
+<li><strong>Dual-agent collaboration:</strong> presents complementary perspectives in the same decision and explicitly shows consensus, disagreement, evidence, and information that still needs user confirmation.</li>
+<li><strong>Neutral or no-AI control:</strong> used to compare the effect of AI advice itself, its wording, and its timing on purchase appropriateness and over-restraint.</li>
+<li><strong>Decision-support tools:</strong> need reflection, budget calibration, similar-product comparison, neutral rewriting of sales language, information-verification checklists, cooling-off delays, and pre-checkout checks.</li>
+</ul>
+<h2>8. Prototype as a Research Tool</h2>
+<p>ShopAssistant is not a real e-commerce system and does not depend on a live-streaming platform. Products in the system are research samples; the pending-purchase list represents purchase intent, and orders represent simulated decision records. Researchers can analyze users’ judgment processes through behavioral logs, AI conversations, agent recommendations, pressure profiles, and submission records.</p>
+<p>Major research events include:</p>
+<table>
+<thead>
+<tr>
+<th>Event</th>
+<th>Research significance</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Browsing a sample</td>
+<td>Product exposure, initial interest, and dwell time</td>
+</tr>
+<tr>
+<td>Adding to pending purchases</td>
+<td>Initial purchase intention</td>
+</tr>
+<tr>
+<td>Removing from pending purchases</td>
+<td>Decision withdrawal; its reasons must be considered when judging over-restraint</td>
+</tr>
+<tr>
+<td>Seller/steward agent conversations</td>
+<td>Which decision perspective users actively seek</td>
+</tr>
+<tr>
+<td>Synthesis in ordinary product consultation</td>
+<td>A user-triggered three-way synthesis, reasons, evidence status, and items to verify after both product consultations have a reply</td>
+</tr>
+<tr>
+<td>Information verification and comparison</td>
+<td>Whether users fill the information needed for a decision</td>
+</tr>
+<tr>
+<td>Pressure test and pressure profile</td>
+<td>Perceived situational pressure and frequent cues</td>
+</tr>
+<tr>
+<td>Research consent</td>
+<td>A consent event and a distinct study-run ID are recorded after a signed-in participant agrees</td>
+</tr>
+<tr>
+<td>Mid-study exit</td>
+<td>Conversations and behavior data for that unfinished run are cleared from the server; the exit itself is not retained as a research event</td>
+</tr>
+<tr>
+<td>Final choice and archive</td>
+<td>An immutable snapshot stores the profile, catalog candidates, technique checks, agent conversations, related behavior, and final three-way choice</td>
+</tr>
+<tr>
+<td>Post-completion feedback and process report</td>
+<td>Decision confidence, process helpfulness, and open feedback are recorded; an explanatory process report can be generated from the two agent conversations</td>
+</tr>
+</tbody>
+</table>
+<p>The research dashboard currently aggregates behavioral volume, sessions, agent use, intervention-use frequency, and pressure distribution. It does not yet provide a distribution of research-flow syntheses or an “accepted / rejected recommendation” summary. The product-insights page can show browsing, pending-purchase additions, decisions, AI use, and a recent activity timeline for each sample.</p>
+<h2>9. Variables and Measures</h2>
+<h3>Independent Variables</h3>
+<ul>
+<li>AI condition: seller agent, steward agent, dual agent, neutral AI, or no AI.</li>
+<li>AI recommendation: buy now, verify more information, or do not buy for now, as well as its rationale, certainty, and timing of presentation.</li>
+<li>Contextual factors: time limits, scarcity, social proof, discount anchoring, completeness of product information, and purchase window.</li>
+<li>User state: need urgency, budget headroom, availability of alternatives, prior knowledge, and emotional pressure.</li>
+<li>Support strategies: need reflection, budget calibration, similar-product comparison, sales-language reframing, information verification, cooling-off delay, and pre-checkout checks.</li>
+</ul>
+<h3>Process Measures</h3>
+<ul>
+<li>Frequency and turns for both agent types, their analyses of current purchase inclination, and their disagreement.</li>
+<li>Observable technique checks, controlled comparisons, information supplements, pressure probes, and pre-checkout checks.</li>
+<li>Pressure score, pressure level, and frequency of each kind of pressure cue.</li>
+<li>Intervals between recorded events, such as browsing to adding and consultation to final choice. “Recommendation accepted / rejected / ignored” becomes analyzable only after explicit events are added for it.</li>
+</ul>
+<h3>Outcome Measures</h3>
+<ul>
+<li><strong>Purchase appropriateness:</strong> multidimensional evaluation of the final choice using predefined criteria for need, budget, information sufficiency, and product fit.</li>
+<li><strong>Impulse-purchase tendency:</strong> immediate submission under high pressure, low need, budget mismatch, or insufficient information.</li>
+<li><strong>Over-restraint tendency:</strong> unnecessary delay, abandonment, or avoidance caused by AI intervention despite a clear need, sufficient budget, adequate information, and product fit.</li>
+<li><strong>User experience collected now:</strong> final decision confidence, perceived helpfulness of the process, and an open-ended comment.</li>
+<li><strong>User experience for a formal study:</strong> perceived autonomy, anticipated regret, cognitive load, perceived fairness of advice, and trust in AI.</li>
+</ul>
+<p>“Over-restraint” should not be determined from a single non-purchase action. It should be identified jointly using the appropriateness criteria for experimental materials, users’ self-reported reasons, delayed reassessment, and subsequent evaluation.</p>
+<h2>10. Directions for Data Analysis</h2>
+<p>Researchers can conduct:</p>
+<ul>
+<li>Descriptive statistics for browsing, adding, submitting, postponing, information verification, and recommendation-trigger counts.</li>
+<li>Condition comparisons of impulse purchase, reasonable purchase, and over-restraint-related measures across agent conditions.</li>
+<li>Recommendation-calibration analysis to test alignment between the AI’s three recommendations, predefined purchase-appropriateness standards, users’ final choices, and subsequent evaluations.</li>
+<li>Path analysis of session trajectories such as “browse → consult agent → verify information → recommendation → submit/postpone.”</li>
+<li>Disagreement analysis of how users handle uncertainty and conflicting advice when seller and steward agents disagree.</li>
+<li>Heterogeneity analysis of moderating effects from budget pressure, need urgency, emotional state, information literacy, and impulse-buying tendency.</li>
+<li>Mixed-methods research combining logs, questionnaires, interviews, and open-ended feedback to explain when users feel appropriately supported, excessively blocked, or improperly encouraged.</li>
+</ul>
+<h2>11. Ethics and Boundaries</h2>
+<p>ShopAssistant is a research prototype and must not be presented as a real, professional, or personalized consumer-advice system. Formal studies should:</p>
+<ul>
+<li>Inform participants that the system records behavior, AI conversations, technique checks, final study records, and any optional post-completion report.</li>
+<li>Explain that “orders” in the system are not real purchases and that AI recommendations do not constitute financial, legal, or professional advice.</li>
+<li>Prohibit seller agents from using manipulative or urgent sales tactics, or tactics based on vulnerable user states.</li>
+<li>Prohibit steward agents from discouraging purchases through shame, fear, or blanket rejection.</li>
+<li>Present the basis, limitations, and uncertainty of recommendations, and preserve users’ right to bypass advice or request more information.</li>
+<li>Explain the data lifecycle: a participant can exit an unfinished run and clear its server-side conversations and behavior data; a completed run is stored as an immutable archive and the current prototype does not let the participant delete it. A formal study must state the retention period, withdrawal boundary, deletion process, and study contact in its consent materials.</li>
+<li>Implement de-identified export, access controls, and the required withdrawal process before collecting formal data, and obtain informed consent and ethics approval.</li>
+<li>Record models, prompts, parameters, sample materials, AI enablement status, recommendation rules, and project versions to ensure reproducibility.</li>
+</ul>
+<h2>12. Project Limitations</h2>
+<ul>
+<li>The current prototype does not include BuyMate’s full experimental procedure, scales, or statistical scripts.</li>
+<li>“Purchase appropriateness” and “over-restraint” must be operationalized in advance for the research context; they cannot be determined directly from model output or a single behavioral measure.</li>
+<li>The pressure score is a heuristic indicator, not a validated psychometric scale.</li>
+<li>Sample materials, budget scenarios, product information, and criteria for reasonable purchase still require systematic design around a specific research question.</li>
+<li>AI output is affected by the model, prompts, and parameters; the perspectives of both agents may also be incomplete or biased at the same time.</li>
+<li>Behavioral logs record only observable actions and cannot fully explain user motivations; self-reports, interviews, and delayed reassessment are also needed.</li>
+<li>Random assignment, questionnaire management, de-identified export, recommendation-calibration annotation, and preregistration-analysis tools are not yet built in.</li>
+<li>The post-completion “decision-process report” uses only explicit statements in the two agent conversations to generate five 0–100 visualization indexes. It is not a calibrated psychometric measure, diagnosis, personality judgment, or recommendation to buy or not buy.</li>
+<li>Post-completion feedback occurs after the study archive is created, so the current archive snapshot does not automatically include it. A formal study needs a separate, linkable retention strategy if that feedback is primary data.</li>
+<li>Live-commerce-specific capabilities are outside the current research scope, as is the automated <code>G1 → G2 → G3</code> sales-language analysis pipeline.</li>
+</ul>
+<h2>13. Future Extensions</h2>
+<p>Future work can add:</p>
+<ul>
+<li>Randomized experiments with seller-agent, steward-agent, dual-agent, neutral-AI, and no-AI conditions.</li>
+<li>Purchase-appropriateness annotation rules for different product categories, along with multi-source evaluation by researchers, users, and independent assessors.</li>
+<li>Scales for impulse-buying tendency, budget pressure, post-decision regret, over-restraint, AI trust, and perceived autonomy.</li>
+<li>Visual interfaces for recommendation rationale, evidence sources, uncertainty, and agent disagreement.</li>
+<li>Follow-up questions after a delay about users’ needs, budget changes, and decision satisfaction, to distinguish helpful delay from unnecessary avoidance.</li>
+<li>Data export, de-identification, session-path visualization, and manual annotation of AI response quality.</li>
+<li>Comparative studies of different intervention timings, language styles, decision-support tasks, and task durations.</li>
+</ul>
+<h2>14. Implementation Scope</h2>
+<p>The current repository provides:</p>
+<table>
+<thead>
+<tr>
+<th>Location</th>
+<th>Research use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>view/</code></td>
+<td>Participant interface, informed consent, AI interaction, decision support, pressure test, staged research flow, and dashboard interface</td>
+</tr>
+<tr>
+<td><code>worker/src/modules/shop/</code></td>
+<td>Product samples and sample insights</td>
+</tr>
+<tr>
+<td><code>worker/src/modules/cart/</code></td>
+<td>Pending-purchase list</td>
+</tr>
+<tr>
+<td><code>worker/src/modules/order/</code></td>
+<td>Simulated decision records</td>
+</tr>
+<tr>
+<td><code>worker/src/modules/ai/</code></td>
+<td>Seller and steward agents</td>
+</tr>
+<tr>
+<td><code>worker/src/modules/ai/research-report.js</code></td>
+<td>Explanatory decision-process report generated from the two agent conversations in a completed study</td>
+</tr>
+<tr>
+<td><code>worker/src/modules/research/</code></td>
+<td>Behavioral tracking, pressure profiles, unfinished-run deletion, completed-study archiving, and research aggregation</td>
+</tr>
+<tr>
+<td><code>worker/src/modules/admin/</code></td>
+<td>Research dashboard and AI configuration</td>
+</tr>
+<tr>
+<td><code>worker/store/migrations/</code></td>
+<td>Data schema, sample data, and the completed-study archive table in <code>0013_completed_research_archives.sql</code></td>
+</tr>
+</tbody>
+</table>
+<p>The technical implementation serves the research question of “when is it appropriate to buy?” Before formally collecting data, researchers should record the project version, sample materials, AI prompts, experimental conditions, purchase-appropriateness criteria, and analysis plan, and first verify that dual-agent outputs do not systematically promote impulse purchases or over-restraint.</p>
+<h2>15. References and Links</h2>
+<p>The following works are the principal basis for this document’s theoretical claims and implementation constraints. Formal paper writing should still verify versions, page ranges, and citation style against the target venue.</p>
+<ol>
+<li>Verplanken, B., &amp; Herabadi, A. (2001). <em>Individual differences in impulse buying tendency: Feeling and no thinking</em>. European Journal of Personality, 15(S1), S71–S83. <a href="https://doi.org/10.1002/per.423">https://doi.org/10.1002/per.423</a></li>
+<li>Dhar, R., &amp; Wertenbroch, K. (2000). <em>Consumer choice between hedonic and utilitarian goods</em>. Journal of Marketing Research, 37(1), 60–71. <a href="https://doi.org/10.1509/jmkr.37.1.60.18718">https://doi.org/10.1509/jmkr.37.1.60.18718</a></li>
+<li>Kivetz, R., &amp; Simonson, I. (2002). <em>Self-control for the righteous: Toward a theory of precommitment to indulgence</em>. Journal of Consumer Research, 29(2), 199–217. <a href="https://doi.org/10.1086/339925">https://doi.org/10.1086/339925</a></li>
+<li>Ajzen, I. (1991). <em>The theory of planned behavior</em>. Organizational Behavior and Human Decision Processes, 50(2), 179–211. <a href="https://doi.org/10.1016/0749-5978(91)90020-T">https://doi.org/10.1016/0749-5978(91)90020-T</a></li>
+<li>Friestad, M., &amp; Wright, P. (1994). <em>The persuasion knowledge model: How people cope with persuasion attempts</em>. Journal of Consumer Research, 21(1), 1–31. <a href="https://doi.org/10.1086/209380">https://doi.org/10.1086/209380</a></li>
+<li>Deci, E. L., &amp; Ryan, R. M. (2000). <em>The “what” and “why” of goal pursuits: Human needs and the self-determination of behavior</em>. Psychological Inquiry, 11(4), 227–268. <a href="https://doi.org/10.1207/S15327965PLI1104_01">https://doi.org/10.1207/S15327965PLI1104_01</a></li>
+<li>Lee, J. D., &amp; See, K. A. (2004). <em>Trust in automation: Designing for appropriate reliance</em>. Human Factors, 46(1), 50–80. <a href="https://doi.org/10.1518/hfes.46.1.50_30392">https://doi.org/10.1518/hfes.46.1.50_30392</a></li>
+<li>Dietvorst, B. J., Simmons, J. P., &amp; Massey, C. (2015). <em>Algorithm aversion: People erroneously avoid algorithms after seeing them err</em>. Journal of Experimental Psychology: General, 144(1), 114–126. <a href="https://doi.org/10.1037/xge0000033">https://doi.org/10.1037/xge0000033</a></li>
+</ol>
+  </main>
+</body>
+</html>

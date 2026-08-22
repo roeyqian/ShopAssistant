@@ -1,10 +1,12 @@
 # ShopAssistant Research Project Documentation
 
+> Implementation verified: 2026-08-17. This document distinguishes data the current prototype records, measures that can only be inferred from those data, and capabilities still required before a formal study.
+
 ## Abstract
 
 ShopAssistant is a prototype system for research on online consumption decisions. It examines a risk that AI interventions may create beyond reducing impulse purchases: **over-restraint**. BuyMate (ACM CHI 2026) explored how AI interventions can promote rational consumption in live commerce. Building on its idea of offering support at pivotal decision points, this project asks a further question: when a system repeatedly warns of risk, delays purchases, or encourages users to forgo them, might it inadvertently cause users to postpone or avoid purchases that they genuinely need, can afford, and understand well enough to make?
 
-This project no longer treats “preventing a purchase” as the default measure of success. Instead, it helps users decide whether purchasing is appropriate at that moment. Through two complementary roles—a seller agent and a steward agent—the backend large language model guides users to consider their needs, budgets, available information, and emotional pressure. It then provides one of three transparent and reviewable recommendations: buy now, verify more information, or do not make this purchase for now. Users retain the final decision, while recommendations, reasons, user actions, and final decisions are recorded as research data.
+This project no longer treats “preventing a purchase” as the default measure of success. Instead, it helps users decide whether purchasing is appropriate at that moment. A seller agent and a steward agent offer complementary perspectives on needs, budgets, available information, and emotional pressure. In ordinary product consultations, the system can synthesize their conversations into one of three recommendations: buy now, verify more information, or do not make this purchase for now. The staged research flow instead retains each agent’s independent analysis of the participant’s current inclination, while the participant chooses buy, observe, or do not buy. The system records conversations, technique checks, behavior events, and the final study record.
 
 ## 1. Research Background
 
@@ -91,11 +93,11 @@ The current prototype does not include streamer-audio transcription, real-time p
 
 ShopAssistant’s research model can be summarized as:
 
-**Context and user state → dual-agent review → purchase-appropriateness recommendation → user decision and subsequent evaluation**
+**Context and user state → dual-agent dialogue and inclination analysis → participant’s three-way decision → archive and process report**
 
 Context and user state include promotional pressure, product-information quality, urgency of genuine need, disposable budget, alternatives, emotional pressure, and time constraints. The seller agent actively encourages buying from the perspectives of product value, use context, after-sales service, and alternatives. The steward agent checks for impulse cues, budget pressure, information gaps, and irreversibility risk, and preferentially encourages not buying or continued observation. Their structured output is no longer advice to the user; it analyzes whether the user's current language leans toward buying, continuing to observe, or not buying.
 
-After integrating these checks, the system presents one of the following recommendations, together with its reasons and matters to confirm:
+In ordinary product consultations, the user can explicitly generate a synthesis after both the seller and steward have replied. The synthesis presents one of the following outcomes together with its reasons and matters to confirm:
 
 | Recommendation | Applicable situation | System support |
 | --- | --- | --- |
@@ -103,7 +105,7 @@ After integrating these checks, the system presents one of the following recomme
 | Verify more information | Key uncertainties remain about the product, price, fit, after-sales service, or alternatives. | List specific items to verify, provide comparison and lookup paths, then let the user decide. |
 | Do not make this purchase for now | Need is unclear, budget is under pressure, emotions are highly volatile, or risks clearly outweigh the current value. | Explain the basis for postponement, offer a cooling-off or delayed-review path, and avoid framing postponement as failure. |
 
-Users may accept, question, supplement, or ignore recommendations. Research outcomes record not only whether a purchase is submitted, but also whether advice and final choice align, whether users feel inappropriately discouraged, and whether they still consider the choice to serve their interests after a delay.
+The research flow does not treat agent analysis as a final instruction to the participant: each agent’s structured output records the participant’s currently expressed inclination—buy, observe, or do not buy—and its evidence. When the flow is complete, the interface displays both inclinations alongside the participant’s final choice and allows feedback on decision confidence, process helpfulness, and an open comment. The current prototype has no separate “accepted / rejected / ignored recommendation” event and no automated delayed reassessment. Those require additional instruments in a formal study and must not be inferred from a single non-purchase or exit.
 
 ## 7. Dual-Agent Study Conditions
 
@@ -127,13 +129,15 @@ Major research events include:
 | Adding to pending purchases | Initial purchase intention |
 | Removing from pending purchases | Decision withdrawal; its reasons must be considered when judging over-restraint |
 | Seller/steward agent conversations | Which decision perspective users actively seek |
-| Recommendation generation and viewing | Exposure to AI recommendations, reasons, confidence, and items to verify |
+| Synthesis in ordinary product consultation | A user-triggered three-way synthesis, reasons, evidence status, and items to verify after both product consultations have a reply |
 | Information verification and comparison | Whether users fill the information needed for a decision |
 | Pressure test and pressure profile | Perceived situational pressure and frequent cues |
-| Cooling-off mini-game or delay | Non-AI attentional shifting and postponed decision-making |
-| Submission record and subsequent evaluation | Final simulated decision, decision confidence, anticipated regret, and advice alignment |
+| Research consent | A consent event and a distinct study-run ID are recorded after a signed-in participant agrees |
+| Mid-study exit | Conversations and behavior data for that unfinished run are cleared from the server; the exit itself is not retained as a research event |
+| Final choice and archive | An immutable snapshot stores the profile, catalog candidates, technique checks, agent conversations, related behavior, and final three-way choice |
+| Post-completion feedback and process report | Decision confidence, process helpfulness, and open feedback are recorded; an explanatory process report can be generated from the two agent conversations |
 
-The research dashboard can aggregate behavioral volume, sessions, agent use, recommendation distribution, intervention-use frequency, and pressure distribution. The product-insights page can show browsing, pending-purchase additions, decisions, AI use, and a recent activity timeline for each sample.
+The research dashboard currently aggregates behavioral volume, sessions, agent use, intervention-use frequency, and pressure distribution. It does not yet provide a distribution of research-flow syntheses or an “accepted / rejected recommendation” summary. The product-insights page can show browsing, pending-purchase additions, decisions, AI use, and a recent activity timeline for each sample.
 
 ## 9. Variables and Measures
 
@@ -147,17 +151,18 @@ The research dashboard can aggregate behavioral volume, sessions, agent use, rec
 
 ### Process Measures
 
-- Frequency of use, conversation length, recommendation content, and disagreement between the two types of agents.
-- Viewing, accepting, questioning, or ignoring recommendations; requesting more information; and information-verification behavior.
+- Frequency and turns for both agent types, their analyses of current purchase inclination, and their disagreement.
+- Observable technique checks, controlled comparisons, information supplements, pressure probes, and pre-checkout checks.
 - Pressure score, pressure level, and frequency of each kind of pressure cue.
-- Time intervals from browsing to adding, adding to recommendation, and recommendation to submission or abandonment.
+- Intervals between recorded events, such as browsing to adding and consultation to final choice. “Recommendation accepted / rejected / ignored” becomes analyzable only after explicit events are added for it.
 
 ### Outcome Measures
 
 - **Purchase appropriateness:** multidimensional evaluation of the final choice using predefined criteria for need, budget, information sufficiency, and product fit.
 - **Impulse-purchase tendency:** immediate submission under high pressure, low need, budget mismatch, or insufficient information.
 - **Over-restraint tendency:** unnecessary delay, abandonment, or avoidance caused by AI intervention despite a clear need, sufficient budget, adequate information, and product fit.
-- **User experience:** decision confidence, perceived autonomy, anticipated regret, cognitive load, perceived fairness of advice, and trust in AI.
+- **User experience collected now:** final decision confidence, perceived helpfulness of the process, and an open-ended comment.
+- **User experience for a formal study:** perceived autonomy, anticipated regret, cognitive load, perceived fairness of advice, and trust in AI.
 
 “Over-restraint” should not be determined from a single non-purchase action. It should be identified jointly using the appropriateness criteria for experimental materials, users’ self-reported reasons, delayed reassessment, and subsequent evaluation.
 
@@ -177,12 +182,13 @@ Researchers can conduct:
 
 ShopAssistant is a research prototype and must not be presented as a real, professional, or personalized consumer-advice system. Formal studies should:
 
-- Inform participants that the system records behavior, AI conversations, recommendations, and simulated decisions.
+- Inform participants that the system records behavior, AI conversations, technique checks, final study records, and any optional post-completion report.
 - Explain that “orders” in the system are not real purchases and that AI recommendations do not constitute financial, legal, or professional advice.
 - Prohibit seller agents from using manipulative or urgent sales tactics, or tactics based on vulnerable user states.
 - Prohibit steward agents from discouraging purchases through shame, fear, or blanket rejection.
 - Present the basis, limitations, and uncertainty of recommendations, and preserve users’ right to bypass advice or request more information.
-- De-identify exported data, provide a withdrawal mechanism, and obtain informed consent and ethics approval before collecting data.
+- Explain the data lifecycle: a participant can exit an unfinished run and clear its server-side conversations and behavior data; a completed run is stored as an immutable archive and the current prototype does not let the participant delete it. A formal study must state the retention period, withdrawal boundary, deletion process, and study contact in its consent materials.
+- Implement de-identified export, access controls, and the required withdrawal process before collecting formal data, and obtain informed consent and ethics approval.
 - Record models, prompts, parameters, sample materials, AI enablement status, recommendation rules, and project versions to ensure reproducibility.
 
 ## 12. Project Limitations
@@ -194,6 +200,8 @@ ShopAssistant is a research prototype and must not be presented as a real, profe
 - AI output is affected by the model, prompts, and parameters; the perspectives of both agents may also be incomplete or biased at the same time.
 - Behavioral logs record only observable actions and cannot fully explain user motivations; self-reports, interviews, and delayed reassessment are also needed.
 - Random assignment, questionnaire management, de-identified export, recommendation-calibration annotation, and preregistration-analysis tools are not yet built in.
+- The post-completion “decision-process report” uses only explicit statements in the two agent conversations to generate five 0–100 visualization indexes. It is not a calibrated psychometric measure, diagnosis, personality judgment, or recommendation to buy or not buy.
+- Post-completion feedback occurs after the study archive is created, so the current archive snapshot does not automatically include it. A formal study needs a separate, linkable retention strategy if that feedback is primary data.
 - Live-commerce-specific capabilities are outside the current research scope, as is the automated `G1 → G2 → G3` sales-language analysis pipeline.
 
 ## 13. Future Extensions
@@ -206,7 +214,7 @@ Future work can add:
 - Visual interfaces for recommendation rationale, evidence sources, uncertainty, and agent disagreement.
 - Follow-up questions after a delay about users’ needs, budget changes, and decision satisfaction, to distinguish helpful delay from unnecessary avoidance.
 - Data export, de-identification, session-path visualization, and manual annotation of AI response quality.
-- Comparative studies of different intervention timings, language styles, mini-game types, and task durations.
+- Comparative studies of different intervention timings, language styles, decision-support tasks, and task durations.
 
 ## 14. Implementation Scope
 
@@ -214,14 +222,15 @@ The current repository provides:
 
 | Location | Research use |
 | --- | --- |
-| `view/` | Participant interface, AI interaction, decision support, pressure test, mini-games, and dashboard interface |
+| `view/` | Participant interface, informed consent, AI interaction, decision support, pressure test, staged research flow, and dashboard interface |
 | `worker/src/modules/shop/` | Product samples and sample insights |
 | `worker/src/modules/cart/` | Pending-purchase list |
 | `worker/src/modules/order/` | Simulated decision records |
 | `worker/src/modules/ai/` | Seller and steward agents |
-| `worker/src/modules/research/` | Behavioral tracking, pressure profiles, and research aggregation |
+| `worker/src/modules/ai/research-report.js` | Explanatory decision-process report generated from the two agent conversations in a completed study |
+| `worker/src/modules/research/` | Behavioral tracking, pressure profiles, unfinished-run deletion, completed-study archiving, and research aggregation |
 | `worker/src/modules/admin/` | Research dashboard and AI configuration |
-| `worker/store/migrations/` | Data schema and sample data |
+| `worker/store/migrations/` | Data schema, sample data, and the completed-study archive table in `0013_completed_research_archives.sql` |
 
 The technical implementation serves the research question of “when is it appropriate to buy?” Before formally collecting data, researchers should record the project version, sample materials, AI prompts, experimental conditions, purchase-appropriateness criteria, and analysis plan, and first verify that dual-agent outputs do not systematically promote impulse purchases or over-restraint.
 
