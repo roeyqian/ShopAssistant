@@ -1044,6 +1044,7 @@
                   <option :value="3000">¥3,000</option>
                   <option :value="5000">¥5,000</option>
                   <option :value="10000">¥10,000</option>
+                  <option :value="10001">¥10,000以上</option>
                 </select>
               </label>
               <label class="field">
