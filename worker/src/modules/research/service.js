@@ -108,6 +108,95 @@ export async function archiveCompletedResearch({ request, env }) {
   });
 }
 
+// The R2 object deliberately remains private. This authenticated route is the
+// stable link stored in D1 and prevents raw transcripts and profile data from
+// being exposed through a public bucket URL.
+export async function getCompletedResearchArchiveContent({ request, env, params }) {
+  const { session } = await requireStandardUser(request, env);
+  const archiveId = String(params.archiveId || '').trim();
+  if (!/^research_archive_[a-zA-Z0-9_]+$/.test(archiveId)) {
+    throw { status: 400, message: 'A valid research archive ID is required' };
+  }
+
+  const archive = await env.db.prepare(`
+    SELECT r2_archive_key
+    FROM completed_research_archives
+    WHERE id = ? AND user_id = ?
+  `).bind(archiveId, session.userId).first();
+  if (!archive?.r2_archive_key) {
+    throw { status: 404, message: 'Research archive content not found' };
+  }
+  if (!env.zero_1_store) {
+    throw { status: 503, message: 'Research archive storage is not configured' };
+  }
+
+  const object = await env.zero_1_store.get(archive.r2_archive_key);
+  if (!object) throw { status: 404, message: 'Research archive content not found' };
+
+  const headers = new Headers();
+  headers.set('content-type', object.httpMetadata?.contentType || 'application/json; charset=utf-8');
+  headers.set('cache-control', 'no-store');
+  headers.set('content-disposition', `attachment; filename="${archiveId}.json"`);
+  return new Response(object.body, { headers });
+}
+
+export async function persistCompletedResearchContent(env, archive, report, options = {}) {
+  if (!archive?.id) throw new Error('Research archive record is required');
+  if (!env.zero_1_store) {
+    throw { status: 503, message: 'Research archive storage is not configured' };
+  }
+
+  const snapshot = parseArchiveJson(archive.snapshot_json, {});
+  const generatedAt = options.generatedAt || archive.report_generated_at || new Date().toISOString();
+  const reportModel = options.reportModel || archive.report_model || 'unknown';
+  const r2ArchiveKey = archive.r2_archive_key || `archive/${archive.id}.json`;
+  const r2ArchiveUrl = `/api/research/archive/${encodeURIComponent(archive.id)}/content`;
+  const content = {
+    schemaVersion: 2,
+    archive: {
+      id: archive.id,
+      researchRunId: archive.research_run_id,
+      finalDecision: archive.final_decision,
+      selectedProductId: archive.selected_product_id || null,
+      completedAt: archive.completed_at,
+      reportGeneratedAt: generatedAt,
+      reportModel,
+    },
+    rawResearchMaterial: snapshot,
+    report,
+  };
+
+  await env.zero_1_store.put(r2ArchiveKey, JSON.stringify(content), {
+    httpMetadata: { contentType: 'application/json; charset=utf-8' },
+    customMetadata: {
+      archiveId: archive.id,
+      researchRunId: archive.research_run_id,
+      contentSchemaVersion: '2',
+    },
+  });
+
+  await env.db.prepare(`
+    UPDATE completed_research_archives
+    SET report_json = ?, report_generated_at = ?, report_model = ?,
+        r2_archive_key = ?, r2_archive_url = ?, r2_archived_at = datetime('now')
+    WHERE id = ? AND user_id = ?
+  `).bind(
+    JSON.stringify(report), generatedAt, reportModel,
+    r2ArchiveKey, r2ArchiveUrl, archive.id, archive.user_id,
+  ).run();
+
+  return { r2ArchiveKey, r2ArchiveUrl };
+}
+
+function parseArchiveJson(value, fallback) {
+  try {
+    const parsed = JSON.parse(value || '');
+    return parsed && typeof parsed === 'object' ? parsed : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 function requireResearchRunId(value) {
   const researchRunId = String(value || '').trim();
   if (!/^[a-zA-Z0-9_-]{12,100}$/.test(researchRunId)) {

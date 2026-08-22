@@ -6,6 +6,7 @@ import { getDecisionPrompt, getSynthesisPrompt, parseDecisionResponse, parseStor
 import { getStructuredAgentPrompt, parseStructuredAgentResponse, parseStoredAssessment as parseAgentAssessment } from "./structured.js";
 import { getResearchReportPrompt, parseResearchReport } from "./research-report.js";
 import { getLocaleFromRequest, normalizeProduct } from "../shop/utils.js";
+import { persistCompletedResearchContent } from "../research/service.js";
 
 const HIDDEN_METADATA_KEY = 'hiddenFromUser';
 const MAX_MESSAGE_LENGTH = 2_000;
@@ -396,14 +397,22 @@ export async function researchReport({ request, env, url }) {
   const body = await readJsonBody(request);
   const researchRunId = requireResearchRunId(body.researchRunId);
   const archive = await env.db.prepare(`
-    SELECT final_decision, selected_product_id, profile_json
+    SELECT id, user_id, research_run_id, final_decision, selected_product_id,
+           profile_json, snapshot_json, completed_at, report_json,
+           report_generated_at, report_model, r2_archive_key, r2_archive_url
     FROM completed_research_archives
     WHERE user_id = ? AND research_run_id = ?
   `).bind(session.userId, researchRunId).first();
   if (!archive) throw { status: 409, message: locale === 'en-US' ? 'Complete the study before generating its report.' : '请先完成研究流程，再生成报告。' };
 
   const existing = await getStoredResearchReport(env, session.userId, researchRunId, locale);
-  if (existing) return json({ report: existing, cached: true });
+  if (existing) {
+    await persistCompletedResearchContent(env, archive, existing, {
+      reportModel: archive.report_model || 'unknown',
+      generatedAt: archive.report_generated_at || new Date().toISOString(),
+    });
+    return json({ report: existing, cached: true });
+  }
 
   const config = await env.db.prepare("SELECT * FROM ai_config WHERE id = 1").first();
   if (!config?.deepseek_api_key) {
@@ -449,6 +458,10 @@ export async function researchReport({ request, env, url }) {
     JSON.stringify({ source: 'research-report', researchRunId, report, model: config.deepseek_model || 'deepseek-chat', finishReason: result.finishReason || null }),
     timestamp,
   ).run();
+  await persistCompletedResearchContent(env, archive, report, {
+    reportModel: config.deepseek_model || 'deepseek-chat',
+    generatedAt: timestamp,
+  });
   return json({ report, cached: false });
 }
 

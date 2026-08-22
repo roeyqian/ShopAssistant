@@ -17,7 +17,8 @@
     "db:more-product-i18n": "wrangler d1 execute zero-1-base --file=store/migrations/0010_more_product_i18n.sql --remote",
     "db:add-27-products": "wrangler d1 execute zero-1-base --file=store/migrations/0011_add_27_products.sql --remote",
     "db:add-product-type-depth": "wrangler d1 execute zero-1-base --file=store/migrations/0012_add_product_type_depth.sql --remote",
-    "db:archive-research": "wrangler d1 execute zero-1-base --file=store/migrations/0013_completed_research_archives.sql --remote"
+    "db:archive-research": "wrangler d1 execute zero-1-base --file=store/migrations/0013_completed_research_archives.sql --remote",
+    "db:archive-research-content": "wrangler d1 execute zero-1-base --file=store/migrations/0014_completed_research_archive_content.sql --remote"
   },
   "devDependencies": {
     "wrangler": "^4.114.0"
