@@ -1122,17 +1122,20 @@
               </p>
               <label v-else-if="researchCurrentProtocol.id === 'reflective_pause'" class="field">
                 <span>{{ t('research.protocolPause') }}</span>
-                <textarea v-model.trim="researchTechniqueNotes.reflective_pause" rows="2" :placeholder="t('research.protocolPausePlaceholder')"></textarea>
+                <textarea v-model.trim="researchTechniqueNotes.reflective_pause" rows="2" :maxlength="RESEARCH_TECHNIQUE_INPUT_MAX_LENGTH" :placeholder="t('research.protocolPausePlaceholder')"></textarea>
+                <small class="field-hint">{{ t('research.inputCharacterLimit', { count: RESEARCH_TECHNIQUE_INPUT_MAX_LENGTH }) }} {{ researchTechniqueNotes.reflective_pause.length }} / {{ RESEARCH_TECHNIQUE_INPUT_MAX_LENGTH }}</small>
               </label>
               <label v-else-if="researchCurrentProtocol.id === 'budget_calibration'" class="field">
                 <span>{{ t('research.protocolBudget') }}</span>
                 <input v-model.number="researchProfile.maxBudget" type="number" min="0" step="100" :placeholder="t('research.protocolBudgetCapPlaceholder')" />
                 <small class="field-hint">{{ t('research.protocolBudgetCapHint') }}</small>
-                <textarea v-model.trim="researchTechniqueNotes.budget_calibration" rows="2" :placeholder="t('research.protocolBudgetPlaceholder')"></textarea>
+                <textarea v-model.trim="researchTechniqueNotes.budget_calibration" rows="2" :maxlength="RESEARCH_TECHNIQUE_INPUT_MAX_LENGTH" :placeholder="t('research.protocolBudgetPlaceholder')"></textarea>
+                <small class="field-hint">{{ t('research.inputCharacterLimit', { count: RESEARCH_TECHNIQUE_INPUT_MAX_LENGTH }) }} {{ researchTechniqueNotes.budget_calibration.length }} / {{ RESEARCH_TECHNIQUE_INPUT_MAX_LENGTH }}</small>
               </label>
               <label v-else-if="researchCurrentProtocol.id === 'implementation_intention'" class="field">
                 <span>{{ t('research.ifThenPlan') }}</span>
-                <textarea v-model.trim="researchIfThenPlan" rows="2" :placeholder="t('research.ifThenPlaceholder')"></textarea>
+                <textarea v-model.trim="researchIfThenPlan" rows="2" :maxlength="RESEARCH_TECHNIQUE_INPUT_MAX_LENGTH" :placeholder="t('research.ifThenPlaceholder')"></textarea>
+                <small class="field-hint">{{ t('research.inputCharacterLimit', { count: RESEARCH_TECHNIQUE_INPUT_MAX_LENGTH }) }} {{ researchIfThenPlan.length }} / {{ RESEARCH_TECHNIQUE_INPUT_MAX_LENGTH }}</small>
               </label>
               <p v-else class="research-protocol-note">{{ t('research.protocolComparison') }}</p>
               <div v-if="researchCurrentProtocol.id === 'comparative_choice'" class="research-step-comparison">
@@ -1205,11 +1208,18 @@
                 <div class="research-chat-bubble research-thinking">{{ t('research.thinking') }}</div>
               </div>
               <p v-else class="research-protocol-note">{{ t('research.protocolAiFeedbackEmpty') }}</p>
+              <div v-if="researchRetryRequest" class="research-chat-error" role="alert">
+                <span>{{ researchRetryRequest.errorMessage }}</span>
+                <button class="ghost-btn" type="button" :disabled="researchAiSending" @click="retryResearchMessage">
+                  <RefreshCcw :size="15" />
+                  {{ t('research.retryAiRequest') }}
+                </button>
+              </div>
             </section>
             <form class="research-chat-form research-workspace-chat" @submit.prevent="sendResearchMessage()">
-              <textarea v-model.trim="researchMessage" rows="3" :disabled="researchAiSending || !researchChatReady || researchSellerHandoffPending" :placeholder="researchSellerHandoffPending ? t('research.sellerHandoffWaiting') : (researchChatReady ? t('research.protocolChatPlaceholder') : t('research.protocolChatWaiting'))"></textarea>
+              <textarea v-model.trim="researchMessage" rows="3" :maxlength="RESEARCH_CHAT_MAX_LENGTH" :disabled="researchAiSending || !researchChatReady || researchSellerHandoffPending" :placeholder="researchSellerHandoffPending ? t('research.sellerHandoffWaiting') : (researchChatReady ? t('research.protocolChatPlaceholder') : t('research.protocolChatWaiting'))"></textarea>
               <div class="research-chat-actions">
-                <small>{{ researchSellerHandoffPending ? t('research.sellerHandoffWaiting') : (researchChatReady ? (researchStepUnlocked ? t('research.protocolChatHint') : (researchThirdDialogueSummaryDue ? t('research.protocolThirdDialogueHint') : t('research.protocolUnlockProgress', { count: researchRemainingDialogueTurns }))) : t('research.protocolChatWaiting')) }}</small>
+                <small>{{ researchSellerHandoffPending ? t('research.sellerHandoffWaiting') : (researchChatReady ? (researchStepUnlocked ? t('research.protocolChatHint') : (researchThirdDialogueSummaryDue ? t('research.protocolThirdDialogueHint') : t('research.protocolUnlockProgress', { count: researchRemainingDialogueTurns }))) : t('research.protocolChatWaiting')) }} {{ researchMessage.length }} / {{ RESEARCH_CHAT_MAX_LENGTH }}</small>
                 <button class="primary-btn" type="submit" :disabled="researchAiSending || !researchChatReady || researchSellerHandoffPending || !researchMessage.trim()">
                   <SendHorizontal :size="16" />
                   {{ t('research.send') }}
@@ -1292,7 +1302,8 @@
               </label>
               <label class="field full">
                 <span>{{ t('research.ifThenPlan') }}</span>
-                <textarea v-model.trim="researchIfThenPlan" rows="3" :placeholder="t('research.ifThenPlaceholder')"></textarea>
+                <textarea v-model.trim="researchIfThenPlan" rows="3" :maxlength="RESEARCH_TECHNIQUE_INPUT_MAX_LENGTH" :placeholder="t('research.ifThenPlaceholder')"></textarea>
+                <small class="field-hint">{{ t('research.inputCharacterLimit', { count: RESEARCH_TECHNIQUE_INPUT_MAX_LENGTH }) }} {{ researchIfThenPlan.length }} / {{ RESEARCH_TECHNIQUE_INPUT_MAX_LENGTH }}</small>
               </label>
             </div>
             <p class="research-autonomy-note">{{ t('research.autonomyNote') }}</p>
@@ -2362,6 +2373,8 @@ const synthesisLoading = ref(false);
 
 const RESEARCH_DRAFT_STATE_KEY = 'research_draft';
 const RESEARCH_COMPARISON_CANDIDATE_LIMIT = 12;
+const RESEARCH_TECHNIQUE_INPUT_MAX_LENGTH = 500;
+const RESEARCH_CHAT_MAX_LENGTH = 2_000;
 const researchStage = ref(0);
 const researchConsentChecked = ref(false);
 const researchConsentGiven = ref(false);
@@ -2373,6 +2386,7 @@ const researchSelectedProductId = ref('');
 const researchMessage = ref('');
 const researchAiSending = ref(false);
 const researchAbortController = ref(null);
+const researchRetryRequest = ref(null);
 const researchMessagesEl = ref(null);
 const researchSellerTurns = ref(0);
 const researchGuardianTurns = ref(0);
@@ -2797,8 +2811,8 @@ const researchRadarPoints = computed(() => researchRadarValueAxes.value.map((axi
 function researchTechniqueIsReady(id) {
   if (id === 'persuasion_reframe') return true;
   if (id === 'comparative_choice') return researchComparisonProducts.value.length < 2 || researchCompareIds.value.length >= 2;
-  if (id === 'implementation_intention') return researchIfThenPlan.value.trim().length >= 12;
-  return researchTechniqueNotes[id]?.trim().length >= 4;
+  if (id === 'implementation_intention') return Boolean(researchIfThenPlan.value.trim());
+  return Boolean(researchTechniqueNotes[id]?.trim());
 }
 
 function buildResearchTechniqueContext(id) {
@@ -3673,30 +3687,33 @@ function selectResearchProduct(product) {
   });
 }
 
-async function sendResearchMessage(explicitMessage, protocolStep = researchCurrentProtocol.value, techniqueContext = null) {
+async function sendResearchMessage(explicitMessage, protocolStep = researchCurrentProtocol.value, techniqueContext = null, retryRequest = null) {
   if (!ensureStandardUser(t('toast.researchLoginRequired'))) return;
   const context = currentAccountContext();
-  const type = protocolStep?.phase || (researchStage.value === 3 ? 'guardian' : 'seller');
-  const message = typeof explicitMessage === 'string'
+  const type = retryRequest?.type || protocolStep?.phase || (researchStage.value === 3 ? 'guardian' : 'seller');
+  const message = retryRequest?.message || (typeof explicitMessage === 'string'
     ? explicitMessage.trim()
-    : researchMessage.value.trim();
-  const isParticipantDialogue = typeof explicitMessage !== 'string';
+    : researchMessage.value.trim());
+  const isParticipantDialogue = retryRequest?.isParticipantDialogue ?? typeof explicitMessage !== 'string';
   if (!message || researchAiSending.value) return;
   if (type === 'seller' && researchSellerTurns.value >= researchMaxTurnsPerPhase) return;
   if (type === 'guardian' && researchGuardianTurns.value >= researchMaxTurnsPerPhase) return;
 
   const conversationId = researchConversationId(type);
-  const clientMessageId = createClientId('research-message');
-  const technique = protocolStep === null
+  const clientMessageId = retryRequest?.clientMessageId || createClientId('research-message');
+  const technique = retryRequest?.technique ?? (protocolStep === null
     ? null
-    : (protocolStep?.id || researchCurrentProtocol.value?.id || null);
-  const researchDialogueTurn = isParticipantDialogue
+    : (protocolStep?.id || researchCurrentProtocol.value?.id || null));
+  const researchDialogueTurn = retryRequest?.researchDialogueTurn ?? (isParticipantDialogue
     ? (type === 'seller' ? researchSellerDialogueTurns.value + 1 : researchGuardianDialogueTurns.value + 1)
-    : null;
-  const resolvedTechniqueContext = techniqueContext || (technique ? buildResearchTechniqueContext(technique) : null);
+    : null);
+  const resolvedTechniqueContext = retryRequest?.techniqueContext || techniqueContext || (technique ? buildResearchTechniqueContext(technique) : null);
   researchAiSending.value = true;
-  researchMessage.value = '';
-  researchThreads[type].push({ role: 'user', content: message, client_message_id: clientMessageId });
+  if (!retryRequest) {
+    researchRetryRequest.value = null;
+    researchMessage.value = '';
+    researchThreads[type].push({ role: 'user', content: message, client_message_id: clientMessageId });
+  }
   let streamMessageIndex = -1;
   let streamedAssessment = null;
   const appendStreamDelta = (content) => {
@@ -3764,6 +3781,7 @@ async function sendResearchMessage(explicitMessage, protocolStep = researchCurre
       if (type === 'seller') researchSellerDialogueTurns.value += 1;
       else researchGuardianDialogueTurns.value += 1;
     }
+    researchRetryRequest.value = null;
     saveResearchDraft();
     await nextTick();
     return true;
@@ -3773,6 +3791,21 @@ async function sendResearchMessage(explicitMessage, protocolStep = researchCurre
     if (error.status === 401) openAuth('login');
     else toast(error.message || t('toast.aiFailed'), 'error');
     if (streamMessageIndex >= 0) researchThreads[type].splice(streamMessageIndex, 1);
+    if (error?.message === 'AI service returned an empty response') {
+      researchRetryRequest.value = {
+        errorMessage: `${t('toast.aiFailed')}：${error.message}`,
+        message,
+        type,
+        protocolStep,
+        technique,
+        techniqueContext: resolvedTechniqueContext,
+        isParticipantDialogue,
+        researchDialogueTurn,
+        clientMessageId,
+      };
+    } else {
+      researchRetryRequest.value = null;
+    }
     return false;
   } finally {
     if (researchAbortController.value === controller) {
@@ -3780,6 +3813,17 @@ async function sendResearchMessage(explicitMessage, protocolStep = researchCurre
       researchAiSending.value = false;
     }
   }
+}
+
+function retryResearchMessage() {
+  const retryRequest = researchRetryRequest.value;
+  if (!retryRequest || researchAiSending.value) return;
+  void sendResearchMessage(
+    retryRequest.message,
+    retryRequest.protocolStep,
+    retryRequest.techniqueContext,
+    retryRequest,
+  );
 }
 
 function recordResearchPhaseEnd(type) {
@@ -3934,6 +3978,7 @@ function resetResearch({ clearDraft = true } = {}) {
   researchSelectedProductId.value = '';
   researchMessage.value = '';
   researchAiSending.value = false;
+  researchRetryRequest.value = null;
   researchSellerTurns.value = 0;
   researchGuardianTurns.value = 0;
   researchSellerDialogueTurns.value = 0;

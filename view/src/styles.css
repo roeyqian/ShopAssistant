@@ -4492,6 +4492,25 @@ textarea:focus-visible {
   align-self: flex-start;
 }
 
+.research-chat-error {
+  align-items: center;
+  background: color-mix(in srgb, var(--danger) 10%, var(--surface-soft));
+  border: 1px solid color-mix(in srgb, var(--danger) 36%, var(--line));
+  border-radius: 12px;
+  color: var(--danger);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 13px;
+  gap: 10px;
+  justify-content: space-between;
+  padding: 10px 12px;
+}
+
+.research-chat-error .ghost-btn {
+  color: inherit;
+  flex: 0 0 auto;
+}
+
 .research-chat-label {
   color: var(--muted);
   font-size: 11px;

@@ -152,7 +152,7 @@ export async function chat({ request, env, url }) {
         sendDelta,
       });
     } catch (error) {
-      if (error?.status === 499) {
+      if (error?.status === 499 || error?.message === 'AI service returned an empty response') {
         await env.db.prepare('DELETE FROM ai_conversations WHERE user_id = ? AND client_message_id = ?')
           .bind(session.userId, clientMessageId)
           .run();
