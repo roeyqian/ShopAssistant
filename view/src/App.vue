@@ -2165,6 +2165,7 @@ import {
   LogIn,
   LogOut,
   Menu,
+  MessageSquareMore,
   Minus,
   Moon,
   Package2,
@@ -2631,7 +2632,7 @@ watch(
 );
 
 watch(
-  () => activeAiMessages.value.length,
+  () => getAiThread(aiType.value, aiConversationId.value).length,
   async () => {
     await nextTick();
     if (aiMessagesEl.value) {
