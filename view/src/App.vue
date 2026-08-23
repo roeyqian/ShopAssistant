@@ -2153,36 +2153,35 @@ import {
   readStoredLocale,
   writeStoredLocale,
 } from '@/i18n.js';
-import FaviconIcon from './FaviconIcon.vue';
-
-const ArrowLeft = FaviconIcon;
-const ArrowRight = FaviconIcon;
-const BarChart3 = FaviconIcon;
-const Bot = FaviconIcon;
-const ClipboardCheck = FaviconIcon;
-const Clock3 = FaviconIcon;
-const Filter = FaviconIcon;
-const Layers3 = FaviconIcon;
-const LogIn = FaviconIcon;
-const LogOut = FaviconIcon;
-const MessageSquareMore = FaviconIcon;
-const Menu = FaviconIcon;
-const Minus = FaviconIcon;
-const Moon = FaviconIcon;
-const Package2 = FaviconIcon;
-const Plus = FaviconIcon;
-const RefreshCcw = FaviconIcon;
-const Search = FaviconIcon;
-const SendHorizontal = FaviconIcon;
-const Settings2 = FaviconIcon;
-const ShieldCheck = FaviconIcon;
-const ShoppingCart = FaviconIcon;
-const Sparkles = FaviconIcon;
-const Sun = FaviconIcon;
-const Trash2 = FaviconIcon;
-const Truck = FaviconIcon;
-const UserRound = FaviconIcon;
-const X = FaviconIcon;
+import {
+  ArrowLeft,
+  ArrowRight,
+  BarChart3,
+  Bot,
+  ClipboardCheck,
+  Clock3,
+  Filter,
+  Layers3,
+  LogIn,
+  LogOut,
+  Menu,
+  Minus,
+  Moon,
+  Package2,
+  Plus,
+  RefreshCcw,
+  Search,
+  SendHorizontal,
+  Settings2,
+  ShieldCheck,
+  ShoppingCart,
+  Sparkles,
+  Sun,
+  Trash2,
+  Truck,
+  UserRound,
+  X,
+} from '@lucide/vue';
 
 const THEME_STORAGE_KEY = 'shopassistant_theme';
 const CATALOG_PAGE_SIZE = 30;
