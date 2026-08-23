@@ -32,24 +32,15 @@ export function normalizeProduct(product, locale = 'zh-CN') {
 }
 
 export async function getProductImage({ env, params }) {
-  const imageKeys = [`${params.id}.jpeg`, `${params.id}.png`];
-  let image;
-  let imageKey;
-
-  for (const key of imageKeys) {
-    image = await env.zero_1_store.get(key);
-    if (image) {
-      imageKey = key;
-      break;
-    }
-  }
+  const imageKey = `products/${params.id}.jpeg`;
+  const image = await env.zero_1_store.get(imageKey);
 
   if (!image) {
     throw { status: 404, message: "Product image not found" };
   }
 
   const headers = new Headers();
-  headers.set("content-type", imageKey.endsWith(".jpeg") ? "image/jpeg" : "image/png");
+  headers.set("content-type", "image/jpeg");
   headers.set("cache-control", "public, max-age=3600");
 
   return new Response(image.body, {
