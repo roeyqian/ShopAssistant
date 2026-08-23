@@ -188,20 +188,20 @@ img {
 }
 
 .brand-mark {
-  display: grid;
-  place-items: center;
+  display: block;
   width: 40px;
   height: 40px;
   border-radius: 8px;
-  border: 2px solid #fff;
-  background: #050505;
-  color: var(--accent);
-  font-size: 1.75rem;
-  font-weight: 800;
-  line-height: 1;
   flex: 0 0 auto;
+  object-fit: contain;
   box-shadow: 0 12px 26px rgba(var(--accent-rgb), 0.28);
   transition: transform var(--motion-med) var(--ease-out), box-shadow var(--motion-med) var(--ease-out);
+}
+
+.favicon-icon {
+  display: inline-block;
+  flex: 0 0 auto;
+  object-fit: contain;
 }
 
 .brand:hover .brand-mark {
@@ -1382,7 +1382,7 @@ img {
   background: var(--accent-soft);
 }
 
-.agent-view-card > svg {
+.agent-view-card > .favicon-icon {
   margin-top: 2px;
 }
 
@@ -2616,7 +2616,7 @@ img {
   color: var(--toast-error-text);
 }
 
-.ai-test-result svg {
+.ai-test-result .favicon-icon {
   flex: 0 0 auto;
   margin-top: 2px;
 }
