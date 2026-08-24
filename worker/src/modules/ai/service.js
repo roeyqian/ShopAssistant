@@ -1,5 +1,5 @@
 import { json, readJsonBody, requireStandardUser, createId } from "../../app/http.js";
-import { streamDeepSeek } from "./deepseek.js";
+import { completeDeepSeek } from "./deepseek.js";
 import { getSellerPrompt } from "./seller.js";
 import { getGuardianPrompt } from "./guardian.js";
 import { getDecisionPrompt, getSynthesisPrompt, parseDecisionResponse, parseStoredAssessment } from "./decision.js";
@@ -25,7 +25,7 @@ const HISTORY_ORDER_DESC = `
       id DESC
   `;
 
-export async function chat({ request, env, url, requestId }) {
+export async function chat({ request, env, url }) {
   const { token, session } = await requireStandardUser(request, env);
   const locale = getLocaleFromRequest(request, url);
   const body = await readJsonBody(request);
@@ -56,7 +56,9 @@ export async function chat({ request, env, url, requestId }) {
   }
 
   const duplicate = await findIdempotentResponse(env, session.userId, clientMessageId);
-  if (duplicate.hasAssistant) return streamStoredResponse(duplicate.response, aiType, duplicate.assessment, requestId, 'chat');
+  if (duplicate.hasAssistant) {
+    return json({ response: duplicate.response, aiType, assessment: duplicate.assessment, idempotent: true });
+  }
   if (duplicate.pending) throw { status: 409, message: 'AI request is still being processed' };
 
   const config = await env.db.prepare("SELECT * FROM ai_config WHERE id = 1").first();
@@ -131,38 +133,36 @@ export async function chat({ request, env, url, requestId }) {
   });
 
   if (reservation?.duplicateResponse !== undefined) {
-    return streamStoredResponse(reservation.duplicateResponse, aiType, reservation.assessment, requestId, 'chat');
+    return json({ response: reservation.duplicateResponse, aiType, assessment: reservation.assessment, idempotent: true });
   }
   if (reservation?.duplicatePending) {
     throw { status: 409, message: 'AI request is still being processed' };
   }
 
-  return streamAiResponse(async (sendDelta) => {
-    let result;
-    try {
-      result = await getStructuredAgentResponse({
-        config,
-        systemPrompt: structuredSystemPrompt,
-        messages,
-        userMessage: message,
-        locale,
-        request,
-        sendDelta,
-      });
-    } catch (error) {
-      if (error?.status === 499 || error?.message === 'AI service returned an empty response') {
-        await env.db.prepare('DELETE FROM ai_conversations WHERE user_id = ? AND client_message_id = ?')
-          .bind(session.userId, clientMessageId)
-          .run();
-      }
-      throw error;
+  let result;
+  try {
+    result = await getStructuredAgentResponse({
+      config,
+      systemPrompt: structuredSystemPrompt,
+      messages,
+      userMessage: message,
+      locale,
+      request,
+    });
+  } catch (error) {
+    if (error?.status === 499 || error?.message === 'AI service returned an empty response') {
+      await env.db.prepare('DELETE FROM ai_conversations WHERE user_id = ? AND client_message_id = ?')
+        .bind(session.userId, clientMessageId)
+        .run();
     }
-    const assistantTimestamp = createLaterIsoTimestamp(userTimestamp);
+    throw error;
+  }
+  const assistantTimestamp = createLaterIsoTimestamp(userTimestamp);
 
-    await env.db.prepare(`
+  await env.db.prepare(`
       INSERT INTO ai_conversations (id, user_id, session_id, conversation_id, reply_to_message_id, ai_type, role, content, product_id, metadata_json, timestamp)
       VALUES (?, ?, ?, ?, ?, ?, 'assistant', ?, ?, ?, ?)
-    `).bind(
+  `).bind(
       `${messageRecordId}_a`,
       session.userId,
       token,
@@ -183,10 +183,9 @@ export async function chat({ request, env, url, requestId }) {
         providerError: result.providerError || null,
       }),
       assistantTimestamp,
-    ).run();
+  ).run();
 
-    return { response: result.content, aiType, assessment: result.assessment, providerError: result.providerError || null };
-  }, { requestId, endpoint: 'chat', aiType });
+  return json({ response: result.content, aiType, assessment: result.assessment, providerError: result.providerError || null });
 }
 
 export async function decision({ request, env, url, requestId }) {
@@ -346,7 +345,7 @@ export async function synthesis({ request, env, url }) {
     throw { status: 400, message: locale === 'en-US' ? 'Both AI conversations need at least one answer before synthesis.' : '卖家 AI 和管家 AI 都至少需要一条回复后才能综合。' };
   }
 
-  const result = await streamDeepSeek(
+  const result = await completeDeepSeek(
     config,
     getSynthesisPrompt(productInfo, sellerTranscript, guardianTranscript, locale),
     [],
@@ -431,7 +430,7 @@ export async function researchReport({ request, env, url }) {
   }
   let profile = {};
   try { profile = JSON.parse(archive.profile_json || '{}'); } catch { /* preserve a safe empty context */ }
-  const result = await streamDeepSeek(
+  const result = await completeDeepSeek(
     config,
     getResearchReportPrompt({
       productInfo,
@@ -646,7 +645,7 @@ function streamAiResponse(producer, { requestId = createId('stream'), endpoint =
 
 async function getStreamedAiResponse({ config, systemPrompt, messages, userMessage, locale, request, sendDelta }) {
   try {
-    const result = await streamDeepSeek(config, systemPrompt, messages, userMessage, {
+    const result = await completeDeepSeek(config, systemPrompt, messages, userMessage, {
       signal: request.signal,
       onDelta: sendDelta,
     });
@@ -664,16 +663,15 @@ async function getStreamedAiResponse({ config, systemPrompt, messages, userMessa
   }
 }
 
-async function getStructuredAgentResponse({ config, systemPrompt, messages, userMessage, locale, request, sendDelta }) {
+async function getStructuredAgentResponse({ config, systemPrompt, messages, userMessage, locale, request }) {
   try {
-    const result = await streamDeepSeek(config, systemPrompt, messages, userMessage, {
+    const result = await completeDeepSeek(config, systemPrompt, messages, userMessage, {
       signal: request.signal,
       // The assistant response is parsed before it reaches the participant.
       // Ask OpenAI-compatible providers to enforce that contract at generation time.
       responseFormat: { type: 'json_object' },
     });
     const parsed = parseStructuredAgentResponse(result.content, locale);
-    sendDelta(parsed.reply);
     return {
       content: parsed.reply,
       assessment: parsed.assessment,
@@ -683,7 +681,6 @@ async function getStructuredAgentResponse({ config, systemPrompt, messages, user
   } catch (error) {
     if (error?.status === 499) throw error;
     const content = formatProviderFailure(locale, error);
-    sendDelta(content);
     return {
       content,
       assessment: parseStructuredAgentResponse(content, locale).assessment,

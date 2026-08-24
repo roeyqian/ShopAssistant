@@ -3738,7 +3738,7 @@ async function sendResearchMessage(explicitMessage, protocolStep = researchCurre
   });
 
   try {
-    const result = await AIAPI.chatStream(
+    const result = await AIAPI.chat(
       message,
       type,
       researchSelectedProductId.value || null,
@@ -5260,7 +5260,7 @@ async function sendAiMessage() {
   });
 
   try {
-    const result = await AIAPI.chatStream(message, type, productId, conversationId, clientMessageId, {
+    const result = await AIAPI.chat(message, type, productId, conversationId, clientMessageId, {
       signal: controller.signal,
       onDelta: appendStreamDelta,
       onDone: (data) => {

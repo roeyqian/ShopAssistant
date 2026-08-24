@@ -350,8 +350,8 @@ export const AIAPI = {
       method: 'POST',
       body: JSON.stringify({ productId, sellerConversationId, guardianConversationId }),
     }),
-  chatStream: (message, aiType, productId = null, conversationId, clientMessageId, options = {}) =>
-    requestEventStream('/ai/chat', {
+  chat: (message, aiType, productId = null, conversationId, clientMessageId, options = {}) =>
+    request('/ai/chat', {
       method: 'POST',
       body: JSON.stringify({
         message,
@@ -366,7 +366,7 @@ export const AIAPI = {
         researchDialogueTurn: options.researchDialogueTurn || null,
       }),
       signal: options.signal,
-    }, options),
+    }),
   sellerNudgeStream: (productId, dwellMs, conversationId, options = {}) =>
     requestEventStream('/ai/seller-nudge', {
       method: 'POST',
