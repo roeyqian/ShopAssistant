@@ -10,7 +10,6 @@ import { persistCompletedResearchContent } from "../research/service.js";
 
 const HIDDEN_METADATA_KEY = 'hiddenFromUser';
 const MAX_MESSAGE_LENGTH = 2_000;
-const MAX_AI_REQUESTS_PER_MINUTE = 12;
 const HISTORY_LIMIT = 20;
 const MAX_CONSECUTIVE_AUTOMATIC_PROMOTIONS = 3;
 const RESEARCH_TECHNIQUES = new Set([
@@ -59,8 +58,6 @@ export async function chat({ request, env, url }) {
   const duplicate = await findIdempotentResponse(env, session.userId, clientMessageId);
   if (duplicate.hasAssistant) return streamStoredResponse(duplicate.response, aiType, duplicate.assessment);
   if (duplicate.pending) throw { status: 409, message: 'AI request is still being processed' };
-
-  await enforceAiRateLimit(env, session.userId);
 
   const config = await env.db.prepare("SELECT * FROM ai_config WHERE id = 1").first();
   if (!config || !config.deepseek_api_key) {
@@ -212,7 +209,6 @@ export async function decision({ request, env, url }) {
   }
   if (duplicate.pending) throw { status: 409, message: 'AI request is still being processed' };
 
-  await enforceAiRateLimit(env, session.userId);
   const config = await env.db.prepare("SELECT * FROM ai_config WHERE id = 1").first();
   if (!config || !config.deepseek_api_key) {
     throw { status: 503, message: "AI service not configured. Please contact administrator to set up DeepSeek API Key." };
@@ -909,18 +905,6 @@ async function findIdempotentResponse(env, userId, clientMessageId) {
     response: String(assistantMessage?.content || ''),
     assessment: parseAgentAssessment(assistantMessage?.metadata_json),
   };
-}
-
-async function enforceAiRateLimit(env, userId) {
-  const row = await env.db.prepare(`
-    SELECT COUNT(*) AS value FROM ai_conversations
-    WHERE user_id = ? AND role = 'user'
-      AND timestamp >= datetime('now', '-60 seconds')
-  `).bind(userId).first();
-
-  if (Number(row?.value || 0) >= MAX_AI_REQUESTS_PER_MINUTE) {
-    throw { status: 429, message: 'Too many AI requests. Please wait a moment and try again.' };
-  }
 }
 
 async function getConsecutiveAutomaticPromotions(env, userId, productId) {

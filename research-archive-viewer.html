@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>研究归档查看器</title>
+  <style>
+    :root { --ink:#f4f7fb; --muted:#9ba6b6; --line:#2b333e; --page:#161a1f; --card:#1b2026; --brand:#ef2d35; --brand-soft:#3b2024; --good:#27ae7a; --warn:#dfa128; --bad:#c35a69; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--page); color:var(--ink); font:14px/1.55 Inter,"Microsoft YaHei",system-ui,sans-serif; }
+    button, input { font:inherit; }
+    .shell { width:min(1060px, calc(100% - 32px)); margin:0 auto; }
+    header { padding:44px 0 26px; display:flex; align-items:end; justify-content:space-between; gap:24px; }
+    h1 { margin:0; font-size:clamp(26px,4vw,38px); letter-spacing:-.04em; }
+    h2 { margin:0 0 16px; font-size:18px; }
+    h3 { margin:0; font-size:15px; }
+    .subtitle, .empty-copy { color:var(--muted); margin:8px 0 0; }
+    .privacy { color:var(--good); background:#17372d; border:1px solid #27634e; border-radius:999px; padding:6px 11px; white-space:nowrap; }
+    .drop-zone { display:grid; place-items:center; min-height:220px; padding:28px; border:2px dashed #5a3740; border-radius:18px; background:linear-gradient(135deg,#1d2229,#221a1d); text-align:center; transition:.2s; }
+    .drop-zone.drag { border-color:var(--brand); background:#2d1b20; transform:scale(1.01); }
+    .drop-zone strong { display:block; margin-bottom:6px; font-size:18px; }
+    .pick, .secondary { border:0; border-radius:9px; padding:10px 15px; cursor:pointer; font-weight:700; }
+    .pick { margin-top:16px; color:#fff; background:var(--brand); }
+    .secondary { color:#fecdd3; background:var(--brand-soft); }
+    #file-input { display:none; }
+    .error { display:none; margin:18px 0; padding:12px 14px; border-radius:10px; color:#fecdd3; background:#321d22; border:1px solid #71333d; }
+    #report { display:none; padding-bottom:48px; }
+    .toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:20px 0; }
+    .filename { overflow:hidden; color:var(--muted); text-overflow:ellipsis; white-space:nowrap; }
+    .hero { padding:24px; border-radius:18px; color:white; border:1px solid #673039; background:linear-gradient(120deg,#251d20,#301d21 55%,#221e26); }
+    .hero-grid { display:grid; grid-template-columns:1.4fr repeat(3,1fr); gap:20px; }
+    .hero-label, .label { font-size:12px; color:var(--muted); }
+    .hero .hero-label { color:#f1a0a5; }
+    .hero-value { font-size:18px; font-weight:700; word-break:break-word; }
+    .hero-title { font-size:22px; font-weight:750; }
+    .grid { display:grid; gap:18px; margin-top:18px; }
+    .two { grid-template-columns:1fr 1fr; }
+    .card { padding:20px; overflow:hidden; border:1px solid var(--line); border-radius:15px; background:var(--card); box-shadow:0 2px 8px #0004; }
+    .card.full { grid-column:1/-1; }
+    .kv { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px 18px; }
+    .kv > div { min-width:0; }
+    .value { font-weight:650; word-break:break-word; }
+    .summary { margin:0; white-space:pre-wrap; }
+    .metrics { display:grid; gap:12px; }
+    .metric-head { display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+    .metric-name { font-weight:700; }
+    .score { color:var(--brand); font-size:17px; font-weight:800; }
+    .bar { height:7px; overflow:hidden; border-radius:99px; background:#313944; }
+    .bar > span { display:block; height:100%; border-radius:inherit; background:linear-gradient(90deg,#cc2029,#ef3b43); }
+    .observation { margin:4px 0 0; color:var(--muted); font-size:13px; }
+    .badges { display:flex; flex-wrap:wrap; gap:8px; }
+    .badge { padding:4px 9px; border-radius:999px; background:#252d37; color:#cbd5e1; font-size:12px; }
+    .badge.good { background:#17372d; color:var(--good); }.badge.warn { background:#3d3118; color:var(--warn); }.badge.bad { background:#3b2028; color:var(--bad); }
+    .highlights { display:grid; gap:12px; }.highlight { padding-left:12px; border-left:3px solid var(--brand); }.highlight p { margin:4px 0 0; color:var(--muted); }
+    details { border-top:1px solid var(--line); } details:first-of-type { border-top:0; } summary { cursor:pointer; padding:15px 0; font-weight:700; } summary::marker { color:var(--brand); }
+    .dialogue { display:grid; gap:10px; padding:0 0 16px; }
+    .message { max-width:90%; padding:12px 14px; border-radius:12px; background:#20262e; border:1px solid #303944; }
+    .message.user { justify-self:end; background:#29252d; border-color:#653540; }.message.guardian { border-left:3px solid #f59e0b; }.message.seller { border-left:3px solid var(--brand); }
+    .message-meta { display:flex; flex-wrap:wrap; gap:8px; color:var(--muted); font-size:12px; }.message-content { margin-top:5px; white-space:pre-wrap; word-break:break-word; }
+    .table-wrap { overflow:auto; padding-bottom:12px; } table { width:100%; min-width:660px; border-collapse:collapse; } th,td { padding:10px; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; } th { color:var(--muted); font-size:12px; } td { word-break:break-word; }
+    .raw { max-height:360px; overflow:auto; margin:0; padding:14px; border-radius:9px; background:#101419; color:#dbe4ee; font:12px/1.55 ui-monospace,Consolas,monospace; white-space:pre-wrap; }
+    .muted { color:var(--muted); }.small { font-size:12px; }.hidden { display:none!important; }
+    .analysis-panel { margin-top:18px; padding:26px; border:1px solid #653039; border-radius:20px; background:#1a1f25; box-shadow:0 4px 20px #0003; }
+    .analysis-kicker { margin:0 0 5px; color:var(--brand); font-size:13px; font-weight:800; letter-spacing:.04em; }.analysis-title { margin:0; font-size:22px; }.analysis-note { margin:7px 0 20px; color:var(--muted); }
+    .report-visuals { display:grid; grid-template-columns:1.25fr .75fr; gap:14px; }.visual-card, .metric-card, .insight-card, .theory-card { border:1px solid var(--line); border-radius:15px; background:#1b2026; }.visual-card { padding:15px; }.visual-heading { display:flex; justify-content:space-between; gap:12px; align-items:baseline; }.visual-heading small { color:var(--muted); text-align:right; }
+    .radar { display:block; width:min(100%, 360px); margin:0 auto; }.radar-grid { fill:none; stroke:#3c4652; stroke-width:1; }.radar-axis { stroke:#35404b; stroke-width:1; }.radar-value { fill:#e8323b38; stroke:var(--brand); stroke-width:2.5; }.radar-dot { fill:var(--brand); }.radar-label { fill:var(--muted); font-size:11px; text-anchor:middle; }
+    .evidence-card { display:flex; flex-direction:column; }.evidence-stack { display:flex; overflow:hidden; height:17px; margin:30px 0 22px; border-radius:999px; background:#303944; }.evidence-stack span { min-width:5px; }.supported { background:var(--good); }.uncertain { background:var(--warn); }.needs-verification { background:var(--bad); }
+    .evidence-legend { display:grid; gap:12px; }.evidence-legend div { display:grid; grid-template-columns:10px 1fr auto; gap:9px; align-items:center; }.evidence-legend i { width:9px; height:9px; border-radius:50%; }.evidence-legend span { color:var(--muted); }.evidence-legend strong { font-size:17px; }
+    .metrics { grid-template-columns:repeat(5, minmax(0, 1fr)); gap:10px; margin-top:14px; }.metric-card { padding:12px; }.metric-card .metric-head { align-items:start; }.metric-card .metric-name { font-size:13px; }.metric-card .score { color:var(--brand); font-size:21px; }.metric-card .observation { min-height:58px; }
+    .insights { display:grid; grid-template-columns:repeat(auto-fit, minmax(190px, 1fr)); gap:10px; margin-top:14px; }.insight-card { padding:12px; border-left:3px solid #4b3037; }.insight-card p { margin:6px 0 0; color:var(--muted); }
+    .theory-heading { display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin:24px 0 10px; }.theory-heading small { color:var(--brand); }.theories { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; }.theory-card { padding:12px; }.theory-card small { display:block; margin:4px 0 8px; color:var(--brand); }.theory-card p { margin:0; color:var(--muted); }
+    .techniques { display:flex; flex-wrap:wrap; gap:8px; padding-top:18px; margin-top:18px; border-top:1px solid var(--line); }.technique { padding:5px 9px; color:var(--good); border:1px solid #236049; border-radius:999px; background:#17372d; font-size:12px; font-weight:700; }.analysis-disclaimer { margin:16px 0 0; padding-top:14px; border-top:1px solid var(--line); color:var(--muted); font-size:12px; }
+    @media (max-width:760px) { header { align-items:start; flex-direction:column; padding-top:28px; }.hero-grid,.two,.report-visuals,.theories { grid-template-columns:1fr; }.metrics { grid-template-columns:repeat(2, minmax(0, 1fr)); }.card.full { grid-column:auto; }.kv { grid-template-columns:1fr; }.privacy { white-space:normal; }.toolbar { align-items:start; flex-direction:column; }.analysis-panel { padding:18px; } }
+    @page { size:A4 landscape; margin:10mm; }
+    @media print {
+      html, body { background:var(--page)!important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+      .shell { width:100%; margin:0; }
+      header { padding:0 0 7mm; }
+      #picker, #error, .toolbar button { display:none!important; }
+      .toolbar { margin:0 0 5mm; }
+      .grid { gap:5mm; margin-top:5mm; }
+      .card { box-shadow:none; }
+      .hero, .card, .analysis-panel, .visual-card, .metric-card, .insight-card, .theory-card, .message, tr { break-inside:avoid; page-break-inside:avoid; }
+      .table-wrap { overflow:visible; padding:0; }
+      table { min-width:0; }
+      thead { display:table-header-group; }
+      #conversations details:not([open]) > .dialogue { display:grid; }
+      #conversations details { break-inside:avoid-page; page-break-inside:avoid; }
+      .raw { max-height:none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div><h1>研究归档查看器</h1><p class="subtitle">读取已完成研究的 JSON 归档，整理报告、对话与行为记录。</p></div>
+      <span class="privacy">数据仅在当前浏览器中读取</span>
+    </header>
+
+    <section id="picker" class="drop-zone" aria-label="选择归档 JSON 文件">
+      <div><strong>拖入归档 JSON 文件</strong><span class="muted">或从电脑中选择，例如 archive_research_archive_*.json</span><br><button class="pick" id="pick-button" type="button">选择 JSON 文件</button><input id="file-input" type="file" accept="application/json,.json"></div>
+    </section>
+    <div id="error" class="error" role="alert"></div>
+
+    <section id="report">
+      <div class="toolbar"><span id="filename" class="filename"></span><div><button id="replace-button" class="secondary" type="button">更换文件</button> <button id="download-button" class="secondary" type="button">下载原始 JSON</button></div></div>
+      <section class="hero" id="hero"></section>
+      <section class="analysis-panel">
+        <p class="analysis-kicker">综合 AI · 对话过程报告</p>
+        <h2 class="analysis-title">基于对话的决策信号图谱</h2>
+        <p id="summary" class="summary analysis-note">此归档未包含报告摘要。</p>
+        <div class="report-visuals">
+          <section class="visual-card"><div class="visual-heading"><strong>决策过程指数</strong><small>0–100 可视化指数</small></div><svg id="radar" class="radar" viewBox="0 0 300 290" role="img" aria-label="决策过程指数雷达图"></svg></section>
+          <section class="visual-card evidence-card"><div class="visual-heading"><strong>对话中的证据状态</strong><small>识别到的信号数量</small></div><div id="evidence" class="evidence-stack" aria-label="证据状态比例"></div><div id="evidence-legend" class="evidence-legend"></div><p id="confidence" class="observation"></p></section>
+        </div>
+        <div id="metrics" class="metrics"></div>
+        <div id="highlights" class="insights"></div>
+        <div class="theory-heading"><strong>理论解读框架</strong><small>以顶级心理与消费者研究期刊的理论为依据</small></div>
+        <div id="theory-notes" class="theories"></div>
+        <div id="techniques" class="techniques"></div>
+        <p class="analysis-disclaimer">这些指数由 AI 从本次对话中的明示内容生成，仅用于研究展示，未经心理测量校准，不构成诊断、人格判断或购买建议。</p>
+      </section>
+      <div class="grid two">
+        <section class="card full"><h2>参与者资料与最终选择</h2><div id="profile" class="kv"></div></section>
+        <section class="card full"><h2>推荐商品</h2><div class="table-wrap"><table><thead><tr><th>商品</th><th>价格</th><th>匹配分</th><th>评分</th><th>匹配原因</th></tr></thead><tbody id="recommendations"></tbody></table></div></section>
+        <section class="card full"><h2>对话记录 <span id="conversation-count" class="muted small"></span></h2><div id="conversations"></div></section>
+        <section class="card full"><h2>行为记录 <span id="behavior-count" class="muted small"></span></h2><div class="table-wrap"><table><thead><tr><th>时间</th><th>行为类型</th><th>商品 ID</th><th>时长</th><th>元数据</th></tr></thead><tbody id="behaviors"></tbody></table></div></section>
+        <section class="card full"><h2>原始数据</h2><details><summary>展开 JSON（只读）</summary><pre id="raw" class="raw"></pre></details></section>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      const $ = id => document.getElementById(id);
+      const picker = $('picker'), input = $('file-input'), report = $('report'), error = $('error');
+      let currentText = '', currentName = '';
+      const labels = { buy:'购买', observe:'观望', not_buy:'不购买', male:'男', female:'女', other:'其他', self:'为自己购买', gift:'购买礼物', medium:'中等', low:'低', high:'高', considering:'正在考虑', planned:'已有计划', impulse:'临时起意' };
+      const label = value => labels[value] || (value === null || value === undefined || value === '' ? '未填写' : String(value));
+      const money = value => Number.isFinite(Number(value)) ? '¥' + Number(value).toLocaleString('zh-CN') : '—';
+      const time = value => { if (!value) return '—'; const date = new Date(value); return Number.isNaN(date) ? String(value) : date.toLocaleString('zh-CN', { hour12:false }); };
+      const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[c]);
+      const get = (object, path, fallback = undefined) => path.split('.').reduce((v, k) => v && typeof v === 'object' ? v[k] : undefined, object) ?? fallback;
+      const list = value => Array.isArray(value) ? value : [];
+      const pretty = value => { try { return JSON.stringify(typeof value === 'string' ? JSON.parse(value) : value, null, 2); } catch { return String(value || '—'); } };
+
+      function showError(message) { error.textContent = message; error.style.display = 'block'; }
+      function clearError() { error.textContent = ''; error.style.display = 'none'; }
+      function valueRow(name, value) { return `<div><div class="label">${escape(name)}</div><div class="value">${escape(value)}</div></div>`; }
+      function messageAgent(item) { if (item.role === 'user') return '参与者'; return item.ai_type === 'guardian' ? '决策管家 AI' : '商家 AI'; }
+
+      function render(data) {
+        const archive = data.archive || {};
+        const material = data.rawResearchMaterial || data;
+        const client = material.clientRecord || {};
+        const profile = client.profile || {};
+        const reportData = data.report || {};
+        const selected = list(client.catalog).find(p => String(p.id) === String(archive.selectedProductId || client.selectedProductId));
+        const archiveId = archive.id || '未提供归档编号';
+        $('hero').innerHTML = `<div class="hero-grid"><div><div class="hero-label">研究归档</div><div class="hero-title">${escape(archiveId)}</div></div><div><div class="hero-label">商家 AI 识别的倾向</div><div class="hero-value">${escape(label(client.sellerInclination))}</div></div><div><div class="hero-label">管家 AI 识别的倾向</div><div class="hero-value">${escape(label(client.guardianInclination))}</div></div><div><div class="hero-label">你的最终选择</div><div class="hero-value">${escape(label(archive.finalDecision || client.finalDecision))}</div></div></div>`;
+        $('summary').textContent = reportData.summary || '此归档未包含报告摘要。';
+        const evidence = reportData.evidence || {};
+        const evidenceItems = [ ['已支持', Number(evidence.supported) || 0, 'supported'], ['尚不确定', Number(evidence.uncertain) || 0, 'uncertain'], ['仍需核验', Number(evidence.needs_verification) || 0, 'needs-verification'] ];
+        const evidenceTotal = evidenceItems.reduce((sum, [, value]) => sum + value, 0);
+        $('evidence').innerHTML = evidenceTotal ? evidenceItems.map(([, value, klass]) => `<span class="${klass}" style="flex:${Math.max(1, value)}"></span>`).join('') : '<span style="flex:1"></span>';
+        $('evidence-legend').innerHTML = evidenceItems.map(([name, value, klass]) => `<div><i class="${klass}"></i><span>${name}</span><strong>${value}</strong></div>`).join('');
+        $('confidence').textContent = reportData.confidence === undefined ? '' : `报告置信度：${Number(reportData.confidence).toFixed(1)} / 1.0`;
+        const metricNames = { need_clarity:'需求清晰度', evidence_grounding:'证据依据', budget_alignment:'预算对齐', pressure_awareness:'影响觉察', action_plan:'行动计划' };
+        const metrics = list(reportData.metrics);
+        $('metrics').innerHTML = metrics.map(metric => { const score = Math.max(0, Math.min(100, Number(metric.score) || 0)); return `<article class="metric-card"><div class="metric-head"><span class="metric-name">${escape(metricNames[metric.id] || metric.id || '未命名指标')}</span><span class="score">${score}</span></div><div class="bar"><span style="width:${score}%"></span></div><p class="observation">${escape(metric.observation || '')}</p></article>`; }).join('') || '<span class="muted">未提供指标。</span>';
+        const axisIds = ['need_clarity', 'evidence_grounding', 'budget_alignment', 'pressure_awareness', 'action_plan'];
+        const metricScores = Object.fromEntries(metrics.map(item => [item.id, Math.max(0, Math.min(100, Number(item.score) || 0))]));
+        const point = (index, radius) => { const angle = (-90 + index * 72) * Math.PI / 180; return { x:150 + Math.cos(angle) * radius, y:145 + Math.sin(angle) * radius }; };
+        const points = (radius, scaled = false) => axisIds.map((id, index) => { const p = point(index, scaled ? radius * (metricScores[id] || 0) / 100 : radius); return `${p.x.toFixed(1)},${p.y.toFixed(1)}`; }).join(' ');
+        $('radar').innerHTML = [25, 50, 75, 100].map(scale => `<polygon class="radar-grid" points="${points(92 * scale / 100)}"></polygon>`).join('') + axisIds.map((id, index) => { const p = point(index, 92), labelPoint = point(index, 119); return `<line class="radar-axis" x1="150" y1="145" x2="${p.x}" y2="${p.y}"></line><text class="radar-label" x="${labelPoint.x}" y="${labelPoint.y + 4}">${escape(metricNames[id])}</text>`; }).join('') + `<polygon class="radar-value" points="${points(92, true)}"></polygon>` + axisIds.map((id, index) => { const p = point(index, 92 * (metricScores[id] || 0) / 100); return `<circle class="radar-dot" cx="${p.x}" cy="${p.y}" r="4"></circle>`; }).join('');
+        $('highlights').innerHTML = list(reportData.highlights).map(item => `<article class="insight-card"><h3>${escape(item.title || item.id || '观察')}</h3><p>${escape(item.detail || item.observation || '')}</p></article>`).join('') || '<span class="muted">未提供关键发现。</span>';
+        const sources = { autonomy:'Ryan & Deci · American Psychologist (2000)', planning:'Gollwitzer · American Psychologist (1999)', persuasion:'Friestad & Wright · Journal of Consumer Research (1994)', budget:'Thaler · Marketing Science (1985)' };
+        const theoryNames = { autonomy:'自主需求一致性', planning:'执行意图', persuasion:'劝服知识', budget:'心理账户' };
+        $('theory-notes').innerHTML = list(reportData.theory_notes).map(item => `<article class="theory-card"><h3>${escape(theoryNames[item.id] || item.id || '理论观察')}</h3><small>${escape(sources[item.id] || '研究理论框架')}</small><p>${escape(item.observation || '')}</p></article>`).join('') || '<span class="muted">未提供理论观察。</span>';
+        const techniqueNames = { reflective_pause:'暂停', persuasion_reframe:'重构', comparative_choice:'比较', budget_calibration:'预算', implementation_intention:'计划' };
+        $('techniques').innerHTML = Object.entries(client.techniqueChecks || {}).filter(([, reached]) => reached).map(([id]) => `<span class="technique">${escape(techniqueNames[id] || id)} ✓</span>`).join('') || '<span class="muted">本次流程未记录已达成的研究技术。</span>';
+        const decision = archive.finalDecision || client.finalDecision;
+        const profileRows = [ ['性别', label(profile.gender)], ['年龄', profile.age ?? '未填写'], ['教育程度', label(profile.education)], ['购买对象', label(profile.purchaseTarget)], ['预算上限', money(profile.maxBudget)], ['紧迫程度', label(profile.urgency)], ['购买计划', label(profile.purchasePlan)], ['开始前倾向', label(profile.baselineDecision)], ['当前需求', profile.currentNeed || '未填写'], ['替代方案', profile.alternative || '未填写'], ['最终决定', label(decision)], ['最终信心', label(client.finalConfidence)], ['选定商品', selected?.name || archive.selectedProductId || client.selectedProductId || '未选择'], ['延迟计划', label(client.delayPlan)], ['If–Then 计划', client.ifThenPlan || '未填写'] ];
+        $('profile').innerHTML = profileRows.map(([name, value]) => valueRow(name, value)).join('');
+        const recs = list(client.recommendations);
+        $('recommendations').innerHTML = recs.map(p => `<tr><td><strong>${escape(p.name || p.id)}</strong><br><span class="muted small">${escape(p.subtitle || '')}</span></td><td>${escape(money(p.price))}</td><td>${escape(p.matchScore ?? '—')}</td><td>${escape(p.rating ?? '—')}</td><td>${escape(list(p.matchReasons).join('；') || '—')}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">未提供推荐商品。</td></tr>';
+        const conversations = list(material.conversations).slice().sort((a,b) => String(a.timestamp || '').localeCompare(String(b.timestamp || '')));
+        $('conversation-count').textContent = `（${conversations.length} 条）`;
+        const grouped = new Map(); conversations.forEach(item => { const key = item.conversation_id || item.ai_type || 'other'; if (!grouped.has(key)) grouped.set(key, []); grouped.get(key).push(item); });
+        $('conversations').innerHTML = [...grouped.entries()].map(([key, items], i) => `<details ${i === 0 ? 'open' : ''}><summary>${escape(key.includes('guardian') ? '决策管家对话' : key.includes('seller') ? '商家对话' : '对话记录')}（${items.length} 条）</summary><div class="dialogue">${items.map(item => `<div class="message ${item.role === 'user' ? 'user' : item.ai_type === 'guardian' ? 'guardian' : 'seller'}"><div class="message-meta"><strong>${escape(messageAgent(item))}</strong><span>${escape(time(item.timestamp))}</span></div><div class="message-content">${escape(item.content || '')}</div></div>`).join('')}</div></details>`).join('') || '<p class="muted">未提供对话记录。</p>';
+        const behaviors = list(material.behaviors).slice().sort((a,b) => String(a.timestamp || '').localeCompare(String(b.timestamp || '')));
+        $('behavior-count').textContent = `（${behaviors.length} 条）`;
+        $('behaviors').innerHTML = behaviors.map(item => `<tr><td>${escape(time(item.timestamp))}</td><td>${escape(item.behavior_type || '—')}</td><td>${escape(item.product_id || '—')}</td><td>${item.duration_ms == null ? '—' : escape(item.duration_ms + ' ms')}</td><td><details><summary class="small">查看</summary><pre class="raw">${escape(pretty(item.metadata_json))}</pre></details></td></tr>`).join('') || '<tr><td colspan="5" class="muted">未提供行为记录。</td></tr>';
+        $('raw').textContent = JSON.stringify(data, null, 2);
+      }
+
+      async function loadFile(file) {
+        if (!file) return;
+        clearError();
+        if (!/\.json$/i.test(file.name) && file.type !== 'application/json') { showError('请选择 JSON 格式的归档文件。'); return; }
+        try {
+          const text = await file.text(); const data = JSON.parse(text);
+          if (!data || typeof data !== 'object') throw new Error('文件内容不是 JSON 对象');
+          if (!data.archive && !data.rawResearchMaterial && !data.clientRecord) throw new Error('未识别为研究归档：缺少 archive、rawResearchMaterial 或 clientRecord 字段');
+          currentText = text; currentName = file.name; render(data); $('filename').textContent = `当前文件：${file.name}`; picker.classList.add('hidden'); report.style.display = 'block';
+        } catch (err) { showError(`无法读取归档：${err.message || '文件格式不正确'}`); }
+      }
+      $('pick-button').addEventListener('click', () => input.click()); $('replace-button').addEventListener('click', () => input.click()); input.addEventListener('change', event => loadFile(event.target.files[0]));
+      ['dragenter','dragover'].forEach(type => picker.addEventListener(type, event => { event.preventDefault(); picker.classList.add('drag'); }));
+      ['dragleave','drop'].forEach(type => picker.addEventListener(type, event => { event.preventDefault(); picker.classList.remove('drag'); }));
+      picker.addEventListener('drop', event => loadFile(event.dataTransfer.files[0]));
+      $('download-button').addEventListener('click', () => { if (!currentText) return; const url = URL.createObjectURL(new Blob([currentText], { type:'application/json' })); const a = document.createElement('a'); a.href = url; a.download = currentName || 'research-archive.json'; a.click(); URL.revokeObjectURL(url); });
+    })();
+  </script>
+</body>
+</html>
