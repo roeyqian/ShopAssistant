@@ -170,13 +170,21 @@ async function requestEventStream(url, options = {}, handlers = {}) {
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
+  const startedAt = performance.now();
+  const requestId = response.headers.get('x-request-id') || response.headers.get('x-stream-request-id') || '';
   let buffer = '';
   let completed = false;
   let result = null;
+  let eventCount = 0;
+  let deltaChars = 0;
+  let lastEvent = 'none';
+  let serverDiagnostics = null;
 
   const processEvent = (frame) => {
     const lines = frame.split(/\r?\n/);
     const event = lines.find((line) => line.startsWith('event:'))?.slice(6).trim() || 'message';
+    eventCount += 1;
+    lastEvent = event;
     const rawData = lines
       .filter((line) => line.startsWith('data:'))
       .map((line) => line.slice(5).trimStart())
@@ -190,13 +198,28 @@ async function requestEventStream(url, options = {}, handlers = {}) {
       throw new Error('AI stream contains an invalid event');
     }
     if (event === 'delta') {
-      handlers.onDelta?.(String(data.content || ''));
+      const content = String(data.content || '');
+      deltaChars += content.length;
+      handlers.onDelta?.(content);
     } else if (event === 'done') {
       completed = true;
       result = data;
+      serverDiagnostics = data.diagnostics || serverDiagnostics;
       handlers.onDone?.(data);
     } else if (event === 'error') {
-      throw new Error(data.message || 'AI stream failed');
+      const error = new Error(formatStreamErrorMessage(data.message || 'AI stream failed', data.diagnostic, {
+        requestId,
+        elapsedMs: Math.round(performance.now() - startedAt),
+        eventCount,
+        deltaChars,
+        lastEvent,
+      }));
+      error.status = data.diagnostic?.status || null;
+      error.requestId = data.diagnostic?.requestId || requestId;
+      error.diagnostic = data.diagnostic || null;
+      throw error;
+    } else if (event === 'meta' || event === 'ping') {
+      serverDiagnostics = data;
     }
   };
 
@@ -214,8 +237,39 @@ async function requestEventStream(url, options = {}, handlers = {}) {
     reader.releaseLock();
   }
 
-  if (!completed) throw new Error('AI stream ended before completion');
+  if (!completed) {
+    const diagnostics = {
+      requestId,
+      elapsedMs: Math.round(performance.now() - startedAt),
+      eventCount,
+      deltaChars,
+      lastEvent,
+      lastServerEvent: serverDiagnostics?.protocol ? 'meta' : (serverDiagnostics ? 'ping' : 'none'),
+      serverElapsedMs: serverDiagnostics?.elapsedMs ?? null,
+    };
+    console.warn('AI stream ended before completion', diagnostics);
+    const error = new Error(formatStreamErrorMessage('AI stream ended before completion', null, diagnostics));
+    error.code = 'stream_incomplete';
+    error.requestId = requestId;
+    error.diagnostic = diagnostics;
+    throw error;
+  }
   return result;
+}
+
+function formatStreamErrorMessage(message, serverDiagnostic, clientDiagnostic) {
+  const details = { ...clientDiagnostic, ...(serverDiagnostic || {}) };
+  const parts = [message];
+  if (details.requestId) parts.push(`Request ID: ${details.requestId}`);
+  if (details.stage) parts.push(`Stage: ${details.stage}`);
+  if (Number.isFinite(details.status)) parts.push(`Status: ${details.status}`);
+  if (Number.isFinite(details.elapsedMs)) parts.push(`Elapsed: ${details.elapsedMs}ms`);
+  if (Number.isFinite(details.eventCount)) parts.push(`SSE events: ${details.eventCount}`);
+  if (Number.isFinite(details.deltaChars)) parts.push(`Received characters: ${details.deltaChars}`);
+  if (details.lastEvent) parts.push(`Last event: ${details.lastEvent}`);
+  if (details.lastServerEvent) parts.push(`Last server event: ${details.lastServerEvent}`);
+  if (Number.isFinite(details.serverElapsedMs)) parts.push(`Last server elapsed: ${details.serverElapsedMs}ms`);
+  return parts.join('\n');
 }
 
 function formatErrorMessage(data, status) {

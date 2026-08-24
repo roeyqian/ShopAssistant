@@ -116,6 +116,7 @@ async function postDeepSeek(config, payload, { signal } = {}) {
       } else {
         throw {
           status: 502,
+          stage: 'provider-connect',
           message: `AI service connection failed: ${String(error?.message || error)}`,
         };
       }
@@ -132,7 +133,7 @@ async function postDeepSeek(config, payload, { signal } = {}) {
 
 async function readDeepSeekStream(response, onDelta, signal) {
   if (!response.body) {
-    throw { status: 502, message: 'AI service returned an empty stream' };
+    throw { status: 502, stage: 'provider-stream', message: 'AI service returned an empty stream' };
   }
 
   const reader = response.body.getReader();
@@ -158,7 +159,7 @@ async function readDeepSeekStream(response, onDelta, signal) {
     try {
       payload = JSON.parse(data);
     } catch {
-      throw { status: 502, message: 'AI service returned an invalid stream event' };
+      throw { status: 502, stage: 'provider-stream', message: 'AI service returned an invalid stream event' };
     }
 
     const choice = payload?.choices?.[0];
@@ -183,7 +184,7 @@ async function readDeepSeekStream(response, onDelta, signal) {
     if (buffer.trim()) processFrame(buffer);
   } catch (error) {
     if (signal?.aborted) {
-      throw { status: 499, message: 'AI request cancelled' };
+      throw { status: 499, stage: 'provider-stream', message: 'AI request cancelled' };
     }
     throw error;
   } finally {
@@ -191,7 +192,7 @@ async function readDeepSeekStream(response, onDelta, signal) {
   }
 
   if (!receivedDone) {
-    throw { status: 502, message: 'AI response stream ended before completion' };
+    throw { status: 502, stage: 'provider-stream', message: 'AI response stream ended before completion' };
   }
   return { content, finishReason };
 }

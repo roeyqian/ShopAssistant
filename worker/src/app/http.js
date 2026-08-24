@@ -21,7 +21,7 @@ export function createRouter() {
       routes.push({ method: method.toUpperCase(), ...compilePattern(pattern), handler });
     },
 
-    async handle(request, env, url) {
+    async handle(request, env, url, context = {}) {
       const matched = routes.find((candidate) => {
         if (candidate.method !== request.method.toUpperCase()) return false;
         return candidate.expression.test(url.pathname);
@@ -33,7 +33,7 @@ export function createRouter() {
       const params = Object.fromEntries(
         matched.names.map((name, index) => [name, decodeURIComponent(match[index + 1])]),
       );
-      return matched.handler({ request, env, url, params });
+      return matched.handler({ request, env, url, params, ...context });
     },
   };
 }
@@ -43,7 +43,7 @@ export async function handleApi(request, env, url, router) {
 
   const requestId = createId("req");
   try {
-    const response = await router.handle(request, env, url);
+    const response = await router.handle(request, env, url, { requestId });
     return withCors(response, { "x-request-id": requestId });
   } catch (error) {
     const status = getErrorStatus(error);

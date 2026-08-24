@@ -25,7 +25,7 @@ const HISTORY_ORDER_DESC = `
       id DESC
   `;
 
-export async function chat({ request, env, url }) {
+export async function chat({ request, env, url, requestId }) {
   const { token, session } = await requireStandardUser(request, env);
   const locale = getLocaleFromRequest(request, url);
   const body = await readJsonBody(request);
@@ -56,7 +56,7 @@ export async function chat({ request, env, url }) {
   }
 
   const duplicate = await findIdempotentResponse(env, session.userId, clientMessageId);
-  if (duplicate.hasAssistant) return streamStoredResponse(duplicate.response, aiType, duplicate.assessment);
+  if (duplicate.hasAssistant) return streamStoredResponse(duplicate.response, aiType, duplicate.assessment, requestId, 'chat');
   if (duplicate.pending) throw { status: 409, message: 'AI request is still being processed' };
 
   const config = await env.db.prepare("SELECT * FROM ai_config WHERE id = 1").first();
@@ -131,7 +131,7 @@ export async function chat({ request, env, url }) {
   });
 
   if (reservation?.duplicateResponse !== undefined) {
-    return streamStoredResponse(reservation.duplicateResponse, aiType, reservation.assessment);
+    return streamStoredResponse(reservation.duplicateResponse, aiType, reservation.assessment, requestId, 'chat');
   }
   if (reservation?.duplicatePending) {
     throw { status: 409, message: 'AI request is still being processed' };
@@ -186,10 +186,10 @@ export async function chat({ request, env, url }) {
     ).run();
 
     return { response: result.content, aiType, assessment: result.assessment, providerError: result.providerError || null };
-  });
+  }, { requestId, endpoint: 'chat', aiType });
 }
 
-export async function decision({ request, env, url }) {
+export async function decision({ request, env, url, requestId }) {
   const { token, session } = await requireStandardUser(request, env);
   const locale = getLocaleFromRequest(request, url);
   const body = await readJsonBody(request);
@@ -205,7 +205,7 @@ export async function decision({ request, env, url }) {
 
   const duplicate = await findIdempotentResponse(env, session.userId, clientMessageId);
   if (duplicate.hasAssistant) {
-    return streamStoredResponse(duplicate.response, 'neutral', duplicate.assessment);
+    return streamStoredResponse(duplicate.response, 'neutral', duplicate.assessment, requestId, 'decision');
   }
   if (duplicate.pending) throw { status: 409, message: 'AI request is still being processed' };
 
@@ -255,7 +255,7 @@ export async function decision({ request, env, url }) {
   });
 
   if (reservation?.duplicateResponse !== undefined) {
-    return streamStoredResponse(reservation.duplicateResponse, 'neutral', reservation.assessment);
+    return streamStoredResponse(reservation.duplicateResponse, 'neutral', reservation.assessment, requestId, 'decision');
   }
   if (reservation?.duplicatePending) {
     throw { status: 409, message: 'AI request is still being processed' };
@@ -271,6 +271,7 @@ export async function decision({ request, env, url }) {
         userMessage: message,
         locale,
         request,
+        sendDelta,
       });
     } catch (error) {
       if (error?.status === 499) {
@@ -313,7 +314,7 @@ export async function decision({ request, env, url }) {
       assessment,
       providerError: result.providerError || null,
     };
-  });
+  }, { requestId, endpoint: 'decision', aiType: 'neutral' });
 }
 
 export async function synthesis({ request, env, url }) {
@@ -469,7 +470,7 @@ export async function getResearchReport({ request, env, url }) {
   return json({ report });
 }
 
-export async function sellerNudge({ request, env, url }) {
+export async function sellerNudge({ request, env, url, requestId }) {
   const { token, session } = await requireStandardUser(request, env);
   const locale = getLocaleFromRequest(request, url);
   const { productId, dwellMs, source, conversationId: rawConversationId } = await readJsonBody(request);
@@ -516,7 +517,7 @@ export async function sellerNudge({ request, env, url }) {
       skipped: true,
       reason: 'consecutive_automatic_promotions_limit',
       aiType: 'seller',
-    }));
+    }), { requestId, endpoint: 'seller-nudge', aiType: 'seller' });
   }
 
   const messages = history
@@ -564,31 +565,69 @@ export async function sellerNudge({ request, env, url }) {
     ).run();
 
     return { response: result.content, aiType: 'seller', providerError: result.providerError || null };
-  });
+  }, { requestId, endpoint: 'seller-nudge', aiType: 'seller' });
 }
 
-function streamStoredResponse(response, aiType, assessment = null) {
+function streamStoredResponse(response, aiType, assessment = null, requestId, endpoint = 'stored-response') {
   const content = String(response || '');
   return streamAiResponse(async (sendDelta) => {
     if (content) sendDelta(content);
     return { response: content, aiType, assessment, idempotent: true };
-  });
+  }, { requestId, endpoint, aiType, idempotent: true });
 }
 
-function streamAiResponse(producer) {
+function streamAiResponse(producer, { requestId = createId('stream'), endpoint = 'ai', aiType = null, idempotent = false } = {}) {
   const encoder = new TextEncoder();
+  const startedAt = Date.now();
   const stream = new ReadableStream({
     async start(controller) {
+      let outputClosed = false;
       const send = (event, payload) => {
-        controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`));
+        if (outputClosed) return false;
+        try {
+          controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`));
+          return true;
+        } catch (error) {
+          outputClosed = true;
+          console.warn('AI SSE output closed before event could be delivered', {
+            requestId,
+            endpoint,
+            event,
+            elapsedMs: Date.now() - startedAt,
+            message: getStreamErrorMessage(error),
+          });
+          return false;
+        }
       };
+      const diagnostics = () => ({
+        requestId,
+        endpoint,
+        aiType,
+        idempotent,
+        elapsedMs: Date.now() - startedAt,
+      });
+      send('meta', { ...diagnostics(), protocol: 'shopassistant-sse-v1' });
+      const heartbeatId = setInterval(() => {
+        send('ping', diagnostics());
+      }, 10_000);
       try {
         const result = await producer((content) => send('delta', { content }));
-        send('done', result);
+        send('done', { ...result, diagnostics: diagnostics() });
       } catch (error) {
-        send('error', { message: getStreamErrorMessage(error) });
+        const diagnostic = {
+          ...diagnostics(),
+          stage: String(error?.stage || 'stream-producer'),
+          status: Number(error?.status) || null,
+        };
+        console.error('AI SSE producer failed', {
+          ...diagnostic,
+          message: getStreamErrorMessage(error),
+          stack: error?.stack,
+        });
+        send('error', { message: getStreamErrorMessage(error), diagnostic });
       } finally {
-        controller.close();
+        clearInterval(heartbeatId);
+        if (!outputClosed) controller.close();
       }
     },
   });
@@ -599,6 +638,8 @@ function streamAiResponse(producer) {
       'cache-control': 'no-cache, no-transform',
       'connection': 'keep-alive',
       'x-accel-buffering': 'no',
+      'x-stream-request-id': requestId,
+      'x-stream-protocol': 'shopassistant-sse-v1',
     },
   });
 }
