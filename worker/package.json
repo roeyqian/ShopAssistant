@@ -6,6 +6,7 @@
     "dev": "wrangler dev",
     "build:view": "npm --prefix ../view run build",
     "deploy": "npm run build:view && wrangler deploy",
+    "db:migrate:local": "wrangler d1 migrations apply zero-1-base --local",
     "db:init": "wrangler d1 execute zero-1-base --file=store/migrations/0001_init.sql --remote",
     "db:seed": "wrangler d1 execute zero-1-base --file=store/migrations/0002_seed.sql --remote",
     "db:events": "wrangler d1 execute zero-1-base --file=store/migrations/0003_order_events.sql --remote",

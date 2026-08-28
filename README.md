@@ -2,6 +2,12 @@
 
 > 受 ACM CHI 2026 论文 [BuyMate: Making AI Interventions Effective in Promoting Rational Consumption in Live Commerce](https://doi.org/10.1145/3772318.3790928) 启发的电商 AI 干预研究平台。
 
+更新部署代码
+
+```powershell
+cd worker; npm install; if ($LASTEXITCODE -eq 0) { npm run deploy }; cd ..
+```
+
 ShopAssistant 将直播电商中的高刺激购买场景转化为可运行、可记录的 Web 实验环境。它关注的不是替用户决定“该不该买”，而是在限时、稀缺、从众和价格锚定等压力出现时，为用户提供暂停、核验、比较和反思的机会。
 
 项目以 BuyMate 的理性消费干预理念为设计来源，并在此基础上扩展了卖家 AI 对照、管家 AI、完整研究流程和研究数据后台。前端位于 `view/`，后端 API 位于 `worker/src/`。

@@ -315,6 +315,15 @@
                     {{ t('detail.askSeller') }}
                   </button>
                   <button
+                    v-if="!isAdminUser"
+                    class="ghost-btn"
+                    type="button"
+                    @click="openAi('guardian', selectedProduct)"
+                  >
+                    <ShieldCheck :size="16" />
+                    {{ t('detail.askGuardian') }}
+                  </button>
+                  <button
                     class="icon-close"
                     type="button"
                     :aria-label="t('common.close')"
@@ -384,23 +393,6 @@
                   </div>
                 </div>
 
-                <div class="agent-view-grid">
-                  <button class="agent-view-card seller-view" type="button" @click="openAi('seller', selectedProduct)">
-                    <MessageSquareMore :size="18" />
-                    <span>
-                      <strong>{{ t('decisionSupport.valueView') }}</strong>
-                      <small>{{ t('decisionSupport.valueViewBody') }}</small>
-                    </span>
-                  </button>
-                  <button class="agent-view-card guardian-view" type="button" @click="openAi('guardian', selectedProduct)">
-                    <ShieldCheck :size="18" />
-                    <span>
-                      <strong>{{ t('decisionSupport.guardianView') }}</strong>
-                      <small>{{ t('decisionSupport.guardianViewBody') }}</small>
-                    </span>
-                  </button>
-                </div>
-
                 <div class="intervention-grid decision-tool-grid">
                   <button
                     v-for="item in decisionSupportCards"
@@ -416,15 +408,6 @@
                     <span>{{ item.body }}</span>
                   </button>
                 </div>
-
-                <button class="pressure-launch-card compact-pressure-launch" type="button" @click="openPressureProbe">
-                  <span class="pressure-launch-icon"><ShieldCheck :size="20" /></span>
-                  <span class="pressure-launch-copy">
-                    <strong>{{ t('decisionSupport.pressureCheck') }}</strong>
-                    <span>{{ t('decisionSupport.pressureCheckBody') }}</span>
-                  </span>
-                  <span class="pressure-level" :class="`level-${pressureLevel}`">{{ pressureLevelLabel }}</span>
-                </button>
 
                 <div class="comparison-module decision-comparison-module">
                   <h3>{{ t('decisionSupport.comparisons') }}</h3>
@@ -454,9 +437,6 @@
                 <button class="primary-btn" type="button" @click="addToCart(selectedProduct)">
                   <ShoppingCart :size="16" />
                   {{ t('detail.addToCart') }}
-                </button>
-                <button class="secondary-btn" type="button" @click="closeProductPreview">
-                  {{ t('decisionSupport.reviewLater') }}
                 </button>
               </div>
 

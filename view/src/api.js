@@ -1,4 +1,4 @@
-const API_BASE = '/api';
+const API_BASE = import.meta.env.VITE_BASE_URL || '/api';
 const LOCALE_STORAGE_KEY = 'shopassistant_locale';
 const ACCOUNT_STATE_STORAGE_PREFIX = 'shopassistant.account';
 const LEGACY_UNSCOPED_STORAGE_KEYS = ['shopassistant_research_draft'];
