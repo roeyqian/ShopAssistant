@@ -1,0 +1,337 @@
+\documentclass[manuscript,review]{acmart}
+
+\title{ShopAssistant: Dual-Agent AI Decision Support for Appropriate Consumption on Mass-Market E-commerce Platforms}
+\author{Siyu Qian}
+\authornote{Academic Supervisor: Erick Purwanto}
+
+\begin{document}
+
+\begin{abstract}
+AI interventions for online consumption commonly seek to curb impulse buying, yet persistent dissuasion may also make users forgo purchases that fit clear needs, affordable budgets, and adequate information. We present ShopAssistant, a dual-agent research prototype that studies purchase \textit{appropriateness} rather than purchase suppression. A seller agent explains verifiable product--scenario fit without manufacturing urgency; a guardian agent checks needs, budget, promotional pressure, and information gaps. In independent threads, they expose evidence, unknowns, and the user's current tendency toward buying, verifying, or not buying, while the user retains the final decision. The system records dialogues, interventions, comparisons, pressure probes, and choices as completed-round archives. This design supports future examination of both inappropriate impulse buying and \textit{over-restraint}: AI-related unnecessary delay or avoidance of an otherwise appropriate purchase.
+\end{abstract}
+
+\ccsdesc[500]{Human-centered computing~Human computer interaction (HCI)}
+\ccsdesc[300]{Computing methodologies~Artificial intelligence}
+
+\keywords{Consumer AI Intervention, E-commerce, Decision Support, Dual-Agent Systems, Over-restraint}
+
+\maketitle
+
+\section{Introduction}
+Digital e-commerce distributes promotional pressure across product pages, recommendation feeds, carts, and checkout. Moser et al.\ found that high-traffic sites promote purchases by lowering transaction risk, leveraging social influence, and increasing product proximity, while consumers seek thoughtful consideration, budget limits, delays, and cost salience \cite{moser2019}. Impulse buying reflects both limited planning and affective excitement or loss of control \cite{verplanken2001}, and is shaped by traits, resources, marketing stimuli, self-control, and emotion \cite{iyer2020}.
+
+Live-streaming e-commerce makes similar pressure synchronous and socially dense. Wu et al.\ identified deceptive, coercive, and manipulative selling strategies, many amplified by platform design \cite{wu2023}; BuyMate responds at key moments through pitch reconstruction and product comparison \cite{buymate2026}. These studies motivate support for deliberation, but their anti-impulse framing leaves open how to protect legitimate purchases.
+
+But rational consumption is not equivalent to buying less. Kivetz and Simonson point out that consumers sometimes pre-commit to indulgence to offset excessive self-control \cite{kivetz2002}; low-stock cues may both trigger impulsiveness and help users avoid missing genuinely needed products \cite{moser2019}. Accordingly, this paper proposes \textit{over-restraint}: when a purchase already satisfies transparent conditions of need, budget, fit, and information sufficiency, the user needlessly delays, abandons, or avoids the purchase due to AI intervention, and subsequent review confirms that this outcome is not in their own interest. It is not equivalent to a single ``not buying''; pausing may still be beneficial under high pressure, tight budget, or missing information.
+
+This paper poses two research questions:
+
+\noindent\textbf{RQ1.} Across different purchase appropriateness and promotional pressure contexts, how do a seller agent, a guardian agent, and their combination influence users' final three-state choices (buy, observe/verify, not buy) and process behaviors such as comparison, verification, and delay?
+
+\noindent\textbf{RQ2.} How do agent stances and their agreement or disagreement relate to user autonomy, appropriate reliance on AI advice, and over-restraint identified in later reviews?
+
+To address these questions, we build a configurable and traceable dual-agent prototype with a controlled catalog, comparison tasks, and pressure probes. The seller explains product--scenario fit from verifiable information; the guardian checks needs, budget, pressure, and information gaps. Their independent threads expose tendencies, evidence, unknowns, and follow-up questions rather than purchase commands. Users may complete or skip reflective pause, comparison, pitch reconstruction, budget calibration, and implementation-intention steps; the system archives these events, dialogues, and final choices.
+
+The contributions of this paper are: (1) a dual-agent framework that targets purchase appropriateness and treats over-restraint as an independent outcome; (2) a research platform that separates seller value explanation, consumer protection, structured tendency analysis, and the user's final decision; (3) a traceable process for comparing impulse buying, appropriate buying, delayed verification, and over-restraint across different agent conditions.
+
+\section{Related Work}
+\subsection{Impulse Buying, Platform Pressure, and Consumer Intervention}
+Impulse buying combines limited planning with affective excitement, urge, and loss of control \cite{verplanken2001}; traits, resources, marketing stimuli, self-control, and emotions all contribute \cite{iyer2020}. E-commerce designs often lower transaction risk, leverage social influence, and increase product proximity, while consumers seek budget limits, delays, cost salience, and time to consider \cite{moser2019}. Countdown timers, low-stock labels, bestseller badges, and strikethrough prices are therefore contextual cues, not sufficient diagnoses of impulsiveness.
+
+Live commerce intensifies these cues through fast, socially dense interaction; Wu et al. identify deceptive and coercive selling strategies amplified by platforms \cite{wu2023}. BuyMate supports deliberation by reconstructing pitches and comparing products \cite{buymate2026}. ShopAssistant adapts this ``key moment, gentle intervention'' approach to controlled mass-market samples: urgency, scarcity, social proof, and price anchoring are participant-labeled pressure probes, while browsing, comparison, cart, and simulated-choice events distinguish exposure from behavior.
+
+\subsection{From Counter-Persuasion to Actionable Decision Support}
+Counter-persuasion should not simply mean outputting ``don't buy'' to users. The Persuasion Knowledge Model emphasizes that people understand and cope with persuasion attempts \cite{friestad1994}; accordingly, consumer support can decompose promotional language into page claims, verifiable facts, and still-unknown information, rather than offsetting it with another coercive script. ShopAssistant implements this principle as a neutral pitch reconstruction in the seller stage: the system only uses the price, original price, stock, sales, rating, and description fields already present in the sample, marks missing information explicitly as unverified, and prohibits both agents from fabricating discounts, reviews, specifications, or after-sales policies.
+
+The prototype operationalizes counter-persuasion as optional, logged activities: neutral pitch reconstruction, comparison of up to three candidates, reflective pause, budget calibration, and ``if--then'' planning. These activities draw respectively on persuasion knowledge, self-regulation \cite{mischel1989}, choice-set design \cite{iyengar2000}, mental accounting \cite{thaler1985}, and implementation intentions \cite{gollwitzer1999}; they are study variables, not assumed remedies for impulse buying.
+
+\subsection{AI Decision Support, Autonomy, and Appropriate Reliance}
+AI decision support introduces two opposite risks: users may adopt system outputs without verification, or may prematurely abandon algorithms after seeing that they are imperfect \cite{dietvorst2015}. Research on trust in automation frames this as ``appropriate reliance'' that matches dependence to system capability \cite{lee2004}. Self-determination theory further suggests that autonomy-supportive interactions should preserve space for users' choices and reason construction rather than replacing judgment with external control \cite{ryandeci2000}. For consumption scenarios, transparently presenting evidence, unknowns, and actionable next steps is therefore more suitable for studying how users use AI opinions than a single, definitive purchase command.
+
+ShopAssistant uses role separation rather than an ``omniscient recommender.'' The seller explains value and fit from page facts without creating pressure; the guardian checks need persistence, budget, reversibility, pressure, and information gaps without shaming or treating deferral as uniquely correct. In independent threads they characterize the user's \emph{current expression} as buy, observe/verify, or not buy, with evidence, unknowns, and questions. This is not an instruction: the user makes the final choice, and immutable records retain dialogues, interventions, pressure probes, comparisons, and choices.
+
+\subsection{The Double-Edged Sword of Self-Control and Purchase Appropriateness}
+Treating every delay or non-purchase as a success ignores that self-control itself can be costly. Kivetz and Simonson discuss how consumers may pre-commit to indulgence to offset excessive self-control \cite{kivetz2002}. In e-commerce, delay can protect users under high pressure, tight budgets, or missing critical information; but when the need is clear, the budget is affordable, the product fits, and key information is sufficient, the same delay may also miss an otherwise appropriate purchase opportunity. Therefore, this paper does not define intervention quality by purchase quantity or ``non-buy rate,'' but examines purchase appropriateness through need clarity, budget margin, product fit, and information sufficiency.
+
+We position \emph{over-restraint} as a multi-source research outcome, not a single non-purchase: contextual criteria, immediate reasons, delayed review, and a traceable AI-related delay or avoidance must jointly indicate that buying would have served the user. The prototype records three-state choices and processes but does not yet implement delayed reviews, random assignment, or psychometric scales. It therefore asks when AI prevents inappropriate purchases and when it improperly suppresses appropriate ones.
+
+\section{Conceptual Framework and Research Questions}
+\subsection{Purchase Appropriateness: From Outcome Quantity to Contextual Fit}
+This paper defines purchase appropriateness as whether, for a given product and user context, buying, continuing to observe/verify, or not buying matches explainable conditions of need, resources, and information. It is not a score given by AI, nor is it equivalent to ``buy'' or ``not buy'' itself. Specifically, appropriateness consists of four interrelated dimensions:
+\begin{enumerate}
+  \item \textbf{Need clarity:} Can the user explain the expected usage scenario, persistent need, and existing alternatives; would the need still hold after promotional cues disappear.
+  \item \textbf{Budget margin:} Whether the current price and possible related expenses fall within the user's explicitly stated disposable budget, and whether alternative uses, usage frequency, or opportunity costs have been considered.
+  \item \textbf{Product fit:} Whether verifiable product attributes in the sample can support the usage scenario, and whether there are no user-specified critical incompatibilities or more suitable alternatives.
+  \item \textbf{Information sufficiency:} Whether price, specifications, compatibility, after-sales, or other facts that would materially change the decision have been verified to a degree sufficient for action.
+\end{enumerate}
+The dimensions neither require perfect satisfaction nor impose a universal threshold. Formal studies should pre-specify contextual rubrics and use independent annotators to judge whether buying, verification, or deferral is supported. The final choice is the main observable outcome, but appropriateness requires it to be interpreted with those rubrics, user reasons, and follow-up evaluation.
+
+This framework makes impulse buying a conditional outcome: when needs are unclear, budgets mismatched, or key information missing, a purchase submitted quickly after promotional pressure may be identified as impulsive. Conversely, a rapid purchase with urgent needs, sufficient budget, and sufficient information may still be appropriate; similarly, continuing to observe or not buying may also be beneficial under high pressure or information insufficiency. Pressure probes therefore only record participants' subjective perceptions of urgency, scarcity, social proof, and price anchoring for process analysis, and are not treated as psychometric or normative conclusions.
+
+\subsection{Over-Restraint and Distinguishable Decision Outcomes}
+Under the above definition, this paper proposes \emph{over-restraint}: when a purchase already satisfies pre-specified conditions of need, budget, fit, and information sufficiency, the user needlessly delays, abandons, or avoids the purchase after AI intervention, and subsequent review confirms that this outcome is not in their own interest. This definition preserves the dual possibility of self-control: delay may be a means to restore deliberative judgment, but it may also become excessive suppression of an otherwise appropriate choice \cite{kivetz2002}.
+
+Labeling over-restraint requires three converging sources: blinded contextual annotation supports buying; process records link AI exposure or intervention to delay or avoidance; and immediate reasons plus delayed review indicate that this outcome was not wanted. Otherwise, the case remains observe, not buy, or undecided. Withdrawal, skipped techniques, a single non-purchase, or agent disagreement alone are insufficient.
+
+ShopAssistant stores outcomes separately from processes. Outcomes include the final three-state choice, confidence, and helpfulness; processes include both dialogues, tendencies, pressure probes, intervention use, comparisons, and timelines. Tendencies describe current language rather than advice and never replace the user's choice. Delayed reviews, blinded annotations, and explicit advice-adoption events remain future additions.
+
+\subsection{Conceptual Model}
+This study models the decision process as a traceable but non-deterministic path: \emph{context and user state} $\rightarrow$ \emph{dual-agent interaction and optional interventions} $\rightarrow$ \emph{information verification and tendency change} $\rightarrow$ \emph{user's final three-state choice} $\rightarrow$ \emph{delayed review and appropriateness judgment}. Here, context and user state include product sample information, promotional pressure, need urgency, budget margin, alternatives, prior knowledge, and time constraints; they may affect initial tendencies and moderate the effect of AI support. The Theory of Planned Behavior treats attitude, subjective norm, and perceived behavioral control as key components in forming intentions \cite{ajzen1991}; therefore, this study records users' need reasons, social proof pressure, budget, and information conditions separately, rather than explaining choices with a single pressure score.
+
+The seller agent's role is to explain value and fit based on given product facts and the user's scenario, while the guardian agent highlights need persistence, budget, information gaps, and promotional pressure. The differing stances of the two agents constitute research conditions, not an automatically produced ``correct answer'' after canceling each other out. Users may complete or skip techniques such as reflective pause, neutral pitch reconstruction, same-category comparison, budget calibration, and implementation intentions, and retain three paths: immediate purchase, continued verification, and not buying. We therefore focus on how agent stances, agreement or disagreement, and technique use influence final choices through information seeking, comparison, delay, and reason construction; and we treat purchase appropriateness, impulse buying, and over-restraint as outcomes requiring contextualized interpretation rather than a single direction for system optimization.
+
+\subsection{Research Questions}
+This framework operationalizes the two research questions from the introduction into analyzable outcome and process indicators:
+
+\noindent\textbf{RQ1.} Across different purchase appropriateness and promotional pressure contexts, how do a seller agent, a guardian agent, and their combination influence users' final three-state choices (buy, observe/verify, not buy) and process behaviors such as comparison, verification, and delay?
+
+RQ1 compares not merely purchase rates or non-purchase rates, but whether choices under different conditions match pre-annotated contexts. It especially examines: whether guardian-oriented support can reduce unverified immediate purchases in low-appropriateness, high-pressure contexts; whether a seller perspective or dual-agent perspective can preserve purchase paths in high-appropriateness contexts; and what relationships appear between actual completion, skipping, and final choice across the five techniques.
+
+\noindent\textbf{RQ2.} How do agent stances and their agreement or disagreement relate to user autonomy, appropriate reliance on AI advice, and over-restraint identified in later reviews?
+
+RQ2 treats agent outputs as opinions that users must interpret and verify, not as ground-truth labels. Analysis will examine whether users increase comparison or information verification when agents disagree, whether they retain their own reasons when agents agree, and how decision confidence, process helpfulness, open-ended explanations, and delayed reviews together reveal beneficial verification versus unnecessary avoidance. Because the current prototype does not automatically collect delayed reviews or record independent events of advice acceptance/rejection/ignoring, this paper lists these measurements as necessary extensions for formal research and does not make effect assumptions about data not yet collected.
+
+\section{System Design}
+\subsection{Design Goals and Implementation Boundaries}
+ShopAssistant is a web research prototype, not a real-payment or platform-connected shopping assistant. Its Vue front end manages stages, candidates, threads, technique status, and choices; Cloudflare Worker APIs and D1 store samples, sessions, and events. Product facts, participant statements, model content, and research records are kept separate so generated text cannot become a product fact.
+
+Ordinary consultation provides separate seller and guardian threads and, on request, a transparent synthesis of their perspectives, agreements, evidence status, and pending questions. The research page instead compares their readings of the user's \emph{current expression} with the user's own final choice; it never presents a structured result as a command. This section focuses on that research flow.
+
+\subsection{Controlled Samples and Participant Context Modeling}
+A research round begins with informed consent; only logged-in ordinary users may enter, while administrator accounts can only configure AI and view research summaries, not participate in the research flow. Participants then fill in gender, age, education, purchase target, budget cap, need urgency, purchase starting point (planned, considering, or spontaneous), initial three-state tendency, existing alternatives, and current need. Demographic fields are used for research records; the seller and guardian prompts explicitly prohibit inferring consumption ability, taste, psychological state, or purchase intention from these fields.
+
+The backend uses an inspectable heuristic to match need keywords and category aliases to product names, descriptions, tags, and specifications; budget only adjusts within-category rank, and over-budget candidates are marked for verification. The ranking supplies relevant research candidates, not a ``best product'' ground truth. Agents receive the catalog but must return valid product IDs before the interface displays a candidate.
+
+Product facts are limited to database fields: name, category, title/description, price, original price, stock, sales, rating, and existing specifications. Both seller and guardian are prohibited from adding reviews, discounts, policies, competitor comparisons, or technical parameters; the product selected in the interface is only the current focus and does not restrict the agent from discussing other samples in the catalog during comparison tasks. This constraint corresponds to the distinction among ``claims, verifiable facts, and unknowns'' required by persuasion knowledge \cite{friestad1994}, and makes subsequent evidence status traceable to specific sample fields.
+
+\subsection{Dual Agents and Structured Tendency Analysis}
+Seller and guardian use independent conversation IDs. Requests use client message IDs and unique indexes to prevent duplicates after retries. Runtime context retains the latest 20 messages per agent, while completed archives retain all round-specific dialogues and events.
+
+The seller agent works as an explicit research comparison role: it connects the user's usage scenario to verifiable product values, limitations, and alternatives in the database, and tends to explain purchase reasons when there is no clear lack of need, inability to afford, or serious mismatch; however, it must not create new pressure through countdowns, scarcity, conformity, shame, or fear. The guardian agent explicitly identifies its consumer-protection stance, prioritizing checks of persistent need, budget pressure, alternatives, information gaps, reversibility, and promotional influence; it tends to verify or defer as long as substantial risks or unknowns remain, but may support buying when need, budget, and evidence are sufficient. This role separation places value explanation and protective checking side by side, rather than setting one side as system truth, and follows the design constraints of autonomy and appropriate reliance \cite{ryandeci2000,lee2004}.
+
+Alongside prose, both agents return parseable JSON containing a current \texttt{buy|observe|not\_buy} tendency, confidence, reason, evidence status, and follow-up questions. The parser normalizes invalid fields and falls back to ``observe'' while retaining readable prose. Tendencies must reflect only the user's current language, so disagreement is not a pair of opposing commands.
+
+\subsection{Fixed Research Flow and Five Observable Techniques}
+The research page has six stages: consent, profile/sample matching, seller, guardian, final choice, and completion. The seller receives the initial context; technique cards unlock after three participant-initiated seller turns, and each agent stage permits up to eight. After the participant views the final seller reply, the guardian receives comparison choices and reflection text as background, not the seller thread.
+
+Afterward, the research protocol executes the following fixed sequence; each item may be completed or explicitly skipped, and both produce event records.
+\begin{enumerate}
+  \item \textbf{Persuasion knowledge and neutral reconstruction (seller).} The system automatically concatenates title, description, price, original price, stock, sales, and rating from one or more current samples, and asks the agent to distinguish potential merchant claims, verifiable facts, and unverified parts; participants do not need to identify or transcribe promotional language themselves. If a sample does not provide a relevant field, the agent must state the missing information rather than fabricate a pitch or apply reverse pressure.
+  \item \textbf{Controlled same-category comparison (seller).} The interface shows a limited set from the pre-ranked candidates; participants may select up to three and view them in the same layout by price, page rating, and fit reasons. A real comparison can only be completed with at least two candidates; if candidates are insufficient, the system records ``insufficient samples'' and allows continuation, and the agent must not invent substitutes. This design treats comparison as an information operation rather than using the lowest price as the answer \cite{iyengar2000}.
+  \item \textbf{Reflective pause (seller).} The participant answers whether the product is still needed after promotional cues disappear; the agent distinguishes immediate stimuli from persistent need based on this answer, but must not preset buying or delaying as the correct outcome. This step draws on delay-of-gratification and self-regulation research as an observable activity in the experiment, not a validated e-commerce therapy \cite{mischel1989}.
+  \item \textbf{Budget calibration (guardian).} Participants may update their budget cap and fill in alternative uses or expected usage frequency. The guardian may only use numbers explicitly provided by the participant, juxtaposing total price, budget, usage frequency, and opportunity cost; when the budget is ample and the need is clear, the prompt allows it to support buying rather than treating saving money as the sole goal \cite{thaler1985}.
+  \item \textbf{Implementation intention (guardian).} The participant writes a time-bound ``if--then'' plan and chooses to review it now, in ten minutes, or tomorrow. The guardian checks whether the next step is specific, and the plan must retain both paths of ``buy if conditions are met'' and ``abandon if mismatch is found'' \cite{gollwitzer1999}.
+\end{enumerate}
+
+The fixed order gives each technique stable interface actions, inputs, and log semantics for process analysis; but it also means the current implementation has not yet randomized agent order, technique order, or a no-AI condition. Formal experiments should add random assignment, counterbalancing, and condition isolation on this basis, and the current sequential flow should not be directly interpreted as a causal comparison.
+
+\subsection{Choice, Tracking, and Archivable Research Materials}
+After the techniques, the interface shows both tendencies beside three equally available choices: buy, observe/verify, and not buy. Submission records the choice, tendencies, dialogue rounds, technique status, candidates, review plan, and profile, then validates and archives an immutable D1 snapshot containing all round dialogues and events. Exit cleanup affects only unfinished round-specific records.
+
+The behavior layer uniformly logs browsing, search, cart addition, removal, simulated decisions, AI dialogues, technique checks, and pressure probes. Pressure probes save participants' self-reports of urgency, scarcity, social proof, and price anchoring, rather than computing a diagnostic ``impulse score.'' After completion, users may also submit confidence, process helpfulness, and free-text feedback; these are recorded as subsequent events and do not rewrite the already generated archive snapshot. Therefore, research analysis should clearly distinguish the archive time from post-completion feedback.
+
+A completed round may optionally generate a ``decision process report.'' This report uses only the two saved dialogues to generate 0--100 visualization indices for need clarity, evidence groundedness, budget calibration, pressure awareness, and action planning, accompanied by four theoretical perspectives: autonomy, planning, persuasion knowledge, and budgeting. The prompt explicitly prohibits making inferences from demographic fields, implied psychological states, or hidden reasoning; the scores are not calibrated scales, diagnoses, or purchase advice. The report and original materials are written to an authenticated download route when a private R2 storage is configured, and D1 stores only their keys, controlled URLs, model, and generation time. Therefore, this report is suitable as an explanatory interface for dialogue tracing, not as an automatic label for judging impulse buying, purchase appropriateness, or over-restraint.
+
+\section{Study Design}
+\subsection{Study Goals and Participants}
+To examine how users employ seller and guardian AI perspectives in purchasing decisions, we conducted an exploratory process study with 12 participants. Each participant completed one decision-making session centered on their own purchasing need. Participants were required to be adults with experience using mass-market e-commerce. The 12 sessions were used to closely examine how agent stances, intervention steps, and user reasons interweave in concrete decision processes; the analysis does not aim to estimate population purchase rates, test significant differences, or compare causal effects of the two roles.
+
+At the start of a session, participants completed informed consent and filled in gender, age, and education, as well as purchase target, budget cap, need urgency, purchase starting point, initial three-state tendency, existing alternatives, and current need directly related to the decision. The aforementioned profile was used to describe the decision context and generate candidate products, not to infer participants' consumption ability, taste, psychological state, or purchase intention.
+
+\subsection{Study Procedure}
+The system retrieved candidate products from a local product catalog based on participants' need descriptions. Candidate ranking combined matching between need text and product name, description, tags, and specifications, with limited adjustments for budget, purchase target, and urgency. Participants then viewed product name, price, original price, stock, sales, rating, description, and specifications. The candidate set served subsequent discussion and comparison, not a recommendation of what ``should be bought''; all decisions were simulated and involved no real payment.
+
+Each participant interacted with the seller agent and the guardian agent in sequence. The two dialogues were independent: the seller agent first discussed product value, usage scenario, and verifiable facts; after completing the seller stage, the guardian agent received comparison choices and reflection text as background and continued discussing need persistence, budget, information gaps, alternatives, and promotional pressure. Participants initiated at least three rounds of seller dialogue before entering the structured decision-support steps; each agent stage allowed at most eight dialogue rounds. This order allowed every participant to encounter both stances in the same purchase context and to trace their respective reasons.
+
+Next, participants completed or skipped five activities in a fixed order: (1) neutral pitch reconstruction that distinguished product claims, verifiable facts, and unknowns; (2) controlled comparison among up to three candidate products; (3) reflective pause answering whether the need would still exist after promotional cues disappeared; (4) budget calibration juxtaposing price, budget, alternative uses, and expected usage frequency; and (5) implementation intention selecting a review time of now, ten minutes, or tomorrow and writing an ``if--then'' action plan. If candidates were insufficient for comparison, participants could continue with subsequent steps. Regardless of completion or skipping, the system saved the corresponding action, so both constituted parts of the decision trajectory.
+
+Before the final choice, the system presented side by side the seller's and guardian's structured judgments of the participant's current expression: buy, observe/verify, or not buy, along with reasons, evidence status, and follow-up questions. These judgments were meant to make the two stances and their evidence boundaries visible, not to replace the participant's decision. Participants then independently chose buy, observe/verify, or not buy, and reported current confidence, review plan, and action plan. After completing the session, participants could also report process helpfulness, decision confidence, and free-text feedback; the system-generated decision process report served only as a review interface for interaction materials, not as a psychometric measure or purchase appropriateness judgment.
+
+\begin{table}[t]
+  \caption{Materials collected in each decision session.}
+  \label{tab:study-measures}
+  \centering
+  \small
+  \begin{tabular}{p{0.21\linewidth}p{0.38\linewidth}p{0.25\linewidth}}
+    \hline
+    Data layer & Collected content & Analytical use \\
+    \hline
+    Profile and candidates & Need, budget, urgency, purchase starting point, alternatives, candidates, and selected product & Explain the purchase context of the round \\
+    Interaction process & Two dialogues, dialogue rounds, comparison choices, completion or skipping of five techniques, pressure probes & Reconstruct how agents and user advanced the decision \\
+    Decision outcome & Both structured tendencies, final three-state choice, review plan, current confidence, action plan & Compare user's final choice with agent readings \\
+    Post-completion feedback & Process helpfulness, confidence, and free-text feedback & Supplement immediate subjective experience \\
+    \hline
+  \end{tabular}
+\end{table}
+
+Each session's profile, candidates, both complete dialogues, process actions, and final choice were saved as separate records, supporting analysis of agent outputs, user behaviors, and final decisions within the same analytical unit.
+
+\subsection{Data and Analysis}
+The analysis used the 12 decision sessions as case units. For each case, we organized purchase context, candidate products, seller and guardian dialogues, order of use of the five activities, pressure probes, both structured judgments, final choice, and post-completion feedback, and constructed a decision timeline. Cross-case comparison focused on three aspects: (1) how participants supplemented, maintained, or revised reasons after encountering the second agent stance; (2) how comparison, budget calibration, reflective pause, and review plan were used when agent judgments agreed or disagreed; and (3) how the final three-state choice related to evidence and unknowns raised by the participant at that moment. Descriptive counts were used only to illustrate how often a certain trajectory appeared across cases, not for statistical testing or generalization. We performed session-level outcome coding for all 12 sessions; below, five complete archives (C1--C5) are presented as fine-grained process and quotation material. Therefore, directional changes across all sessions are reported qualitatively only; precise counts involving final choice, technique completion, and agent agreement are explicitly labeled as counts within these five cases, not extrapolated to proportions across all 12 participants.
+
+We did not equate agreement with AI judgment to appropriate reliance \cite{lee2004}, nor equate purchase rate or non-purchase rate with autonomy \cite{ryandeci2000}. Instead, the analysis considered whether participants articulated their own reasons, distinguished confirmed from unknown information, and retained or revised their choices between the two stances to understand their use of AI opinions. Observe/verify and not buy were both treated as decision states at the time of the session; they did not by themselves constitute labels of over-restraint.
+
+\section{Results}
+We recruited 12 adults; all participants completed the procedure with no dropouts. Participants were aged 20--50 ($M=28.2$, median 24); self-reported gender was 5 female and 7 male. The model, both agent prompts, and the local product sample library remained consistent across sessions. The following results are based on session-level coding of all 12 sessions, with five complete archives (C1--C5) presented as traceable process evidence. We used only profiles, raw dialogues, step events, comparison choices, structured tendencies, and final choices for analysis, and did not treat the system-generated ``decision process report'' scores as study measurements.
+
+\subsection{Users Translate Agent Dialogues into Verifiable Personal Decision Conditions}
+Across the 12 sessions, participants revised, refined, or re-scoped their decision reasons during the process; this change was not equivalent to simply changing the final button, but rather transformed initial product desires into checkable needs, constraints, or unknowns. C1 initially only wanted to buy a phone, then narrowed it to needing overseas service, valuing battery life, and suiting moderate use, while keeping foreign version compatibility and return/exchange policies as conditions that must be verified before deciding. C5 also progressively clarified from ``a computer'' to programming, battery life, and the impact of existing device performance on use. In both cases, product comparison and neutral reconstruction did not produce an answer for the user, but helped the user articulate ``what facts would make the purchase reasonable.''
+
+This phenomenon also appeared in non-purchase trajectories. C3 connected the need for a ``nice and warm'' coat to ``currently having only one warm item,'' but still treated the specific usage scenario and return/exchange information as unresolved conditions; C4 progressed from a vague ``cosmetics'' need to daily skincare and cost-effectiveness, while realizing that skin type and existing alternatives were not yet clear. Thus, observe/verify in these cases was not an empty state, but a state in which participants explicitly pointed out what to verify next.
+
+\subsection{The Process Preserves Both Buying and Deferring, Rather than Equating Prudence with Buying Less}
+Coding of all sessions shows that decision changes were bidirectional: some participants leaned more toward buying after sorting out needs and evidence, while others leaned more toward not buying or delayed verification. The five focal cases concretely illustrate this bidirectionality: C2 and C5 ended in buying, C3 and C4 chose observe/verify, and C1 chose not buy. Thus, the system's protective checks did not push all sessions toward the same outcome direction.
+
+Buying in the focal cases was also not a default conclusion that bypassed verification. C2 was still read as ``observe'' in the seller stage; after entering the guardian stage, the participant explained persistent need with insufficient food at home and ``food cannot be cut,'' ultimately choosing to buy. C5, after comparing three computers, used the impact of the existing device on usage as a reason to buy. In contrast, C1 chose not to buy when foreign version compatibility, battery life, and return/exchange policies still lacked page evidence; C3 and C4 kept verification paths open because scenarios, skin type, or alternatives were unclear. In other words, buying, observing, and not buying were all connected to reasons and unknowns raised by participants at the time, rather than being preset as success or failure by the interface.
+
+\subsection{Agent Agreement Does Not Determine the User's Final Choice}
+The dual agents' structured tendencies provided participants with comparable stances, but did not become a substitute for the final decision. In the five complete archives, C3, C4, and C5 had both agents reading the same result; C2 showed a disagreement with the seller reading ``observe'' and the guardian reading ``buy''; C1 had both agents reading ``observe'' but the user ultimately chose not to buy. C2 and C1 demonstrate that users may form their own purchase decision amid disagreement, or take a more conservative action than a unanimous ``observe.''
+
+Participants also explicitly retained their own conditions and time frames. C1 wrote, ``If I verify the return policy and it still meets my usage needs, then I will decide tonight; otherwise I won't buy for now''; C4 limited purchase to when the current skincare product runs out and the return/exchange policy is acceptable. Conversely, C5 insisted the computer was ``very necessary,'' even though the guardian noted that this statement was not yet an implementation intention with triggers and time limits. These trajectories present the dual-agent interface as scaffolding for reason construction and boundary negotiation, rather than a recommender that aggregates two agent opinions into a correct answer.
+
+We do not interpret these trajectories as causal effects of the agents, nor treat agent agreement, plan completion, or final purchase as direct indicators of appropriate reliance. The five complete archives contain no pressure probes linked to the research round, and the study has not yet collected delayed reviews or blinded appropriateness annotations; therefore, the current data cannot determine differences between high and low promotional pressure, nor can observe/verify or not-buy choices be labeled as over-restraint. These issues are further addressed in the discussion and future work.
+
+\section{Discussion}
+This study examined, through 12 exploratory decision sessions, how ShopAssistant organizes purchase reasons in mass-market e-commerce, rather than testing whether one agent can produce a more ``correct'' recommendation. The results show that participants transform initial product desires into needs, budgets, fit, and conditions to be verified; buying, observe/verify, and not buying can all become reasoned outcomes; and agent agreement or disagreement does not replace user judgment. The following discussion explains the implications of the dual-agent design for consumer AI decision support and clarifies what the current evidence cannot support.
+
+\subsection{The Value of Dual Agents Lies in Externalizing Reasons, Not Strengthening Recommendations}
+The first finding indicates that the seller and guardian should not be understood as a debate whose winner is decided by the system. The seller perspective connects the user's scenario with given product facts, values, and limitations; the guardian perspective brings persistent need, budget margin, promotional pressure, and information gaps into the same decision. Their joint value is not to synthesize two opinions into a stronger buy or reject recommendation, but to constitute a \emph{reason-construction infrastructure}: helping users externalize a vague ``want'' into conditions that can be discussed, questioned, and acted upon.
+
+Purchase reasons and deferral conditions in the focal cases illustrate this. For example, participants turned ``want a phone'' into overseas service, battery life, and return policy, and ``need a computer'' into programming tasks and whether the existing device already affects use; for cases not yet actionable, users could also point to specific unknowns such as skin type, compatibility, usage scenario, or after-sales information. Thus, what the system presents is not an apparently omniscient judgment, but the evidence on which reasons depend, facts not yet verified, and the next step that should be completed by someone. This orientation shifts the AI's contribution from optimizing transaction outcomes on behalf of the user to making decision reasons and their evidence boundaries visible and traceable, allowing researchers to return to concrete dialogues and behavior records to analyze how users form or revise judgments.
+
+This interpretation also limits how the dual-agent architecture should be evaluated. If the primary success metric is ``whether the user agrees with an agent'' or ``whether the final choice changed,'' the system is again reduced to a recommender, and cases where users did not adopt advice but clarified their own priorities more clearly are overlooked. A more appropriate question is: does the system help users distinguish preferences, constraints, evidence, and unknowns; does it make these reasons traceable for later verification or review; and can users still articulate their own action conditions based on them.
+
+\subsection{Appropriate Consumption Preserves Both Legitimate Paths of Buying and Deferring}
+The second finding further shows that the purpose of guardian-style support should not be to reduce purchase rates. The purchases in C2 and C5 were not failures of protective checking: when the need persisted, the budget was affordable, and key reasons were articulated, buying could be an appropriate result formed through verification and comparison. Correspondingly, the not-buy or continued verification in C1, C3, and C4 should not be automatically treated as success, because they were reasonable at that moment only insofar as participants still identified unresolved fit, usage scenario, alternatives, or after-sales information.
+
+This distinction places the core evaluation target of this paper back on \emph{contextual fit} rather than transaction quantity. Unverified immediate purchases in low-appropriateness, high-pressure contexts may need more protective support; but in contexts where needs are clear, budgets sufficient, products match, and information is sufficient, persistent dissuasion may also deviate from user interests. Therefore, consumer support systems should not set ``buy'' as a default state to be corrected, nor set ``wait'' as the only responsible answer. By design, both buying and deferring/verifying should be preserved as viable, non-shaming paths, and users should know the conditions and unresolved risks on which each path depends.
+
+This also affects the interpretation of outcomes in research. A three-state choice records the user's action state at the end of a session, not a one-dimensional success or failure of intervention. Buying may be appropriate buying or impulse buying; observing/verifying or not buying may be prudent judgment or, under certain conditions, constitute over-restraint. Only by examining the choice together with pre-specified contextual conditions, reasons during the process, and later evaluations can we avoid replacing appropriateness with purchase rate or non-purchase rate.
+
+\subsection{Agent Disagreement Is a Productive Friction}
+The third finding shows that agent agreement should not be designed as the system automatically outputting an answer, nor should disagreement be treated as system failure. In C2 the seller read ``observe'' and the guardian read ``buy,'' but the user ultimately bought; in C1 both agents read ``observe,'' yet the user still chose not to buy. These trajectories indicate that agent opinions are only comparable entry points for reasoning. Especially when disagreement appears, users must explain whether they prioritize immediate need, budget, product fit, reversibility, or evidence sufficiency; this explanatory burden may create productive friction rather than simply adding decision resistance.
+
+From this, design principles for consumer AI can be proposed: first, maintain the independence of roles and conversation threads so that reasons from different stances are not dissolved by the system before presentation; second, label the evidence status of each claim and explicitly retain unknowns; third, express follow-up actions as reversible next steps, such as comparison, verification, or setting a review time, rather than irrevocable compliance commands; fourth, allow users to reject either agent, both, or their joint conclusion, and clearly reserve the final decision to the user. Such a design does not guarantee that users will make any particular outcome, but supports users in seeing reason boundaries, expressing their own priorities, and retaining exit space when opinions agree or disagree.
+
+For ``appropriate reliance,'' this means agreement is not inherently worth adopting, and disagreement is not inherently something to eliminate. More worthy of attention is whether users can identify the evidence basis and limits of agent claims, whether they can ask, verify, or reject when necessary, and whether they use agent opinions as resources for their own reason construction rather than as authorization for decisions. The current small-sample process evidence can illustrate this possibility, but cannot measure whether disagreement improves autonomy, understanding, or decision quality relative to agreement; such a comparison requires pre-registered condition manipulation and more complete process measurement.
+
+\subsection{Over-Restraint Is an Important Risk, but Still a Proposition to Be Tested}
+The theoretical stance of this paper is that consumer-protective AI cannot be inherently considered good merely because it aims to suppress impulse buying. If a system, when a purchase already meets conditions of need, budget, fit, and information sufficiency, still improperly suppresses the user through conservative language or delay mechanisms, it may cause a harm different from impulse buying but equally important: the user misses an otherwise appropriate purchase. Naming this possibility \emph{over-restraint} helps correct the evaluative habit of equating ``not buying more'' with better consumption.
+
+However, this study has not yet proven that over-restraint occurred, nor that ShopAssistant can identify or reduce it. The current materials lack delayed reviews and independent, blinded purchase appropriateness annotations, and the five complete archives contain no pressure probes linked to the research round; therefore, any observe/verify, not-buy, agent disagreement, or guardian-style advice cannot alone be labeled as over-restraint. The narrower conclusion supported by the exploratory results is that because both buying and deferring can be appropriate, over-restraint is a risk that must be measured in future evaluations of consumer AI, not a label inferable from a single session outcome.
+
+Future research should incorporate delayed reviews into the study flow, asking users whether they still endorse their choices in actual or more realistic follow-up contexts; have independent annotators, blind to agent conditions and final choices, judge whether contexts support buying, verifying, or deferring based on pre-specified rubrics; and explicitly record when and why users adopt, modify, reject, or ignore each piece of agent advice. Combined with randomly assigned agent conditions, samples sufficient to test different pressure and appropriateness contexts, and careful tracking of purchase consequences, these materials may distinguish beneficial delay, appropriate buying, and AI-related over-restraint. Thus, this paper provides a conceptual and recording framework that makes this risk researchable, not a conclusion about its incidence or intervention effects.
+
+\section{Limitations and Future Work}
+The findings of this study should be understood as an exploration of traceable dual-agent decision support, not a test of intervention effects. First, the study included only 12 participants and simulated purchasing sessions within a controlled product catalog. The sample size, participant composition, product categories, and the absence of real payment consequences limit generalizability; budgets, urgency, and risk tolerance stated by users in simulated scenarios may also not equal behavior in real consumption. Future research should replicate these processes across diverse populations, categories, price ranges, and actual or high-fidelity purchase contexts, and carefully assess whether the system imposes unequal burdens on users with different budget constraints, digital literacy, or prior consumption experience.
+
+Second, the study flow fixed the order of talking to the seller agent first and the guardian agent second, and all participants experienced both agents and the five activities. Therefore, observed reason refinement, stance changes, or final choices may stem from dialogue order, repeated reflection, task familiarity, or the activities themselves, and cannot be attributed to a specific role, role combination, or specific technique. Subsequent studies should use random assignment or counterbalanced orders, compare conditions such as no agent, seller only, guardian only, and independent dual agents; simultaneously treat agent agreement and disagreement as manipulable factors, and distinguish completion, skipping, and actual usage patterns of each activity. Such designs can test whether dual agents affect information verification, reason construction, autonomy, and final three-state choices, and whether such effects change with promotional pressure and initial appropriateness.
+
+Third, the appropriateness framework in this paper is not yet a validated measurement tool. Need clarity, budget margin, product fit, and information sufficiency provide analytical dimensions for contextualized judgment, but their weights cannot be preset by the system, nor decided solely by a single session, model output, or whether the user bought. In particular, the current data lack delayed reviews, blinded context annotations, and advice adoption records, and thus cannot identify the incidence or causal paths of impulse buying, appropriate buying, or over-restraint. Future research should pre-register contextual rubrics and analysis plans, use multiple annotators blind to experimental conditions to assess appropriateness and its consistency, and collect users' reviews of choices, actual actions, and consequences after appropriate time intervals; it should also record when and why users adopt, rewrite, reject, or ignore each agent suggestion.
+
+Finally, important limitations remain at the system level. The controlled catalog and field constraints help prevent agents from fabricating product facts, but real e-commerce page information is constantly changing, incomplete, and potentially contradictory; models may also misunderstand user expressions, omit key constraints, or exert undue influence through seemingly neutral language. The system therefore should not be deployed as an automatic buy/reject tool that decides for users. Future work targeting real platforms needs to evaluate the reliability of evidence sources, update times, missing information prompts, and uncertainty expressions, and continuously examine whether role labels, wording, and interface ordering produce new manipulation or stigmatization effects. Data practices should also follow principles of minimization, clear notice, access control, and deletion, because complete dialogues, budgets, and purchase plans may contain sensitive personal information.
+
+\section{Conclusion}
+This paper proposes ShopAssistant, a dual-agent research prototype for mass-market e-commerce purchasing decisions, and takes purchase \emph{appropriateness} rather than purchase quantity as the analytical starting point. The seller agent explains value and scenario fit based on verifiable product facts, while the guardian agent checks need persistence, budget, promotional pressure, and information gaps; the two agents present reasons, evidence status, and unknowns in independent threads without synthesizing into a final system answer. Participants always retain three paths---buy, observe/verify, and not buy---and final decision authority, while the system saves process records of dialogues, activities, comparisons, and choices to support later contextualized analysis.
+
+The exploratory results suggest that the primary value of dual agents lies in helping users externalize vague desires into verifiable needs, constraints, and unresolved conditions, rather than providing stronger recommendations. Both buying and deferring can be appropriate outcomes; agent disagreement can also become productive friction that prompts users to articulate priorities, examine evidence boundaries, and reject any side's opinion. Based on this, the paper argues that consumer AI should be evaluated by contextual fit, traceability of reasons, and user autonomy, rather than by transaction quantity or agreement with AI.
+
+At the same time, this paper introduces over-restraint as a potential risk that consumer-protective AI must confront: the system may help users avoid inappropriate purchases, but it may also improperly suppress otherwise appropriate purchases. The current study does not prove that this risk has occurred or been reduced; it provides a conceptual and system foundation that enables this question to be rigorously tested through three-state choices, process evidence, blinded appropriateness annotation, and delayed reviews. We hope this perspective can move e-commerce decision support away from the single optimization of ``make users buy less'' or ``make users buy more'' and toward helping users make decisions in specific contexts that they can understand, verify, and endorse.
+
+\begin{thebibliography}{15}
+
+\bibitem{moser2019}
+Carol Moser, Sarita Y. Schoenebeck, and Paul Resnick. 2019.
+Impulse Buying: Design Practices and Consumer Needs.
+In \textit{Proceedings of the 2019 CHI Conference on Human Factors in Computing Systems}.
+Association for Computing Machinery, New York, NY, USA.
+https://doi.org/10.1145/3290605.3300472
+
+\bibitem{iyer2020}
+Gopalkrishnan R. Iyer, Markus Blut, Sarah Hong Xiao, and Dhruv Grewal. 2020.
+Impulse Buying: A Meta-Analytic Review.
+\textit{Journal of the Academy of Marketing Science} 48, 3, 384--404.
+https://doi.org/10.1007/s11747-019-00670-w
+
+\bibitem{wu2023}
+Qunfang Wu, Yisi Sang, Dakuo Wang, and Zhicong Lu. 2023.
+Malicious Selling Strategies in Livestream E-commerce: A Case Study of Alibaba's Taobao and ByteDance's TikTok.
+\textit{ACM Transactions on Computer-Human Interaction} 30, 3, Article 35, 1--29.
+https://doi.org/10.1145/3577199
+
+\bibitem{buymate2026}
+Shiyi Wang, Yishan Liu, Zhihang Zhu, et al. 2026.
+BuyMate: Making AI Interventions Effective in Promoting Rational Consumption in Live Commerce.
+In \textit{Proceedings of the 2026 CHI Conference on Human Factors in Computing Systems}, 1--17.
+Association for Computing Machinery.
+https://doi.org/10.1145/3772318.3790928
+
+\bibitem{kivetz2002}
+Ran Kivetz and Itamar Simonson. 2002.
+Self-Control for the Righteous: Toward a Theory of Precommitment to Indulgence.
+\textit{Journal of Consumer Research} 29, 2, 199--217.
+https://doi.org/10.1086/341571
+
+\bibitem{friestad1994}
+Marian Friestad and Peter Wright. 1994.
+The Persuasion Knowledge Model: How People Cope with Persuasion Attempts.
+\textit{Journal of Consumer Research} 21, 1, 1--31.
+https://doi.org/10.1086/209380
+
+\bibitem{iyengar2000}
+Sheena S. Iyengar and Mark R. Lepper. 2000.
+When Choice Is Demotivating: Can One Desire Too Much of a Good Thing?
+\textit{Journal of Personality and Social Psychology} 79, 6, 995--1006.
+https://doi.org/10.1037/0022-3514.79.6.995
+
+\bibitem{thaler1985}
+Richard Thaler. 1985.
+Mental Accounting and Consumer Choice.
+\textit{Marketing Science} 4, 3, 199--214.
+https://doi.org/10.1287/mksc.4.3.199
+
+\bibitem{gollwitzer1999}
+Peter M. Gollwitzer. 1999.
+Implementation Intentions: Strong Effects of Simple Plans.
+\textit{American Psychologist} 54, 7, 493--503.
+https://doi.org/10.1037/0003-066X.54.7.493
+
+\bibitem{lee2004}
+John D. Lee and Katrina A. See. 2004.
+Trust in Automation: Designing for Appropriate Reliance.
+\textit{Human Factors} 46, 1, 50--80.
+https://doi.org/10.1518/hfes.46.1.50\_30392
+
+\bibitem{ryandeci2000}
+Richard M. Ryan and Edward L. Deci. 2000.
+Self-Determination Theory and the Facilitation of Intrinsic Motivation, Social Development, and Well-Being.
+\textit{American Psychologist} 55, 1, 68--78.
+https://doi.org/10.1037/0003-066X.55.1.68
+
+\bibitem{verplanken2001}
+Bas Verplanken and Astrid G. Herabadi. 2001.
+Individual Differences in Impulse Buying Tendency: Feeling and No Thinking.
+\textit{European Journal of Personality} 15, S1, S71--S83.
+https://doi.org/10.1002/per.423
+
+\bibitem{mischel1989}
+Walter Mischel, Yuichi Shoda, and Monica L. Rodriguez. 1989.
+Delay of Gratification in Children.
+\textit{Science} 244, 4907, 933--938.
+https://doi.org/10.1126/science.2658056
+
+\bibitem{dietvorst2015}
+Berkeley J. Dietvorst, Joseph P. Simmons, and Cade Massey. 2015.
+Algorithm Aversion: People Erroneously Avoid Algorithms after Seeing Them Err.
+\textit{Journal of Experimental Psychology: General} 144, 1, 114--126.
+https://doi.org/10.1037/xge0000033
+
+\bibitem{ajzen1991}
+Icek Ajzen. 1991.
+The Theory of Planned Behavior.
+\textit{Organizational Behavior and Human Decision Processes} 50, 2, 179--211.
+https://doi.org/10.1016/0749-5978(91)90020-T
+
+\end{thebibliography}
+
+\end{document}
