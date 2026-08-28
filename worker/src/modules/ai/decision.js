@@ -36,7 +36,7 @@ export function getDecisionPrompt(productInfo, locale = 'zh-CN') {
       '  "consensus": ["shared findings"],',
       '  "disagreements": ["remaining differences or trade-offs"],',
       '  "evidence": [{"item": "fact or question", "value": "what is known or unknown", "source": "product_info | user_stated | user_claim | missing", "status": "confirmed | unverified | missing"}],',
-      '  "next_questions": ["at most three questions that would materially change the recommendation"]',
+       '  "next_questions": ["questions that would materially change the recommendation"]',
       '}',
       '',
       'Use "buy_now" only when need and fit are clear, major facts are supported, and no material unresolved risk remains.',
@@ -69,7 +69,7 @@ export function getDecisionPrompt(productInfo, locale = 'zh-CN') {
     '  "consensus": ["双方共同认可的发现"],',
     '  "disagreements": ["仍存在的差异或取舍"],',
     '  "evidence": [{"item": "事实或问题", "value": "已知或未知内容", "source": "product_info | user_stated | user_claim | missing", "status": "confirmed | unverified | missing"}],',
-    '  "next_questions": ["最多三个会实质改变建议的问题"]',
+    '  "next_questions": ["会实质改变建议的问题"]',
     '}',
       '',
     '只有当用户需求和适配性清楚、主要购买事实有足够证据、且没有重要未解决风险时，才能使用 recommendation="buy_now"。',
@@ -91,7 +91,7 @@ export function getSynthesisPrompt(productInfo, sellerTranscript, guardianTransc
   const instruction = locale === 'en-US'
     ? 'Synthesize these two independent conversations. Do not answer as either agent, do not invent missing facts, and do not treat one agent\'s speculation as evidence. The current user input is not being sent to either agent by this synthesis request.'
     : '请综合这两段独立对话。不要冒充其中任何一个 AI，不要编造缺失事实，也不要把某个 AI 的推测当成证据。本次综合请求不会把新的用户输入发送给任一 AI。';
-  return `${getDecisionPrompt(productInfo, locale)}\n\n${instruction}\n\n${sellerLabel}:\n${String(sellerTranscript || '').slice(0, 9000)}\n\n${guardianLabel}:\n${String(guardianTranscript || '').slice(0, 9000)}`;
+  return `${getDecisionPrompt(productInfo, locale)}\n\n${instruction}\n\n${sellerLabel}:\n${String(sellerTranscript || '')}\n\n${guardianLabel}:\n${String(guardianTranscript || '')}`;
 }
 
 export function parseDecisionResponse(raw, locale = 'zh-CN') {
@@ -129,7 +129,7 @@ export function parseDecisionResponse(raw, locale = 'zh-CN') {
           source: 'missing',
           status: 'missing',
         }],
-    next_questions: normalizeArray(parsed.next_questions).slice(0, 3),
+    next_questions: normalizeArray(parsed.next_questions),
   };
 }
 

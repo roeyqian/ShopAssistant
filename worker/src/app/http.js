@@ -66,6 +66,8 @@ export async function handleApi(request, env, url, router) {
       requestId,
     };
     if (status >= 500 && safeMessage) payload.detail = safeMessage;
+    const diagnostic = sanitizeErrorDiagnostic(error?.diagnostic);
+    if (diagnostic) payload.diagnostic = diagnostic;
 
     return withCors(
       json(payload, status, { "x-request-id": requestId }),
@@ -138,6 +140,17 @@ function sanitizeErrorMessage(message) {
     .replace(/(api[_-]?key\s*[:=]\s*)[^\s,;]+/gi, "$1[redacted]")
     .replace(/(authorization\s*[:=]\s*)[^\s,;]+/gi, "$1[redacted]")
     .slice(0, 500);
+}
+
+function sanitizeErrorDiagnostic(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const diagnostic = {};
+  for (const [key, item] of Object.entries(value)) {
+    if (typeof item === 'number' && Number.isFinite(item)) diagnostic[key] = item;
+    else if (typeof item === 'boolean' || item === null) diagnostic[key] = item;
+    else if (typeof item === 'string') diagnostic[key] = sanitizeErrorMessage(item).slice(0, 500);
+  }
+  return Object.keys(diagnostic).length ? diagnostic : null;
 }
 
 export function requireAuth(request) {

@@ -45,9 +45,9 @@ export function getResearchReportPrompt({ productInfo, profile, finalDecision, s
     '',
     english ? 'Study context:' : '研究背景：', context,
     '',
-    english ? 'Seller AI transcript:' : '卖家 AI 对话：', String(sellerTranscript || '').slice(0, 9000),
+    english ? 'Seller AI transcript:' : '卖家 AI 对话：', String(sellerTranscript || ''),
     '',
-    english ? 'Butler AI transcript:' : '管家 AI 对话：', String(guardianTranscript || '').slice(0, 9000),
+    english ? 'Butler AI transcript:' : '管家 AI 对话：', String(guardianTranscript || ''),
   ].join('\n');
 }
 

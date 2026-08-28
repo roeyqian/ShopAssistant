@@ -1102,20 +1102,17 @@
               </p>
               <label v-else-if="researchCurrentProtocol.id === 'reflective_pause'" class="field">
                 <span>{{ t('research.protocolPause') }}</span>
-                <textarea v-model.trim="researchTechniqueNotes.reflective_pause" rows="2" :maxlength="RESEARCH_TECHNIQUE_INPUT_MAX_LENGTH" :placeholder="t('research.protocolPausePlaceholder')"></textarea>
-                <small class="field-hint">{{ t('research.inputCharacterLimit', { count: RESEARCH_TECHNIQUE_INPUT_MAX_LENGTH }) }} {{ researchTechniqueNotes.reflective_pause.length }} / {{ RESEARCH_TECHNIQUE_INPUT_MAX_LENGTH }}</small>
+                <textarea v-model.trim="researchTechniqueNotes.reflective_pause" rows="2" :placeholder="t('research.protocolPausePlaceholder')"></textarea>
               </label>
               <label v-else-if="researchCurrentProtocol.id === 'budget_calibration'" class="field">
                 <span>{{ t('research.protocolBudget') }}</span>
                 <input v-model.number="researchProfile.maxBudget" type="number" min="0" step="100" :placeholder="t('research.protocolBudgetCapPlaceholder')" />
                 <small class="field-hint">{{ t('research.protocolBudgetCapHint') }}</small>
-                <textarea v-model.trim="researchTechniqueNotes.budget_calibration" rows="2" :maxlength="RESEARCH_TECHNIQUE_INPUT_MAX_LENGTH" :placeholder="t('research.protocolBudgetPlaceholder')"></textarea>
-                <small class="field-hint">{{ t('research.inputCharacterLimit', { count: RESEARCH_TECHNIQUE_INPUT_MAX_LENGTH }) }} {{ researchTechniqueNotes.budget_calibration.length }} / {{ RESEARCH_TECHNIQUE_INPUT_MAX_LENGTH }}</small>
+                <textarea v-model.trim="researchTechniqueNotes.budget_calibration" rows="2" :placeholder="t('research.protocolBudgetPlaceholder')"></textarea>
               </label>
               <label v-else-if="researchCurrentProtocol.id === 'implementation_intention'" class="field">
                 <span>{{ t('research.ifThenPlan') }}</span>
-                <textarea v-model.trim="researchIfThenPlan" rows="2" :maxlength="RESEARCH_TECHNIQUE_INPUT_MAX_LENGTH" :placeholder="t('research.ifThenPlaceholder')"></textarea>
-                <small class="field-hint">{{ t('research.inputCharacterLimit', { count: RESEARCH_TECHNIQUE_INPUT_MAX_LENGTH }) }} {{ researchIfThenPlan.length }} / {{ RESEARCH_TECHNIQUE_INPUT_MAX_LENGTH }}</small>
+                <textarea v-model.trim="researchIfThenPlan" rows="2" :placeholder="t('research.ifThenPlaceholder')"></textarea>
               </label>
               <p v-else class="research-protocol-note">{{ t('research.protocolComparison') }}</p>
               <div v-if="researchCurrentProtocol.id === 'comparative_choice'" class="research-step-comparison">
@@ -1197,9 +1194,9 @@
               </div>
             </section>
             <form class="research-chat-form research-workspace-chat" @submit.prevent="sendResearchMessage()">
-              <textarea v-model.trim="researchMessage" rows="3" :maxlength="RESEARCH_CHAT_MAX_LENGTH" :disabled="researchAiSending || !researchChatReady || researchSellerHandoffPending" :placeholder="researchSellerHandoffPending ? t('research.sellerHandoffWaiting') : (researchChatReady ? t('research.protocolChatPlaceholder') : t('research.protocolChatWaiting'))"></textarea>
+              <textarea v-model.trim="researchMessage" rows="3" :disabled="researchAiSending || !researchChatReady || researchSellerHandoffPending" :placeholder="researchSellerHandoffPending ? t('research.sellerHandoffWaiting') : (researchChatReady ? t('research.protocolChatPlaceholder') : t('research.protocolChatWaiting'))"></textarea>
               <div class="research-chat-actions">
-                <small>{{ researchSellerHandoffPending ? t('research.sellerHandoffWaiting') : (researchChatReady ? (researchStepUnlocked ? t('research.protocolChatHint') : (researchThirdDialogueSummaryDue ? t('research.protocolThirdDialogueHint') : t('research.protocolUnlockProgress', { count: researchRemainingDialogueTurns }))) : t('research.protocolChatWaiting')) }} {{ researchMessage.length }} / {{ RESEARCH_CHAT_MAX_LENGTH }}</small>
+                <small>{{ researchSellerHandoffPending ? t('research.sellerHandoffWaiting') : (researchChatReady ? (researchStepUnlocked ? t('research.protocolChatHint') : (researchThirdDialogueSummaryDue ? t('research.protocolThirdDialogueHint') : t('research.protocolUnlockProgress', { count: researchRemainingDialogueTurns }))) : t('research.protocolChatWaiting')) }}</small>
                 <button class="primary-btn" type="submit" :disabled="researchAiSending || !researchChatReady || researchSellerHandoffPending || !researchMessage.trim()">
                   <SendHorizontal :size="16" />
                   {{ t('research.send') }}
@@ -1217,7 +1214,7 @@
               <p>{{ researchComparisonProducts.length < 2 ? t('research.protocolComparisonUnavailable') : t('research.protocolComparison') }}</p>
               <div class="research-comparison-options">
                 <label v-for="product in researchComparisonProducts" :key="product.id" class="research-compare-option">
-                  <input v-model="researchCompareIds" type="checkbox" :value="product.id" :disabled="researchCompareIds.length >= 3 && !researchCompareIds.includes(product.id)" @change="recordResearchComparison(product)" />
+                  <input v-model="researchCompareIds" type="checkbox" :value="product.id" @change="recordResearchComparison(product)" />
                   <span>
                     <strong>{{ product.name }}</strong>
                     <small>{{ formatMoney(product.price) }}</small>
@@ -1282,8 +1279,7 @@
               </label>
               <label class="field full">
                 <span>{{ t('research.ifThenPlan') }}</span>
-                <textarea v-model.trim="researchIfThenPlan" rows="3" :maxlength="RESEARCH_TECHNIQUE_INPUT_MAX_LENGTH" :placeholder="t('research.ifThenPlaceholder')"></textarea>
-                <small class="field-hint">{{ t('research.inputCharacterLimit', { count: RESEARCH_TECHNIQUE_INPUT_MAX_LENGTH }) }} {{ researchIfThenPlan.length }} / {{ RESEARCH_TECHNIQUE_INPUT_MAX_LENGTH }}</small>
+                <textarea v-model.trim="researchIfThenPlan" rows="3" :placeholder="t('research.ifThenPlaceholder')"></textarea>
               </label>
             </div>
             <p class="research-autonomy-note">{{ t('research.autonomyNote') }}</p>
@@ -2352,9 +2348,6 @@ const synthesisAssessment = ref(null);
 const synthesisLoading = ref(false);
 
 const RESEARCH_DRAFT_STATE_KEY = 'research_draft';
-const RESEARCH_COMPARISON_CANDIDATE_LIMIT = 12;
-const RESEARCH_TECHNIQUE_INPUT_MAX_LENGTH = 500;
-const RESEARCH_CHAT_MAX_LENGTH = 2_000;
 const researchStage = ref(0);
 const researchConsentChecked = ref(false);
 const researchConsentGiven = ref(false);
@@ -2372,7 +2365,6 @@ const researchSellerTurns = ref(0);
 const researchGuardianTurns = ref(0);
 const researchSellerDialogueTurns = ref(0);
 const researchGuardianDialogueTurns = ref(0);
-const researchMaxTurnsPerPhase = 8;
 const researchMinimumDialogueTurns = 3;
 const researchSellerReady = ref(false);
 const researchGuardianReady = ref(false);
@@ -2721,12 +2713,7 @@ const researchCurrentProtocol = computed(() => {
   const technique = researchTechniques.find((item) => item.id === step.id);
   return technique ? { ...step, technique } : null;
 });
-// The catalog arrives pre-ranked by the research matching endpoint. Keep a
-// wider set here so step two offers meaningful alternatives without exposing
-// the entire hidden catalog at once.
-const researchComparisonProducts = computed(() =>
-  researchCatalog.value.slice(0, RESEARCH_COMPARISON_CANDIDATE_LIMIT),
-);
+const researchComparisonProducts = computed(() => researchCatalog.value);
 const researchComparisonSelection = computed(() => researchComparisonProducts.value.filter((product) => researchCompareIds.value.includes(String(product.id))));
 // Once participants select alternatives in the comparison step, every later
 // research step must retain that full set rather than silently narrowing back
@@ -2809,7 +2796,7 @@ function buildResearchTechniqueContext(id) {
   if (id === 'persuasion_reframe') {
     const pageMaterialProducts = contextProducts.length
       ? contextProducts
-      : (researchRecommendations.value.length ? researchRecommendations.value : researchCatalog.value.slice(0, 3));
+      : (researchRecommendations.value.length ? researchRecommendations.value : researchCatalog.value);
     return {
       ...base,
       pageMaterialProductIds: pageMaterialProducts.map((product) => String(product.id)),
@@ -2838,13 +2825,13 @@ function buildResearchTechniqueContext(id) {
 
 function buildResearchPageMaterials(products) {
   if (!products.length) return '当前研究样本未提供可供重构的商品页面字段。';
-  const compact = (value, fallback = '当前样本未提供', limit = 180) => {
+  const compact = (value, fallback = '当前样本未提供') => {
     const text = String(value ?? '').trim();
-    return text ? text.slice(0, limit) : fallback;
+    return text || fallback;
   };
-  return products.slice(0, 3).map((product) => [
-    `[${product.id}] ${compact(product.name, '未命名商品', 100)}`,
-    `副标题：${compact(product.subtitle, '当前样本未提供', 100)}`,
+  return products.map((product) => [
+    `[${product.id}] ${compact(product.name, '未命名商品')}`,
+    `副标题：${compact(product.subtitle)}`,
     `描述：${compact(product.description)}`,
     `页面价格：¥${product.price ?? '当前样本未提供'}`,
     `页面原价：¥${product.original_price ?? product.price ?? '当前样本未提供'}`,
@@ -2949,7 +2936,7 @@ function confirmSellerHandoff() {
 
 function recordResearchComparison(product) {
   if (!product?.id) return;
-  researchCompareIds.value = researchCompareIds.value.map(String).slice(0, 3);
+  researchCompareIds.value = researchCompareIds.value.map(String);
   if (!researchSelectedProductId.value && researchCompareIds.value.length) {
     researchSelectedProductId.value = researchCompareIds.value[0];
   }
@@ -3491,7 +3478,7 @@ function restoreResearchDraft(account = user.value) {
       researchTechniqueNotes[key] = String(draft.techniqueNotes?.[key] || '');
     });
     researchProtocolStep.value = Math.max(0, Math.min(researchProtocol.length, Number(draft.protocolStep || 0)));
-    researchCompareIds.value = Array.isArray(draft.compareIds) ? draft.compareIds.map(String).slice(0, 3) : [];
+    researchCompareIds.value = Array.isArray(draft.compareIds) ? draft.compareIds.map(String) : [];
     researchDelayPlan.value = draft.delayPlan || 'ten_minutes';
     researchFinalConfidence.value = draft.finalConfidence || 'medium';
     researchIfThenPlan.value = String(draft.ifThenPlan || '');
@@ -3653,7 +3640,7 @@ function revealResearchProducts(assessment, content = '') {
     ...researchRecommendations.value,
     ...matches.filter((product) => !existingIds.has(product.id)),
   ];
-  researchRecommendations.value = merged.slice(0, 6);
+  researchRecommendations.value = merged;
 }
 
 function selectResearchProduct(product) {
@@ -3676,9 +3663,6 @@ async function sendResearchMessage(explicitMessage, protocolStep = researchCurre
     : researchMessage.value.trim());
   const isParticipantDialogue = retryRequest?.isParticipantDialogue ?? typeof explicitMessage !== 'string';
   if (!message || researchAiSending.value) return;
-  if (type === 'seller' && researchSellerTurns.value >= researchMaxTurnsPerPhase) return;
-  if (type === 'guardian' && researchGuardianTurns.value >= researchMaxTurnsPerPhase) return;
-
   const conversationId = researchConversationId(type);
   const clientMessageId = retryRequest?.clientMessageId || createClientId('research-message');
   const technique = retryRequest?.technique ?? (protocolStep === null
@@ -3771,21 +3755,17 @@ async function sendResearchMessage(explicitMessage, protocolStep = researchCurre
     if (error.status === 401) openAuth('login');
     else toast(error.message || t('toast.aiFailed'), 'error');
     if (streamMessageIndex >= 0) researchThreads[type].splice(streamMessageIndex, 1);
-    if (error?.message === 'AI service returned an empty response') {
-      researchRetryRequest.value = {
-        errorMessage: `${t('toast.aiFailed')}：${error.message}`,
-        message,
-        type,
-        protocolStep,
-        technique,
-        techniqueContext: resolvedTechniqueContext,
-        isParticipantDialogue,
-        researchDialogueTurn,
-        clientMessageId,
-      };
-    } else {
-      researchRetryRequest.value = null;
-    }
+    researchRetryRequest.value = {
+      errorMessage: `${t('toast.aiFailed')}：${error.message || t('toast.aiFailed')}`,
+      message,
+      type,
+      protocolStep,
+      technique,
+      techniqueContext: resolvedTechniqueContext,
+      isParticipantDialogue,
+      researchDialogueTurn,
+      clientMessageId,
+    };
     return false;
   } finally {
     if (researchAbortController.value === controller) {

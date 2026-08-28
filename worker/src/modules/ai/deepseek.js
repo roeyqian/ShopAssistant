@@ -1,12 +1,5 @@
-const PROVIDER_TIMEOUT_MS = 30_000;
 const MAX_HTTP_RETRIES = 3;
 const HTTP_RETRY_DELAY_MS = 350;
-const MAX_EMPTY_RESPONSE_RETRIES = 2;
-const MAX_LENGTH_CONTINUATIONS = 2;
-const DEFAULT_MAX_TOKENS = 10_000;
-const RECOVERY_MAX_TOKENS = 10_000;
-const EMPTY_RESPONSE_RETRY_PROMPT = 'Your previous response contained no user-visible text. Reply now with one complete, user-facing answer. Do not return an empty response.';
-const CONTINUE_RESPONSE_PROMPT = 'Continue the answer exactly where it stopped. Do not repeat earlier text. Complete the user-facing answer now.';
 
 export async function completeDeepSeek(config, systemPrompt, messageHistory, userMessage, options = {}) {
   const messages = [
@@ -14,46 +7,18 @@ export async function completeDeepSeek(config, systemPrompt, messageHistory, use
     ...messageHistory,
     { role: 'user', content: userMessage },
   ];
-  let requestMessages = messages;
-  let maxTokens = DEFAULT_MAX_TOKENS;
-  let content = '';
-  let emptyRetries = 0;
-  let lengthContinuations = 0;
-
-  while (true) {
-    const response = await postDeepSeek(config, {
-      model: config.deepseek_model || 'deepseek-chat',
-      messages: requestMessages,
-      temperature: 0.7,
-      max_tokens: maxTokens,
-      stream: false,
-      ...(options.responseFormat ? { response_format: options.responseFormat } : {}),
-    }, options);
-    const result = await readDeepSeekCompletion(response);
-    content += result.content;
-
-    if (result.finishReason === 'length' && lengthContinuations < MAX_LENGTH_CONTINUATIONS) {
-      lengthContinuations += 1;
-      maxTokens = RECOVERY_MAX_TOKENS;
-      requestMessages = result.content.trim()
-        ? [
-            ...messages,
-            { role: 'assistant', content },
-            { role: 'user', content: CONTINUE_RESPONSE_PROMPT },
-          ]
-        : [...messages, { role: 'user', content: EMPTY_RESPONSE_RETRY_PROMPT }];
-      continue;
-    }
-
-    if (content.trim()) return { content, finishReason: result.finishReason };
-    if (emptyRetries >= MAX_EMPTY_RESPONSE_RETRIES) {
-      throw { status: 502, message: 'AI service returned an empty response' };
-    }
-
-    emptyRetries += 1;
-    maxTokens = RECOVERY_MAX_TOKENS;
-    requestMessages = [...messages, { role: 'user', content: EMPTY_RESPONSE_RETRY_PROMPT }];
+  const response = await postDeepSeek(config, {
+    model: config.deepseek_model || 'deepseek-chat',
+    messages,
+    temperature: 0.7,
+    stream: false,
+    ...(options.responseFormat ? { response_format: options.responseFormat } : {}),
+  }, options);
+  const result = await readDeepSeekCompletion(response);
+  if (!result.content.trim()) {
+    throw { status: 502, stage: 'provider-response', message: 'AI service returned an empty response' };
   }
+  return result;
 }
 
 export async function testDeepSeekConnection(config) {
@@ -77,11 +42,9 @@ export async function testDeepSeekConnection(config) {
 
 async function postDeepSeek(config, payload, { signal } = {}) {
   let lastHttpError;
+  const startedAt = Date.now();
   for (let retry = 0; retry <= MAX_HTTP_RETRIES; retry += 1) {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort('timeout'), PROVIDER_TIMEOUT_MS);
-    const abortFromCaller = () => controller.abort('cancelled');
-    signal?.addEventListener('abort', abortFromCaller, { once: true });
+    const diagnostic = requestDiagnostic(config, payload, retry, startedAt);
 
     try {
       const response = await fetch(`${normalizeBaseUrl(config.deepseek_base_url)}/chat/completions`, {
@@ -91,23 +54,29 @@ async function postDeepSeek(config, payload, { signal } = {}) {
           'Authorization': `Bearer ${config.deepseek_api_key}`,
         },
         body: JSON.stringify(payload),
-        signal: controller.signal,
+        signal,
       });
 
+      diagnostic.elapsedMs = Date.now() - startedAt;
       if (response.ok) return response;
+      diagnostic.httpStatus = response.status;
 
       lastHttpError = {
         status: response.status,
         message: await readProviderError(response),
         httpError: true,
+        stage: 'provider-http',
+        diagnostic,
       };
       if (retry === MAX_HTTP_RETRIES) throw lastHttpError;
     } catch (error) {
-      if (controller.signal.aborted) {
-        const cancelled = controller.signal.reason === 'cancelled';
+      diagnostic.elapsedMs = Date.now() - startedAt;
+      if (signal?.aborted) {
         throw {
-          status: cancelled ? 499 : 504,
-          message: cancelled ? 'AI request cancelled' : 'AI service timed out',
+          status: 499,
+          stage: 'request-cancelled',
+          message: 'AI request cancelled by the client',
+          diagnostic,
         };
       }
       if (error?.httpError || error?.status) {
@@ -118,17 +87,38 @@ async function postDeepSeek(config, payload, { signal } = {}) {
           status: 502,
           stage: 'provider-connect',
           message: `AI service connection failed: ${String(error?.message || error)}`,
+          diagnostic: { ...diagnostic, cause: String(error?.message || error).slice(0, 500) },
         };
       }
-    } finally {
-      clearTimeout(timeoutId);
-      signal?.removeEventListener('abort', abortFromCaller);
     }
 
     await delay(HTTP_RETRY_DELAY_MS * (retry + 1));
   }
 
   throw lastHttpError || { status: 502, message: 'AI service error' };
+}
+
+function requestDiagnostic(config, payload, retry, startedAt) {
+  return {
+    stage: 'provider-request',
+    attempt: retry + 1,
+    maxAttempts: MAX_HTTP_RETRIES + 1,
+    elapsedMs: Date.now() - startedAt,
+    baseUrl: safeBaseUrl(config.deepseek_base_url),
+    model: String(config.deepseek_model || 'deepseek-chat'),
+    messageCount: Array.isArray(payload.messages) ? payload.messages.length : 0,
+    requestCharacters: JSON.stringify(payload).length,
+    responseFormat: payload.response_format?.type || null,
+  };
+}
+
+function safeBaseUrl(value) {
+  try {
+    const url = new URL(normalizeBaseUrl(value));
+    return `${url.protocol}//${url.host}${url.pathname}`.replace(/\/$/, '');
+  } catch {
+    return '[invalid base URL]';
+  }
 }
 
 async function readDeepSeekCompletion(response) {
@@ -162,9 +152,9 @@ async function readProviderError(response) {
   try {
     const data = JSON.parse(text);
     const message = data?.error?.message || data?.message || text;
-    return `AI service returned HTTP ${response.status}: ${String(message).slice(0, 240)}`;
+    return `AI service returned HTTP ${response.status}: ${String(message).slice(0, 2_000)}`;
   } catch {
-    return `AI service returned HTTP ${response.status}: ${text.slice(0, 240)}`;
+    return `AI service returned HTTP ${response.status}: ${text.slice(0, 2_000)}`;
   }
 }
 

@@ -9,8 +9,6 @@ import { getLocaleFromRequest, normalizeProduct } from "../shop/utils.js";
 import { persistCompletedResearchContent } from "../research/service.js";
 
 const HIDDEN_METADATA_KEY = 'hiddenFromUser';
-const MAX_MESSAGE_LENGTH = 2_000;
-const HISTORY_LIMIT = 20;
 const MAX_CONSECUTIVE_AUTOMATIC_PROMOTIONS = 3;
 const RESEARCH_TECHNIQUES = new Set([
   'reflective_pause',
@@ -47,10 +45,6 @@ export async function chat({ request, env, url }) {
     throw { status: 400, message: "Message and aiType required" };
   }
 
-  if (message.length > MAX_MESSAGE_LENGTH) {
-    throw { status: 400, message: `Message must be ${MAX_MESSAGE_LENGTH} characters or fewer` };
-  }
-
   if (!['seller', 'guardian'].includes(aiType)) {
     throw { status: 400, message: "Invalid AI type" };
   }
@@ -78,7 +72,6 @@ export async function chat({ request, env, url }) {
     SELECT role, content FROM ai_conversations
     WHERE user_id = ? AND ai_type = ? AND conversation_id = ?
     ${HISTORY_ORDER_DESC}
-    LIMIT ${HISTORY_LIMIT}
   `).bind(session.userId, aiType, conversationId).all();
 
   const messages = history.reverse().map(h => ({ role: h.role, content: h.content }));
@@ -150,11 +143,9 @@ export async function chat({ request, env, url }) {
       request,
     });
   } catch (error) {
-    if (error?.status === 499 || error?.message === 'AI service returned an empty response') {
-      await env.db.prepare('DELETE FROM ai_conversations WHERE user_id = ? AND client_message_id = ?')
-        .bind(session.userId, clientMessageId)
-        .run();
-    }
+    await env.db.prepare('DELETE FROM ai_conversations WHERE user_id = ? AND client_message_id = ?')
+      .bind(session.userId, clientMessageId)
+      .run();
     throw error;
   }
   const assistantTimestamp = createLaterIsoTimestamp(userTimestamp);
@@ -198,10 +189,6 @@ export async function decision({ request, env, url, requestId }) {
   const clientMessageId = requireClientMessageId(body.clientMessageId);
 
   if (!message) throw { status: 400, message: "Message is required" };
-  if (message.length > MAX_MESSAGE_LENGTH) {
-    throw { status: 400, message: "Message must be 2,000 characters or fewer" };
-  }
-
   const duplicate = await findIdempotentResponse(env, session.userId, clientMessageId);
   if (duplicate.hasAssistant) {
     return streamStoredResponse(duplicate.response, 'neutral', duplicate.assessment, requestId, 'decision');
@@ -219,8 +206,7 @@ export async function decision({ request, env, url, requestId }) {
   const historyResult = await env.db.prepare(
     "SELECT role, content FROM ai_conversations " +
     "WHERE user_id = ? AND ai_type = 'neutral' AND conversation_id = ? " +
-    "ORDER BY timestamp DESC, CASE role WHEN 'assistant' THEN 0 WHEN 'user' THEN 1 ELSE 2 END, id DESC " +
-    "LIMIT " + HISTORY_LIMIT,
+    "ORDER BY timestamp DESC, CASE role WHEN 'assistant' THEN 0 WHEN 'user' THEN 1 ELSE 2 END, id DESC",
   ).bind(session.userId, conversationId).all();
   const messages = historyResult.results.reverse().map((item) => ({ role: item.role, content: item.content }));
 
@@ -664,30 +650,26 @@ async function getStreamedAiResponse({ config, systemPrompt, messages, userMessa
 }
 
 async function getStructuredAgentResponse({ config, systemPrompt, messages, userMessage, locale, request }) {
-  try {
-    const result = await completeDeepSeek(config, systemPrompt, messages, userMessage, {
-      signal: request.signal,
-      // The assistant response is parsed before it reaches the participant.
-      // Ask OpenAI-compatible providers to enforce that contract at generation time.
-      responseFormat: { type: 'json_object' },
-    });
-    const parsed = parseStructuredAgentResponse(result.content, locale);
-    return {
-      content: parsed.reply,
-      assessment: parsed.assessment,
-      finishReason: result.finishReason,
-      providerError: null,
-    };
-  } catch (error) {
-    if (error?.status === 499) throw error;
-    const content = formatProviderFailure(locale, error);
-    return {
-      content,
-      assessment: parseStructuredAgentResponse(content, locale).assessment,
-      finishReason: null,
-      providerError: getStreamErrorMessage(error),
+  const result = await completeDeepSeek(config, systemPrompt, messages, userMessage, {
+    signal: request.signal,
+    // The assistant response is parsed before it reaches the participant.
+    // Ask OpenAI-compatible providers to enforce that contract at generation time.
+    responseFormat: { type: 'json_object' },
+  });
+  const parsed = parseStructuredAgentResponse(result.content, locale);
+  if (!parsed.valid) {
+    throw {
+      status: 502,
+      stage: 'provider-response',
+      message: 'AI service returned a response that does not satisfy the required JSON contract',
     };
   }
+  return {
+    content: parsed.reply,
+    assessment: parsed.assessment,
+    finishReason: result.finishReason,
+    providerError: null,
+  };
 }
 
 function buildResearchTechniquePrompt(technique, aiType, locale, context = null) {
@@ -724,7 +706,7 @@ function buildResearchTechniquePrompt(technique, aiType, locale, context = null)
     const english = {
       reflective_pause: 'Technique: reflective pause. Invite a 10-second pause and ask whether the need remains if the promotion cue disappears. Keep buying after the pause fully legitimate; do not equate speed with impulsivity.',
       persuasion_reframe: 'Technique: persuasion knowledge and neutral reframing. Automatically identify possible promotional claims from the catalog and current product fields, then separate seller claim, checkable fact, and unverified part. Do not ask the participant to supply or explain promotional wording. Do not create counter-pressure or turn a detected tactic into an automatic no-buy.',
-      comparative_choice: 'Technique: controlled comparative choice. Compare at most three options on the same dimensions and mark missing data as unverified. Do not push the cheapest or most conservative option.',
+      comparative_choice: 'Technique: controlled comparative choice. Compare every relevant option on the same dimensions and mark missing data as unverified. Do not push the cheapest or most conservative option.',
       budget_calibration: 'Technique: budget calibration and mental accounting. Use only the user-provided numbers to align total price, stated budget, alternatives, frequency, and opportunity cost. A comfortable budget can support buying.',
       implementation_intention: 'Technique: implementation intention. Help the user write a concrete if-then plan with a short time box. The plan must allow buying if conditions are met and declining if they are not.',
     };
@@ -753,16 +735,16 @@ function buildResearchDialoguePrompt(aiType, dialogueTurn, locale) {
 
 function normalizeResearchDialogueTurn(value) {
   const turn = Number(value);
-  return Number.isInteger(turn) && turn >= 1 && turn <= 8 ? turn : null;
+  return Number.isInteger(turn) && turn >= 1 ? turn : null;
 }
 
 function normalizeResearchTechniqueContext(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   const normalized = {};
-  for (const [key, item] of Object.entries(value).slice(0, 16)) {
-    if (typeof item === 'string') normalized[key] = item.slice(0, 1_000);
+  for (const [key, item] of Object.entries(value)) {
+    if (typeof item === 'string') normalized[key] = item;
     else if (typeof item === 'number' || typeof item === 'boolean') normalized[key] = item;
-    else if (Array.isArray(item)) normalized[key] = item.slice(0, 6).map((entry) => String(entry).slice(0, 240));
+    else if (Array.isArray(item)) normalized[key] = item.map((entry) => String(entry));
   }
   return Object.keys(normalized).length ? normalized : null;
 }
@@ -816,7 +798,7 @@ export async function getHistory({ request, env, url }) {
     params.push(aiType);
   }
 
-  query += ` ${HISTORY_ORDER_DESC} LIMIT ${HISTORY_LIMIT}`;
+  query += ` ${HISTORY_ORDER_DESC}`;
 
   const { results } = await env.db.prepare(query).bind(...params).all();
 
@@ -853,7 +835,7 @@ async function getAgentConversationRows(env, userId, aiType, conversationId) {
   const result = await env.db.prepare(
     "SELECT role, content, metadata_json FROM ai_conversations " +
     "WHERE user_id = ? AND ai_type = ? AND conversation_id = ? " +
-    "ORDER BY timestamp ASC, id ASC LIMIT " + HISTORY_LIMIT,
+    "ORDER BY timestamp ASC, id ASC",
   ).bind(userId, aiType, conversationId).all();
   return result.results || [];
 }

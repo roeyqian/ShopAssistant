@@ -280,6 +280,13 @@ function formatErrorMessage(data, status) {
     lines.push(data.detail);
   }
 
+  if (data.diagnostic && typeof data.diagnostic === 'object') {
+    const diagnostic = Object.entries(data.diagnostic)
+      .map(([key, value]) => `${key}: ${value ?? 'null'}`)
+      .join('\n');
+    if (diagnostic) lines.push(`Diagnostics:\n${diagnostic}`);
+  }
+
   const requestId = data.requestId;
   if (requestId) {
     lines.push(`Request ID: ${requestId}`);
