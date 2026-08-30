@@ -437,6 +437,11 @@ export const AdminAPI = {
     return request(`/admin/orders${query ? `?${query}` : ''}`);
   },
   getOrderDetail: (orderId) => request(`/admin/orders/${orderId}`),
+  getResearchArchives: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return request(`/admin/research-archives${query ? `?${query}` : ''}`);
+  },
+  getResearchArchiveDetail: (archiveId) => request(`/admin/research-archives/${encodeURIComponent(archiveId)}`),
   updateOrderStatus: (orderId, payload) =>
     request(`/admin/orders/${orderId}/status`, {
       method: 'PUT',

@@ -145,6 +145,70 @@ export async function getOrders({ request, env, url }) {
   });
 }
 
+export async function getResearchArchives({ request, env, url }) {
+  await requireAdmin(request, env);
+  const limit = clampInt(url.searchParams.get('limit'), 20, 1, 100);
+
+  const { results } = await env.db.prepare(`
+    SELECT a.id, a.research_run_id, a.final_decision, a.selected_product_id,
+           a.completed_at, a.report_generated_at, a.r2_archived_at,
+           u.username, u.email,
+           p.name AS product_name, p.name_en AS product_name_en
+    FROM completed_research_archives a
+    JOIN users u ON u.id = a.user_id
+    LEFT JOIN products p ON p.id = a.selected_product_id
+    WHERE u.role = 'user'
+    ORDER BY a.completed_at DESC, a.id DESC
+    LIMIT ?
+  `).bind(limit).all();
+
+  return json({
+    archives: results.map((archive) => ({
+      ...archive,
+      product_name: localizedProductName({ name: archive.product_name, name_en: archive.product_name_en }, getLocaleFromRequest(request, url)),
+      has_report: Boolean(archive.report_generated_at),
+      has_raw_material: Boolean(archive.r2_archived_at),
+    })),
+  });
+}
+
+export async function getResearchArchiveDetail({ request, env, params, url }) {
+  await requireAdmin(request, env);
+  const archiveId = String(params.id || '').trim();
+  if (!/^research_archive_[a-zA-Z0-9_]+$/.test(archiveId)) {
+    throw { status: 400, message: 'A valid research archive ID is required' };
+  }
+
+  const archive = await env.db.prepare(`
+    SELECT a.id, a.research_run_id, a.final_decision, a.selected_product_id,
+           a.completed_at, a.report_generated_at, a.report_model, a.r2_archived_at,
+           a.profile_json, a.snapshot_json, a.report_json,
+           u.username, u.email,
+           p.name AS product_name, p.name_en AS product_name_en
+    FROM completed_research_archives a
+    JOIN users u ON u.id = a.user_id
+    LEFT JOIN products p ON p.id = a.selected_product_id
+    WHERE a.id = ? AND u.role = 'user'
+  `).bind(archiveId).first();
+
+  if (!archive) throw { status: 404, message: 'Research archive not found' };
+
+  return json({
+    archive: {
+      ...archive,
+      product_name: localizedProductName({ name: archive.product_name, name_en: archive.product_name_en }, getLocaleFromRequest(request, url)),
+      profile: parseJson(archive.profile_json, {}),
+      snapshot: parseJson(archive.snapshot_json, {}),
+      report: parseJson(archive.report_json, null),
+      has_report: Boolean(archive.report_generated_at),
+      has_raw_material: Boolean(archive.r2_archived_at),
+      profile_json: undefined,
+      snapshot_json: undefined,
+      report_json: undefined,
+    },
+  });
+}
+
 export async function getOrderDetail({ request, env, params, url }) {
   await requireAdmin(request, env);
   const locale = getLocaleFromRequest(request, url);

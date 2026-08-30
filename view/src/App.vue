@@ -89,6 +89,10 @@
           <Settings2 :size="16" />
           {{ t('common.research') }}
         </button>
+        <button v-if="isAdminUser" class="nav-chip" type="button" @click="go('archives')">
+          <ClipboardCheck :size="16" />
+          {{ t('admin.archivesTitle') }}
+        </button>
         <button v-if="user" class="nav-chip" type="button" @click="logout">
           <LogOut :size="16" />
           {{ t('common.logout') }}
@@ -920,6 +924,110 @@
             </aside>
             </div>
           </div>
+        </div>
+      </section>
+
+      <section v-else-if="page === 'archives'" class="page-band">
+        <div class="panel page-header">
+          <div>
+            <h1>{{ t('admin.archivesTitle') }}</h1>
+            <p>{{ t('admin.archivesSubtitle') }}</p>
+          </div>
+          <button class="ghost-btn" type="button" :disabled="loading.adminArchives" @click="loadResearchArchives">
+            <RefreshCcw :size="16" />
+            {{ t('common.refresh') }}
+          </button>
+        </div>
+
+        <div v-if="!isAdminUser" class="panel empty-panel">
+          <strong>{{ t('admin.requireAdminTitle') }}</strong>
+          <span>{{ t('admin.requireAdminBody') }}</span>
+          <button class="primary-btn" type="button" @click="openAuth('login')">
+            <LogIn :size="16" />
+            {{ t('common.login') }}
+          </button>
+        </div>
+
+        <div v-else class="archive-page-grid">
+          <section class="panel">
+            <div v-if="researchArchives.length" class="order-list compact">
+              <button
+                v-for="archive in researchArchives"
+                :key="archive.id"
+                class="order-row"
+                :class="{ active: selectedResearchArchiveId === archive.id }"
+                type="button"
+                @click="pickResearchArchive(archive.id)"
+              >
+                <div>
+                  <strong>{{ archive.username || archive.email || '-' }}</strong>
+                  <span>{{ archive.product_name || archive.selected_product_id || t('common.product') }} · {{ archive.completed_at }}</span>
+                </div>
+                <div class="order-row-side">
+                  <span class="status pending">{{ researchDecisionLabel(archive.final_decision) }}</span>
+                </div>
+              </button>
+            </div>
+
+            <div v-else-if="!loading.adminArchives" class="empty-state compact">
+              <strong>{{ t('admin.noArchivesTitle') }}</strong>
+              <span>{{ t('admin.noArchivesBody') }}</span>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div v-if="loading.adminArchiveDetail" class="empty-state compact">
+              <span>{{ t('admin.archiveDetailLoading') }}</span>
+            </div>
+
+            <div v-else-if="adminArchiveDetailView" class="admin-order-detail archive-detail">
+              <div class="detail-metrics compact">
+                <div>
+                  <label>{{ t('common.buyer') }}</label>
+                  <strong>{{ adminArchiveDetailView.username || adminArchiveDetailView.email || '-' }}</strong>
+                </div>
+                <div>
+                  <label>{{ t('common.product') }}</label>
+                  <strong>{{ adminArchiveDetailView.product_name || adminArchiveDetailView.selected_product_id || '-' }}</strong>
+                </div>
+                <div>
+                  <label>{{ t('admin.archiveDecision') }}</label>
+                  <strong :class="researchDecisionClass(adminArchiveDetailView.final_decision)">{{ researchDecisionLabel(adminArchiveDetailView.final_decision) }}</strong>
+                </div>
+                <div>
+                  <label>{{ t('admin.archiveCompletedAt') }}</label>
+                  <strong>{{ adminArchiveDetailView.completed_at }}</strong>
+                </div>
+              </div>
+
+              <p v-if="adminArchiveDetailView.report?.summary" class="archive-report-summary">
+                {{ adminArchiveDetailView.report.summary }}
+              </p>
+
+              <div v-if="adminArchiveProfile.length" class="archive-profile">
+                <strong>{{ t('admin.archiveProfile') }}</strong>
+                <div class="archive-profile-grid">
+                  <div v-for="item in adminArchiveProfile" :key="item.key">
+                    <span>{{ item.label }}</span>
+                    <strong>{{ item.value }}</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div v-if="adminArchiveConversations.length" class="archive-conversations">
+                <strong>{{ t('admin.archiveConversations', { count: adminArchiveConversations.length }) }}</strong>
+                <div v-for="message in adminArchiveConversations" :key="message.id" class="archive-message">
+                  <span>{{ message.ai_type === 'seller' ? t('common.sellerAi') : message.ai_type === 'guardian' ? t('common.guardianAi') : t('common.buyer') }} · {{ message.role }}</span>
+                  <p>{{ message.content }}</p>
+                </div>
+              </div>
+            </div>
+
+            <div v-else class="empty-state compact">
+              <strong>{{ t('orders.selectTitle') }}</strong>
+              <span>{{ t('admin.archivesSubtitle') }}</span>
+            </div>
+          </section>
         </div>
       </section>
 
@@ -2381,13 +2489,18 @@ const selectedOrderId = ref('');
 const selectedOrderDetail = ref(null);
 const selectedAdminOrderId = ref('');
 const selectedAdminOrderDetail = ref(null);
+const selectedResearchArchiveId = ref('');
+const selectedResearchArchiveDetail = ref(null);
 const researchSummary = ref(null);
 const adminOrders = ref([]);
+const researchArchives = ref([]);
 const loading = reactive({
   products: true,
   orders: false,
   admin: false,
   adminOrderDetail: false,
+  adminArchives: false,
+  adminArchiveDetail: false,
 });
 
 const filters = reactive({
@@ -2677,6 +2790,8 @@ watch(
       await loadOrders();
     } else if (next === 'admin') {
       await loadAdmin();
+    } else if (next === 'archives') {
+      await loadResearchArchives();
     } else if (next === 'checkout') {
       await loadCart();
     }
@@ -2731,6 +2846,19 @@ watch(
     }
     selectedAdminOrderDetail.value = null;
     await loadAdminOrderDetail(next);
+  },
+  { immediate: true },
+);
+
+watch(
+  () => selectedResearchArchiveId.value,
+  async (next) => {
+    if (!next) {
+      selectedResearchArchiveDetail.value = null;
+      return;
+    }
+    selectedResearchArchiveDetail.value = null;
+    await loadResearchArchiveDetail(next);
   },
   { immediate: true },
 );
@@ -3171,6 +3299,15 @@ const pressureAdminTopCue = computed(() => {
   return topCue ? pressureCueName(topCue) : t('common.pending');
 });
 const adminOrderDetailView = computed(() => selectedAdminOrderDetail.value || null);
+const adminArchiveDetailView = computed(() => selectedResearchArchiveDetail.value || null);
+const adminArchiveProfile = computed(() => {
+  const archive = adminArchiveDetailView.value;
+  const profile = archive?.profile || archive?.snapshot?.clientRecord?.profile || {};
+  return Object.entries(profile)
+    .filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== '')
+    .map(([key, value]) => ({ key, label: archiveProfileLabel(key), value: Array.isArray(value) ? value.join(', ') : String(value) }));
+});
+const adminArchiveConversations = computed(() => adminArchiveDetailView.value?.snapshot?.conversations || []);
 
 const decisionSupportCards = computed(() => {
   const productName = selectedProduct.value?.name || t('common.product');
@@ -3327,8 +3464,9 @@ onBeforeUnmount(() => {
 
 async function bootstrap() {
   await Promise.all([loadCategories(), loadProducts(), isAdminUser.value ? Promise.resolve() : loadCart()]);
-  if (isAdminUser.value && page.value === 'admin') {
-    await loadAdmin();
+  if (isAdminUser.value) {
+    if (page.value === 'admin') await loadAdmin();
+    if (page.value === 'archives') await loadResearchArchives();
   }
   document.title = t('app.title');
 }
@@ -3368,7 +3506,7 @@ function toggleTheme() {
 async function refreshLocalizedData() {
   const tasks = [loadCategories(), loadProducts()];
   if (isAdminUser.value) {
-    tasks.push(loadAdmin());
+    tasks.push(page.value === 'archives' ? loadResearchArchives() : loadAdmin());
   } else {
     tasks.push(loadCart());
     if (page.value === 'orders') tasks.push(loadOrders());
@@ -3379,6 +3517,9 @@ async function refreshLocalizedData() {
   }
   if (selectedAdminOrderId.value && page.value === 'admin') {
     await loadAdminOrderDetail(selectedAdminOrderId.value);
+  }
+  if (selectedResearchArchiveId.value && page.value === 'archives') {
+    await loadResearchArchiveDetail(selectedResearchArchiveId.value);
   }
 }
 
@@ -3395,7 +3536,7 @@ function syncRoute() {
 }
 
 function go(pageName) {
-  if ((pageName === 'cart' || pageName === 'orders' || pageName === 'admin' || pageName === 'checkout') && !token.value) {
+  if ((pageName === 'cart' || pageName === 'orders' || pageName === 'admin' || pageName === 'archives' || pageName === 'checkout') && !token.value) {
     openAuth('login');
     return;
   }
@@ -4111,8 +4252,11 @@ function resetAccountScopedState() {
   selectedOrderDetail.value = null;
   selectedAdminOrderId.value = '';
   selectedAdminOrderDetail.value = null;
+  selectedResearchArchiveId.value = '';
+  selectedResearchArchiveDetail.value = null;
   researchSummary.value = null;
   adminOrders.value = [];
+  researchArchives.value = [];
   adminStats.value = null;
   adminConfig.value = null;
   adminForm.deepseek_api_key = '';
@@ -4180,6 +4324,10 @@ function pickOrder(id) {
 
 function pickAdminOrder(id) {
   selectedAdminOrderId.value = id;
+}
+
+function pickResearchArchive(id) {
+  selectedResearchArchiveId.value = id;
 }
 
 function openCart() {
@@ -4784,6 +4932,19 @@ function researchDecisionClass(value) {
   return `research-decision-${normalized || 'observe'}`;
 }
 
+function archiveProfileLabel(key) {
+  const labels = {
+    gender: 'research.gender',
+    age: 'research.age',
+    education: 'research.education',
+    currentNeed: 'research.currentNeed',
+    maxBudget: 'research.budget',
+    urgency: 'research.urgency',
+    purchaseTarget: 'research.purchaseTarget',
+  };
+  return labels[key] ? t(labels[key]) : key;
+}
+
 function evidenceStatusLabel(value) {
   return t(`ai.evidenceStatus.${value || 'unverified'}`);
 }
@@ -5026,10 +5187,12 @@ async function loadAdmin() {
   const context = currentAccountContext();
   loading.admin = true;
   try {
-    const stats = await AdminAPI.getStats();
-    const config = await AdminAPI.getAiConfig();
-    const summary = await ResearchAPI.getSummary();
-    const ordersData = await AdminAPI.getOrders({ limit: 12 });
+    const [stats, config, summary, ordersData] = await Promise.all([
+      AdminAPI.getStats(),
+      AdminAPI.getAiConfig(),
+      ResearchAPI.getSummary(),
+      AdminAPI.getOrders({ limit: 12 }),
+    ]);
     if (!isCurrentAccountContext(context)) return;
     adminStats.value = stats;
     adminConfig.value = config;
@@ -5057,6 +5220,44 @@ async function loadAdmin() {
     }
   } finally {
     if (isCurrentAccountContext(context)) loading.admin = false;
+  }
+}
+
+async function loadResearchArchives() {
+  if (!isAdminUser.value) return;
+  const context = currentAccountContext();
+  loading.adminArchives = true;
+  try {
+    const data = await AdminAPI.getResearchArchives({ limit: 20 });
+    if (!isCurrentAccountContext(context)) return;
+    researchArchives.value = data.archives || [];
+    if (!researchArchives.value.some((archive) => archive.id === selectedResearchArchiveId.value)) {
+      selectedResearchArchiveId.value = researchArchives.value[0]?.id || '';
+    }
+  } catch (error) {
+    if (isCurrentAccountContext(context)) toast(error.message || t('toast.researchLoadFailed'), 'error');
+  } finally {
+    if (isCurrentAccountContext(context)) loading.adminArchives = false;
+  }
+}
+
+async function loadResearchArchiveDetail(archiveId) {
+  if (!archiveId || !isAdminUser.value) {
+    selectedResearchArchiveDetail.value = null;
+    return;
+  }
+  const context = currentAccountContext();
+  loading.adminArchiveDetail = true;
+  try {
+    const result = await AdminAPI.getResearchArchiveDetail(archiveId);
+    if (!isCurrentAccountContext(context)) return;
+    selectedResearchArchiveDetail.value = result.archive || null;
+  } catch (error) {
+    if (!isCurrentAccountContext(context)) return;
+    selectedResearchArchiveDetail.value = null;
+    toast(error.message || t('toast.researchLoadFailed'), 'error');
+  } finally {
+    if (isCurrentAccountContext(context)) loading.adminArchiveDetail = false;
   }
 }
 

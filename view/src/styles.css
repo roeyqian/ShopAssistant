@@ -1127,6 +1127,55 @@ img {
   gap: 10px;
 }
 
+.archive-detail {
+  display: grid;
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.archive-report-summary {
+  margin: 0;
+  color: var(--ink);
+  line-height: 1.65;
+}
+
+.archive-profile,
+.archive-conversations {
+  display: grid;
+  gap: 10px;
+}
+
+.archive-profile-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.archive-profile-grid > div,
+.archive-message {
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--button-bg);
+}
+
+.archive-profile-grid span,
+.archive-message span {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.archive-profile-grid strong {
+  display: block;
+  margin-top: 4px;
+}
+
+.archive-message p {
+  margin: 6px 0 0;
+  white-space: pre-wrap;
+  line-height: 1.55;
+}
+
 .spec-row span,
 .cart-line span,
 .order-item span {
@@ -1249,6 +1298,13 @@ img {
   display: grid;
   gap: 16px;
   grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+}
+
+.archive-page-grid {
+  align-items: start;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(280px, 0.75fr) minmax(0, 1.25fr);
 }
 
 .admin-column {
@@ -3558,6 +3614,7 @@ textarea:focus-visible {
   .content-grid,
   .admin-grid,
   .admin-dashboard-grid,
+  .archive-page-grid,
   .games-layout {
     grid-template-columns: 1fr;
   }
