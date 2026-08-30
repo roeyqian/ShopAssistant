@@ -548,8 +548,17 @@ export async function researchReport({ request, env, url }) {
     getAgentConversationRows(env, session.userId, 'seller', `research-${researchRunId}-seller`),
     getAgentConversationRows(env, session.userId, 'guardian', `research-${researchRunId}-guardian`),
   ]);
-  if (!sellerRows.some((item) => item.role === 'assistant') || !guardianRows.some((item) => item.role === 'assistant')) {
-    throw { status: 400, message: locale === 'en-US' ? 'Both saved conversations need an AI reply before reporting.' : '两段已保存的对话都至少需要一条 AI 回复才能生成报告。' };
+  const agentGroup = getResearchAgentGroup(archive);
+  const needsSeller = agentGroup !== 'guardian';
+  const needsGuardian = agentGroup !== 'seller';
+  if ((needsSeller && !sellerRows.some((item) => item.role === 'assistant'))
+    || (needsGuardian && !guardianRows.some((item) => item.role === 'assistant'))) {
+    throw {
+      status: 400,
+      message: locale === 'en-US'
+        ? 'Each AI conversation included in this study needs an AI reply before reporting.'
+        : '本次研究中启用的每段 AI 对话都至少需要一条 AI 回复才能生成报告。',
+    };
   }
 
   let productInfo = null;
@@ -567,6 +576,7 @@ export async function researchReport({ request, env, url }) {
       finalDecision: archive.final_decision,
       sellerTranscript: buildAgentTranscript(sellerRows, locale),
       guardianTranscript: buildAgentTranscript(guardianRows, locale),
+      agentGroup,
       locale,
     }),
     [],
@@ -981,6 +991,16 @@ async function getAgentConversationRows(env, userId, aiType, conversationId) {
     "ORDER BY timestamp ASC, id ASC",
   ).bind(userId, aiType, conversationId).all();
   return result.results || [];
+}
+
+function getResearchAgentGroup(archive) {
+  try {
+    const snapshot = JSON.parse(archive?.snapshot_json || '{}');
+    const agentGroup = snapshot?.clientRecord?.agentGroup;
+    return ['seller', 'guardian', 'dual'].includes(agentGroup) ? agentGroup : 'dual';
+  } catch {
+    return 'dual';
+  }
 }
 
 async function getStoredResearchReport(env, userId, researchRunId, locale) {

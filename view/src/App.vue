@@ -1059,6 +1059,33 @@
                 <textarea v-model.trim="researchProfile.currentNeed" rows="4" required :placeholder="t('research.needPlaceholder')"></textarea>
               </label>
             </div>
+            <fieldset class="research-agent-group">
+              <legend>{{ t('research.agentGroup') }}</legend>
+              <p>{{ t('research.agentGroupHint') }}</p>
+              <div class="research-agent-group-options">
+                <label class="research-agent-group-option" :class="{ selected: researchAgentGroup === 'seller' }">
+                  <input v-model="researchAgentGroup" type="radio" name="research-agent-group" value="seller" />
+                  <span>
+                    <strong>{{ t('research.agentGroupSeller') }}</strong>
+                    <small>{{ t('research.agentGroupSellerHint') }}</small>
+                  </span>
+                </label>
+                <label class="research-agent-group-option" :class="{ selected: researchAgentGroup === 'guardian' }">
+                  <input v-model="researchAgentGroup" type="radio" name="research-agent-group" value="guardian" />
+                  <span>
+                    <strong>{{ t('research.agentGroupGuardian') }}</strong>
+                    <small>{{ t('research.agentGroupGuardianHint') }}</small>
+                  </span>
+                </label>
+                <label class="research-agent-group-option" :class="{ selected: researchAgentGroup === 'dual' }">
+                  <input v-model="researchAgentGroup" type="radio" name="research-agent-group" value="dual" />
+                  <span>
+                    <strong>{{ t('research.agentGroupDual') }}</strong>
+                    <small>{{ t('research.agentGroupDualHint') }}</small>
+                  </span>
+                </label>
+              </div>
+            </fieldset>
             <div class="research-note"><ShieldCheck :size="16" /> {{ t('research.profilePrivacy') }}</div>
             <div class="form-actions">
               <button class="primary-btn" type="submit" :disabled="researchProfileLoading">
@@ -1247,8 +1274,8 @@
             <ClipboardCheck :size="28" />
           </div>
           <div class="research-summary-strip">
-            <span>{{ t('research.sellerOpinion') }} <strong>{{ inclinationLabel(researchSellerInclination) }}</strong></span>
-            <span>{{ t('research.guardianOpinion') }} <strong>{{ inclinationLabel(researchGuardianInclination) }}</strong></span>
+            <span v-if="hasSellerResearchAgent">{{ t('research.sellerOpinion') }} <strong>{{ inclinationLabel(researchSellerInclination) }}</strong></span>
+            <span v-if="hasGuardianResearchAgent">{{ t('research.guardianOpinion') }} <strong>{{ inclinationLabel(researchGuardianInclination) }}</strong></span>
           </div>
           <div class="research-final-reflection">
             <div class="research-final-reflection-head">
@@ -1302,8 +1329,8 @@
           <h2>{{ t('research.resultTitle') }}</h2>
           <p>{{ t('research.resultSubtitle') }}</p>
           <div class="research-comparison-table">
-            <div><span>{{ t('research.resultSeller') }}</span><strong :class="researchDecisionClass(researchSellerInclination)">{{ inclinationLabel(researchSellerInclination) }}</strong></div>
-            <div><span>{{ t('research.resultGuardian') }}</span><strong :class="researchDecisionClass(researchGuardianInclination)">{{ inclinationLabel(researchGuardianInclination) }}</strong></div>
+            <div v-if="hasSellerResearchAgent"><span>{{ t('research.resultSeller') }}</span><strong :class="researchDecisionClass(researchSellerInclination)">{{ inclinationLabel(researchSellerInclination) }}</strong></div>
+            <div v-if="hasGuardianResearchAgent"><span>{{ t('research.resultGuardian') }}</span><strong :class="researchDecisionClass(researchGuardianInclination)">{{ inclinationLabel(researchGuardianInclination) }}</strong></div>
             <div><span>{{ t('research.resultUser') }}</span><strong :class="researchDecisionClass(researchFinalDecision)">{{ researchDecisionLabel(researchFinalDecision) }}</strong></div>
           </div>
           <p class="research-result-note">{{ researchAgreementLabel }}</p>
@@ -2429,6 +2456,7 @@ const researchFeedbackSubmitted = ref(false);
 const researchFeedback = reactive({ confidence: '', helpful: '', note: '' });
 const researchThreads = reactive({ seller: [], guardian: [] });
 const researchDraftAvailable = ref(false);
+const researchAgentGroup = ref('dual');
 const researchProfile = reactive({
   gender: '',
   age: null,
@@ -2507,13 +2535,18 @@ const researchTechniques = [
     sourceKey: 'research.techniquePlanSource',
   },
 ];
-const researchProtocol = [
-  { id: 'persuasion_reframe', phase: 'seller' },
-  { id: 'comparative_choice', phase: 'seller' },
-  { id: 'reflective_pause', phase: 'seller' },
-  { id: 'budget_calibration', phase: 'guardian' },
-  { id: 'implementation_intention', phase: 'guardian' },
-];
+const researchProtocol = computed(() => {
+  const dualProtocol = [
+    { id: 'persuasion_reframe', phase: 'seller' },
+    { id: 'comparative_choice', phase: 'seller' },
+    { id: 'reflective_pause', phase: 'seller' },
+    { id: 'budget_calibration', phase: 'guardian' },
+    { id: 'implementation_intention', phase: 'guardian' },
+  ];
+  if (researchAgentGroup.value === 'seller') return dualProtocol.map((step) => ({ ...step, phase: 'seller' }));
+  if (researchAgentGroup.value === 'guardian') return dualProtocol.map((step) => ({ ...step, phase: 'guardian' }));
+  return dualProtocol;
+});
 
 const adminConfig = ref(null);
 const adminStats = ref(null);
@@ -2716,6 +2749,8 @@ const researchSelectedProduct = computed(() =>
   || researchRecommendations.value.find((item) => String(item.id) === String(researchSelectedProductId.value))
   || null,
 );
+const hasSellerResearchAgent = computed(() => researchAgentGroup.value !== 'guardian');
+const hasGuardianResearchAgent = computed(() => researchAgentGroup.value !== 'seller');
 const researchCurrentMessages = computed(() =>
   researchThreads[researchStage.value === 3 ? 'guardian' : 'seller'] || [],
 );
@@ -2736,7 +2771,7 @@ const researchRemainingDialogueTurns = computed(() =>
   Math.max(0, researchMinimumDialogueTurns - researchCompletedDialogueTurns.value),
 );
 const researchThirdDialogueSummaryDue = computed(() =>
-  researchStage.value === 2
+  (researchStage.value === 2 || researchStage.value === 3)
   && !researchStepUnlocked.value
   && researchRemainingDialogueTurns.value === 1,
 );
@@ -2759,7 +2794,7 @@ watch(
 );
 
 const researchCurrentProtocol = computed(() => {
-  const step = researchProtocol[researchProtocolStep.value];
+  const step = researchProtocol.value[researchProtocolStep.value];
   if (!step) return null;
   const technique = researchTechniques.find((item) => item.id === step.id);
   return technique ? { ...step, technique } : null;
@@ -2789,6 +2824,12 @@ const researchAgreementLabel = computed(() => {
   const seller = researchSellerInclination.value;
   const guardian = researchGuardianInclination.value;
   const userChoice = researchFinalDecision.value;
+  if (researchAgentGroup.value === 'seller') {
+    return t('research.resultSingleAgent', { agent: t('common.sellerAi'), choice: inclinationLabel(seller), user: researchDecisionLabel(userChoice) });
+  }
+  if (researchAgentGroup.value === 'guardian') {
+    return t('research.resultSingleAgent', { agent: t('common.guardianAi'), choice: inclinationLabel(guardian), user: researchDecisionLabel(userChoice) });
+  }
   if (seller === userChoice && guardian === userChoice) {
     return t('research.resultAllAgree', { choice: researchDecisionLabel(userChoice) });
   }
@@ -2923,9 +2964,9 @@ async function submitResearchTechnique() {
     return;
   }
   const techniqueContext = buildResearchTechniqueContext(step.id);
-  const opening = step.id === 'persuasion_reframe' && researchSellerTurns.value === 0
+  const opening = step.phase === 'seller' && researchSellerTurns.value === 0
     ? `${buildSellerOpening()}\n\n`
-    : step.id === 'budget_calibration' && researchGuardianTurns.value === 0
+    : step.phase === 'guardian' && researchGuardianTurns.value === 0
       ? `${buildGuardianOpening()}\n\n`
       : '';
   void trackBehavior('intervention_check', {
@@ -2955,6 +2996,7 @@ function skipResearchTechnique() {
 }
 
 function advanceResearchProtocol(id, skipped) {
+  const completedPhase = researchCurrentProtocol.value?.phase;
   void trackBehavior('intervention_check', {
     strategy: id,
     productId: researchSelectedProductId.value || null,
@@ -2964,18 +3006,18 @@ function advanceResearchProtocol(id, skipped) {
     },
   });
   researchProtocolStep.value += 1;
-  const nextStep = researchProtocol[researchProtocolStep.value];
+  const nextStep = researchProtocol.value[researchProtocolStep.value];
   if (!nextStep) {
-    recordResearchPhaseEnd('guardian');
+    if (completedPhase) recordResearchPhaseEnd(completedPhase);
     researchStage.value = 4;
-  } else if (nextStep.phase === 'guardian' && researchStage.value !== 3) {
+  } else if (researchAgentGroup.value === 'dual' && nextStep.phase === 'guardian' && researchStage.value !== 3) {
     researchSellerHandoffPending.value = true;
   }
   saveResearchDraft();
 }
 
 function confirmSellerHandoff() {
-  if (!researchSellerHandoffPending.value || researchAiSending.value) return;
+  if (researchAgentGroup.value !== 'dual' || !researchSellerHandoffPending.value || researchAiSending.value) return;
   researchSellerHandoffPending.value = false;
   recordResearchPhaseEnd('seller');
   researchStage.value = 3;
@@ -3439,6 +3481,7 @@ function researchDraftPayload() {
     consentGiven: researchConsentGiven.value,
     stage: researchStage.value,
     runId: researchRunId.value,
+    agentGroup: researchAgentGroup.value,
     profile: { ...researchProfile },
     catalog: researchCatalog.value,
     recommendations: researchRecommendations.value,
@@ -3500,6 +3543,7 @@ function restoreResearchDraft(account = user.value) {
     researchConsentChecked.value = true;
     researchStage.value = Number.isInteger(draft.stage) ? draft.stage : 1;
     researchRunId.value = String(draft.runId || '');
+    researchAgentGroup.value = ['seller', 'guardian', 'dual'].includes(draft.agentGroup) ? draft.agentGroup : 'dual';
     Object.assign(researchProfile, draft.profile || {});
     researchCatalog.value = Array.isArray(draft.catalog) ? draft.catalog : [];
     researchRecommendations.value = Array.isArray(draft.recommendations) ? draft.recommendations : [];
@@ -3528,7 +3572,7 @@ function restoreResearchDraft(account = user.value) {
     Object.keys(researchTechniqueNotes).forEach((key) => {
       researchTechniqueNotes[key] = String(draft.techniqueNotes?.[key] || '');
     });
-    researchProtocolStep.value = Math.max(0, Math.min(researchProtocol.length, Number(draft.protocolStep || 0)));
+    researchProtocolStep.value = Math.max(0, Math.min(researchProtocol.value.length, Number(draft.protocolStep || 0)));
     researchCompareIds.value = Array.isArray(draft.compareIds) ? draft.compareIds.map(String) : [];
     researchDelayPlan.value = draft.delayPlan || 'ten_minutes';
     researchFinalConfidence.value = draft.finalConfidence || 'medium';
@@ -3545,8 +3589,8 @@ function restoreResearchDraft(account = user.value) {
 function resumeResearch() {
   restoreResearchDraft();
   if (researchStage.value >= 2 && token.value && !isAdminUser.value) {
-    void loadResearchHistory('seller');
-    void loadResearchHistory('guardian');
+    if (hasSellerResearchAgent.value) void loadResearchHistory('seller');
+    if (hasGuardianResearchAgent.value) void loadResearchHistory('guardian');
   }
 }
 
@@ -3585,19 +3629,23 @@ async function submitResearchProfile() {
     researchIfThenPlan.value = '';
     researchThreads.seller = [];
     researchThreads.guardian = [];
-    researchStage.value = 2;
+    researchStage.value = researchAgentGroup.value === 'guardian' ? 3 : 2;
     saveResearchDraft();
     void trackBehavior('intervention_check', {
       strategy: 'research_profile',
       metadata: {
         researchEvent: 'profile_submitted',
         researchRunId: researchRunId.value,
+        agentGroup: researchAgentGroup.value,
         profile: { ...researchProfile },
         catalogSize: researchCatalog.value.length,
       },
     });
     await nextTick();
-    await sendResearchMessage(buildSellerOpening(), null);
+    await sendResearchMessage(
+      researchAgentGroup.value === 'guardian' ? buildGuardianOpening() : buildSellerOpening(),
+      null,
+    );
   } catch (error) {
     if (!isCurrentAccountContext(context)) return;
     if (error.status === 401) openAuth('login');
@@ -3619,6 +3667,15 @@ function buildSellerOpening() {
 }
 
 function buildGuardianOpening() {
+  if (researchAgentGroup.value === 'guardian') {
+    return [
+      '我正在参加购物决策研究，本轮只与管家 AI 对话。',
+      `购买对象=${researchProfile.purchaseTarget}，预算上限=${researchProfile.maxBudget ? `¥${researchProfile.maxBudget}` : '未设置'}，紧迫程度=${researchProfile.urgency}，购买起点=${researchProfile.purchasePlan}，开始前倾向=${researchProfile.baselineDecision}。`,
+      `已有替代方案=${researchProfile.alternative || '未填写'}。`,
+      `我目前想买：${researchProfile.currentNeed}`,
+      '请先根据完整商品数据库识别可能相关的商品，再从需求持续性、预算、促销压力、商品适配性和信息缺口进行检查。只能使用商品数据库中的事实；缺失信息请明确标记为未核实。请在结构化结果中填写相关商品 ID，并分析我当前言语倾向于买、继续观望还是不买；不要替我做决定。',
+    ].join('\n');
+  }
   const selectedNames = researchContextProducts.value.map((product) => product.name).filter(Boolean);
   const comparisonNames = researchComparisonSelection.value.map((product) => product.name).filter(Boolean);
   const recommendationNames = researchRecommendations.value.map((item) => item.name).filter(Boolean).join('、');
@@ -3857,6 +3914,7 @@ function recordResearchPhaseEnd(type) {
 function researchArchiveRecord(decision) {
   return {
     finalDecision: decision,
+    agentGroup: researchAgentGroup.value,
     profile: { ...researchProfile },
     selectedProductId: researchSelectedProductId.value || null,
     catalog: [...researchCatalog.value],
@@ -3924,6 +3982,7 @@ async function submitResearchDecision(decision) {
     metadata: {
       researchEvent: 'final_decision',
       researchRunId: researchRunId.value,
+      agentGroup: researchAgentGroup.value,
       userDecision: decision,
       sellerInclination: researchSellerInclination.value,
       guardianInclination: researchGuardianInclination.value,
@@ -3980,6 +4039,7 @@ function resetResearch({ clearDraft = true } = {}) {
   }
   researchDraftAvailable.value = false;
   researchStage.value = 0;
+  researchAgentGroup.value = 'dual';
   researchConsentChecked.value = false;
   researchConsentGiven.value = false;
   researchRunId.value = '';

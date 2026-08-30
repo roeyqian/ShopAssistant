@@ -8,7 +8,7 @@ const METRIC_IDS = [
 
 const DECISIONS = new Set(['buy', 'observe', 'not_buy']);
 
-export function getResearchReportPrompt({ productInfo, profile, finalDecision, sellerTranscript, guardianTranscript, locale = 'zh-CN' }) {
+export function getResearchReportPrompt({ productInfo, profile, finalDecision, sellerTranscript, guardianTranscript, agentGroup = 'dual', locale = 'zh-CN' }) {
   const context = JSON.stringify({
     product: productInfo ? {
       name: productInfo.name,
@@ -23,7 +23,7 @@ export function getResearchReportPrompt({ productInfo, profile, finalDecision, s
   });
   const english = locale === 'en-US';
   const instructions = english ? [
-    'You create a concise post-study decision-process report from the two supplied transcripts only.',
+    'You create a concise post-study decision-process report from the supplied study transcript or transcripts only.',
     'This is an interpretive research visualization, not a clinical assessment, personality measure, diagnosis, or a recommendation to buy or not buy.',
     'Use these theory lenses explicitly and conservatively: self-determination theory (Ryan & Deci, American Psychologist, 2000) for autonomous need alignment; implementation intentions (Gollwitzer, American Psychologist, 1999) for concrete next-step planning; persuasion knowledge (Friestad & Wright, Journal of Consumer Research, 1994) for recognizing selling influence; and mental accounting (Thaler, Marketing Science, 1985) for budget/opportunity-cost framing.',
     'Score only expressed, observable decision signals in the transcripts. A score is a 0–100 visualization index, not a validated psychometric score. Never infer mental states, traits, demographics, or hidden reasoning. Missing information must lower confidence rather than be filled in.',
@@ -31,7 +31,7 @@ export function getResearchReportPrompt({ productInfo, profile, finalDecision, s
     '{"summary":"2 concise sentences","metrics":[{"id":"need_clarity|evidence_grounding|budget_alignment|pressure_awareness|action_plan","score":0,"observation":"brief transcript-grounded observation"}],"highlights":[{"title":"short heading","detail":"one transcript-grounded observation"}],"evidence":{"supported":0,"uncertain":0,"needs_verification":0},"confidence":0,"theory_notes":[{"id":"autonomy|planning|persuasion|budget","observation":"brief link to a transcript signal"}]}',
     'Include exactly five metrics, one for each metric ID. Scores must be integers. evidence values are non-negative counts of claims/signals you identified, not percentages. Include 2–4 highlights and all four theory notes. Keep every observation and detail under 180 characters. Do not quote large transcript passages or invent product facts.',
   ] : [
-    '你要仅根据提供的两段对话，生成一份简洁的研究完成后“决策过程报告”。',
+    '你要仅根据提供的研究对话，生成一份简洁的研究完成后“决策过程报告”。',
     '这是一份解释性的研究可视化，不是临床评估、人格测量、诊断，也不是让用户买或不买的建议。',
     '请谨慎且明确地使用以下理论视角：自我决定理论（Ryan & Deci，American Psychologist，2000）用于自主需求一致性；执行意图（Gollwitzer，American Psychologist，1999）用于具体下一步计划；劝服知识（Friestad & Wright，Journal of Consumer Research，1994）用于识别销售影响；心理账户（Thaler，Marketing Science，1985）用于预算与机会成本框架。',
     '只对对话中明确表达、可观察到的决策信号评分。分数是 0–100 的可视化指数，不是经过验证的心理测量分数。不要推断心理状态、人格、人口学特征或隐藏推理。信息缺失时应降低置信度，不得补全。',
@@ -45,10 +45,12 @@ export function getResearchReportPrompt({ productInfo, profile, finalDecision, s
     '',
     english ? 'Study context:' : '研究背景：', context,
     '',
-    english ? 'Seller AI transcript:' : '卖家 AI 对话：', String(sellerTranscript || ''),
-    '',
-    english ? 'Butler AI transcript:' : '管家 AI 对话：', String(guardianTranscript || ''),
-  ].join('\n');
+    agentGroup !== 'guardian' ? (english ? 'Seller AI transcript:' : '卖家 AI 对话：') : null,
+    agentGroup !== 'guardian' ? String(sellerTranscript || '') : null,
+    agentGroup === 'dual' ? '' : null,
+    agentGroup !== 'seller' ? (english ? 'Butler AI transcript:' : '管家 AI 对话：') : null,
+    agentGroup !== 'seller' ? String(guardianTranscript || '') : null,
+  ].filter((item) => item !== null).join('\n');
 }
 
 export function parseResearchReport(raw, locale = 'zh-CN') {
