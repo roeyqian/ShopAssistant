@@ -3317,6 +3317,12 @@ img {
 
 .evidence-link:hover { text-decoration: underline; }
 
+.claim-detail {
+  margin: 0;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
 .ai-run-meta {
   display: block;
   margin-top: 10px;
@@ -4131,6 +4137,10 @@ textarea:focus-visible {
 }
 
 .research-workspace-layout--locked {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.research-workspace-layout--guardian {
   grid-template-columns: minmax(0, 1fr);
 }
 

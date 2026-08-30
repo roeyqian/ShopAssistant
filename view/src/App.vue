@@ -287,177 +287,6 @@
             </nav>
           </section>
 
-          <div
-            v-if="productPreviewOpen && selectedProduct"
-            class="overlay product-preview-overlay"
-            :class="{ 'with-ai-companion': aiOpen }"
-            @click.self="closeProductPreview"
-          >
-          <aside
-            ref="productPreviewDialog"
-            class="drawer product-preview-modal"
-            role="dialog"
-            :aria-modal="!aiOpen"
-            :aria-label="selectedProduct.name"
-            tabindex="-1"
-          >
-            <template v-if="selectedProduct">
-              <div class="panel-head">
-                <div>
-                  <h2>{{ selectedProduct.name }}</h2>
-                  <p>{{ categoryName(selectedProduct.category_id) }}</p>
-                </div>
-                <div class="drawer-actions">
-                  <button
-                    v-if="!isAdminUser"
-                    class="ghost-btn"
-                    type="button"
-                    @click="openAi('seller', selectedProduct)"
-                  >
-                    <MessageSquareMore :size="16" />
-                    {{ t('detail.askSeller') }}
-                  </button>
-                  <button
-                    v-if="!isAdminUser"
-                    class="ghost-btn"
-                    type="button"
-                    @click="openAi('guardian', selectedProduct)"
-                  >
-                    <ShieldCheck :size="16" />
-                    {{ t('detail.askGuardian') }}
-                  </button>
-                  <button
-                    class="icon-close"
-                    type="button"
-                    :aria-label="t('common.close')"
-                    @click="closeProductPreview"
-                  >
-                    <X :size="18" />
-                  </button>
-                </div>
-              </div>
-
-              <div class="detail-visual-summary">
-                <div class="detail-image">
-                  <img
-                    v-if="productImage(selectedProduct)"
-                    :src="productImage(selectedProduct)"
-                    :alt="selectedProduct.name"
-                  />
-                  <div v-else class="image-fallback tall">
-                    <Layers3 :size="28" />
-                    <span>{{ selectedProduct.name }}</span>
-                  </div>
-                </div>
-
-                <div class="detail-metrics">
-                  <div>
-                    <label>{{ t('detail.rating') }}</label>
-                    <strong>{{ Number(selectedProduct.rating || 0).toFixed(1) }}</strong>
-                  </div>
-                  <div>
-                    <label>{{ t('detail.stock') }}</label>
-                    <strong>{{ Number(selectedProduct.stock || 0) }}</strong>
-                  </div>
-                  <div>
-                    <label>{{ t('detail.sales') }}</label>
-                    <strong>{{ Number(selectedProduct.sales || 0) }}</strong>
-                  </div>
-                  <div>
-                    <label>{{ t('common.category') }}</label>
-                    <strong>{{ categoryName(selectedProduct.category_id) }}</strong>
-                  </div>
-                </div>
-              </div>
-
-              <div class="detail-price">
-                <strong>{{ formatMoney(selectedProduct.price) }}</strong>
-                <span v-if="selectedProduct.original_price">
-                  {{ formatMoney(selectedProduct.original_price) }}
-                </span>
-              </div>
-
-              <p class="detail-text">
-                {{ selectedProduct.description || selectedProduct.subtitle || t('detail.noDescription') }}
-              </p>
-
-              <div v-if="productSpecs(selectedProduct).length" class="spec-list">
-                <div v-for="item in productSpecs(selectedProduct)" :key="item.key" class="spec-row">
-                  <span>{{ item.key }}</span>
-                  <strong>{{ item.value }}</strong>
-                </div>
-              </div>
-
-              <section v-if="!isAdminUser" class="decision-support-panel">
-                <div class="panel-head compact-head">
-                  <div>
-                    <h2>{{ t('decisionSupport.title') }}</h2>
-                    <p>{{ t('decisionSupport.subtitle') }}</p>
-                  </div>
-                </div>
-
-                <div class="intervention-grid decision-tool-grid">
-                  <button
-                    v-for="item in decisionSupportCards"
-                    :key="item.key"
-                    class="intervention-card"
-                    type="button"
-                    @click="startIntervention(item)"
-                  >
-                    <span class="intervention-icon">
-                      <component :is="item.icon" :size="16" />
-                    </span>
-                    <strong>{{ item.label }}</strong>
-                    <span>{{ item.body }}</span>
-                  </button>
-                </div>
-
-                <div class="comparison-module decision-comparison-module">
-                  <h3>{{ t('decisionSupport.comparisons') }}</h3>
-                  <div v-if="comparableProducts.length" class="comparison-strip">
-                    <button
-                      v-for="item in comparableProducts"
-                      :key="item.id"
-                      class="comparison-card"
-                      type="button"
-                      @click="pickProduct(item.id)"
-                    >
-                      <img v-if="productImage(item)" :src="productImage(item)" :alt="item.name" />
-                      <div v-else class="comparison-thumb"><Package2 :size="18" /></div>
-                      <div class="comparison-copy">
-                        <strong>{{ item.name }}</strong>
-                        <p>{{ formatMoney(item.price) }} · {{ t('detail.rating') }} {{ Number(item.rating || 0).toFixed(1) }}</p>
-                      </div>
-                    </button>
-                  </div>
-                  <p v-else class="comparison-empty">{{ t('decisionSupport.noComparisons') }}</p>
-                </div>
-
-                <p class="decision-autonomy-note">{{ t('decisionSupport.autonomy') }}</p>
-              </section>
-
-              <div v-if="!isAdminUser" class="detail-actions">
-                <button class="primary-btn" type="button" @click="addToCart(selectedProduct)">
-                  <ShoppingCart :size="16" />
-                  {{ t('detail.addToCart') }}
-                </button>
-              </div>
-
-              <div v-else class="detail-actions">
-                <button class="primary-btn" type="button" @click="go('admin')">
-                  <BarChart3 :size="16" />
-                  {{ t('detail.adminAnalyze') }}
-                </button>
-              </div>
-
-            </template>
-
-            <div v-else class="empty-state tall">
-              <strong>{{ t('detail.noSelectionTitle') }}</strong>
-              <span>{{ t('detail.noSelectionBody') }}</span>
-            </div>
-          </aside>
-          </div>
         </div>
       </section>
 
@@ -1209,7 +1038,7 @@
           </form>
         </section>
 
-        <section v-else-if="researchStage === 2 || researchStage === 3" class="research-workspace-layout" :class="{ 'research-workspace-layout--locked': !researchStepUnlocked }">
+        <section v-else-if="researchStage === 2 || researchStage === 3" class="research-workspace-layout" :class="{ 'research-workspace-layout--locked': !researchStepUnlocked, 'research-workspace-layout--guardian': researchStage === 3 }">
           <section class="panel research-workspace">
           <div class="research-workspace-content">
             <div class="research-chat-head">
@@ -1254,7 +1083,7 @@
                 <textarea v-model.trim="researchIfThenPlan" rows="2" :placeholder="t('research.ifThenPlaceholder')"></textarea>
               </label>
               <p v-else class="research-protocol-note">{{ t('research.protocolComparison') }}</p>
-              <div v-if="researchCurrentProtocol.id === 'comparative_choice'" class="research-step-comparison">
+              <div v-if="researchStage !== 3 && researchCurrentProtocol.id === 'comparative_choice'" class="research-step-comparison">
                 <div v-if="researchComparisonSelection.length >= 2" class="research-compare-table">
                   <div class="research-compare-table-row research-compare-table-head">
                     <span>{{ t('research.compareDimension') }}</span>
@@ -1277,7 +1106,7 @@
                   {{ t('research.protocolComparisonUnavailable') }}
                 </p>
               </div>
-              <div v-else-if="researchContextProducts.length" class="research-step-product" :class="{ 'research-step-product--multiple': researchContextProducts.length > 1 }">
+              <div v-else-if="researchStage !== 3 && researchContextProducts.length" class="research-step-product" :class="{ 'research-step-product--multiple': researchContextProducts.length > 1 }">
                 <span>{{ researchContextProducts.length > 1 ? t('research.currentProducts') : t('research.currentProduct') }}</span>
                 <div class="research-step-product-list">
                   <div v-for="product in researchContextProducts" :key="product.id">
@@ -1317,15 +1146,17 @@
                     v-html="renderMarkdown(chatMessage.content)"
                   ></div>
                   <div v-else class="research-chat-bubble">{{ chatMessage.content }}</div>
-                  <div v-if="chatMessage.role === 'assistant' && chatMessage.assessment?.claims?.length" class="research-claim-list">
-                    <div v-for="claim in chatMessage.assessment.claims" :key="claim.text" class="ai-claim">
-                      <strong>{{ claim.text }}</strong>
-                      <button v-for="evidence in claim.evidence" :key="`${evidence.productId}-${evidence.field}`" class="evidence-link" type="button" @click="openEvidenceProduct(evidence.productId)">
-                        {{ evidence.productName }} · {{ evidence.fieldLabel }}：{{ evidence.value }}
+                  <div v-if="researchStage !== 3 && chatMessage.role === 'assistant' && chatMessage.assessment?.claims?.length" class="research-claim-list">
+                    <div v-for="group in groupedEvidenceClaims(chatMessage.assessment.claims)" :key="group.key" class="ai-claim">
+                      <button v-if="group.productId" class="evidence-link" type="button" @click="openEvidenceProduct(group.productId)">
+                        {{ group.productName }}
                       </button>
+                      <p v-for="claim in group.claims" :key="claim.text" class="claim-detail">
+                        {{ claimDetail(claim.text, group.productName) }}
+                      </p>
                     </div>
-                    <p v-if="chatMessage.assessment.unknowns?.length" class="research-protocol-note">{{ t('ai.unknowns') }}：{{ chatMessage.assessment.unknowns.join('、') }}</p>
                   </div>
+                  <p v-if="chatMessage.role === 'assistant' && chatMessage.assessment?.unknowns?.length" class="research-protocol-note">{{ t('ai.unknowns') }}：{{ chatMessage.assessment.unknowns.join('、') }}</p>
                 </div>
               </div>
               <div v-else-if="researchAiSending" class="research-chat-row assistant">
@@ -1353,7 +1184,7 @@
             </form>
           </div>
         </section>
-          <aside v-if="!researchSellerHandoffPending && researchStepUnlocked && researchCurrentProtocol" class="panel research-materials-panel">
+          <aside v-if="researchStage !== 3 && !researchSellerHandoffPending && researchStepUnlocked && researchCurrentProtocol" class="panel research-materials-panel">
             <div>
               <span class="eyebrow">{{ t('research.protocolMaterialsEyebrow') }}</span>
               <h3>{{ researchCurrentProtocol?.id === 'comparative_choice' ? t('research.comparisonTitle') : t('research.protocolMaterialsTitle') }}</h3>
@@ -1754,6 +1585,111 @@
       </section>
     </main>
 
+    <div
+      v-if="productPreviewOpen && selectedProduct"
+      class="overlay product-preview-overlay"
+      :class="{ 'with-ai-companion': aiOpen }"
+      @click.self="closeProductPreview"
+    >
+      <aside
+        ref="productPreviewDialog"
+        class="drawer product-preview-modal"
+        role="dialog"
+        :aria-modal="!aiOpen"
+        :aria-label="selectedProduct.name"
+        tabindex="-1"
+      >
+        <div class="panel-head">
+          <div>
+            <h2>{{ selectedProduct.name }}</h2>
+            <p>{{ categoryName(selectedProduct.category_id) }}</p>
+          </div>
+          <div class="drawer-actions">
+            <button v-if="!isAdminUser" class="ghost-btn" type="button" @click="openAi('seller', selectedProduct)">
+              <MessageSquareMore :size="16" />
+              {{ t('detail.askSeller') }}
+            </button>
+            <button v-if="!isAdminUser" class="ghost-btn" type="button" @click="openAi('guardian', selectedProduct)">
+              <ShieldCheck :size="16" />
+              {{ t('detail.askGuardian') }}
+            </button>
+            <button class="icon-close" type="button" :aria-label="t('common.close')" @click="closeProductPreview">
+              <X :size="18" />
+            </button>
+          </div>
+        </div>
+
+        <div class="detail-visual-summary">
+          <div class="detail-image">
+            <img v-if="productImage(selectedProduct)" :src="productImage(selectedProduct)" :alt="selectedProduct.name" />
+            <div v-else class="image-fallback tall">
+              <Layers3 :size="28" />
+              <span>{{ selectedProduct.name }}</span>
+            </div>
+          </div>
+          <div class="detail-metrics">
+            <div><label>{{ t('detail.rating') }}</label><strong>{{ Number(selectedProduct.rating || 0).toFixed(1) }}</strong></div>
+            <div><label>{{ t('detail.stock') }}</label><strong>{{ Number(selectedProduct.stock || 0) }}</strong></div>
+            <div><label>{{ t('detail.sales') }}</label><strong>{{ Number(selectedProduct.sales || 0) }}</strong></div>
+            <div><label>{{ t('common.category') }}</label><strong>{{ categoryName(selectedProduct.category_id) }}</strong></div>
+          </div>
+        </div>
+
+        <div class="detail-price">
+          <strong>{{ formatMoney(selectedProduct.price) }}</strong>
+          <span v-if="selectedProduct.original_price">{{ formatMoney(selectedProduct.original_price) }}</span>
+        </div>
+        <p class="detail-text">{{ selectedProduct.description || selectedProduct.subtitle || t('detail.noDescription') }}</p>
+        <div v-if="productSpecs(selectedProduct).length" class="spec-list">
+          <div v-for="item in productSpecs(selectedProduct)" :key="item.key" class="spec-row">
+            <span>{{ item.key }}</span>
+            <strong>{{ item.value }}</strong>
+          </div>
+        </div>
+
+        <section v-if="!isAdminUser" class="decision-support-panel">
+          <div class="panel-head compact-head">
+            <div><h2>{{ t('decisionSupport.title') }}</h2><p>{{ t('decisionSupport.subtitle') }}</p></div>
+          </div>
+          <div class="intervention-grid decision-tool-grid">
+            <button v-for="item in decisionSupportCards" :key="item.key" class="intervention-card" type="button" @click="startIntervention(item)">
+              <span class="intervention-icon"><component :is="item.icon" :size="16" /></span>
+              <strong>{{ item.label }}</strong>
+              <span>{{ item.body }}</span>
+            </button>
+          </div>
+          <div class="comparison-module decision-comparison-module">
+            <h3>{{ t('decisionSupport.comparisons') }}</h3>
+            <div v-if="comparableProducts.length" class="comparison-strip">
+              <button v-for="item in comparableProducts" :key="item.id" class="comparison-card" type="button" @click="pickProduct(item.id)">
+                <img v-if="productImage(item)" :src="productImage(item)" :alt="item.name" />
+                <div v-else class="comparison-thumb"><Package2 :size="18" /></div>
+                <div class="comparison-copy">
+                  <strong>{{ item.name }}</strong>
+                  <p>{{ formatMoney(item.price) }} · {{ t('detail.rating') }} {{ Number(item.rating || 0).toFixed(1) }}</p>
+                </div>
+              </button>
+            </div>
+            <p v-else class="comparison-empty">{{ t('decisionSupport.noComparisons') }}</p>
+          </div>
+          <p class="decision-autonomy-note">{{ t('decisionSupport.autonomy') }}</p>
+        </section>
+
+        <div v-if="!isAdminUser" class="detail-actions">
+          <button class="primary-btn" type="button" @click="addToCart(selectedProduct)">
+            <ShoppingCart :size="16" />
+            {{ t('detail.addToCart') }}
+          </button>
+        </div>
+        <div v-else class="detail-actions">
+          <button class="primary-btn" type="button" @click="go('admin')">
+            <BarChart3 :size="16" />
+            {{ t('detail.adminAnalyze') }}
+          </button>
+        </div>
+      </aside>
+    </div>
+
     <div v-if="checkoutIntervention" class="overlay" @click.self="dismissCheckoutIntervention">
       <aside
         class="drawer checkout-intervention-drawer"
@@ -2015,17 +1951,18 @@
                   </div>
                   <div v-if="message.assessment.claims?.length" class="decision-section ai-claim-section">
                     <span class="decision-kicker">{{ t('ai.productClaims') }}</span>
-                    <div v-for="claim in message.assessment.claims" :key="claim.text" class="ai-claim">
-                      <strong>{{ claim.text }}</strong>
+                    <div v-for="group in groupedEvidenceClaims(message.assessment.claims)" :key="group.key" class="ai-claim">
                       <button
-                        v-for="evidence in claim.evidence"
-                        :key="`${evidence.productId}-${evidence.field}`"
+                        v-if="group.productId"
                         class="evidence-link"
                         type="button"
-                        @click="openEvidenceProduct(evidence.productId)"
+                        @click="openEvidenceProduct(group.productId)"
                       >
-                        {{ evidence.productName }} · {{ evidence.fieldLabel }}：{{ evidence.value }}
+                        {{ group.productName }}
                       </button>
+                      <p v-for="claim in group.claims" :key="claim.text" class="claim-detail">
+                        {{ claimDetail(claim.text, group.productName) }}
+                      </p>
                     </div>
                   </div>
                   <div v-if="message.assessment.unknowns?.length" class="decision-section ai-unknown-section">
@@ -2902,6 +2839,7 @@ watch(
 const selectedProduct = computed(() => {
   return (
     products.value.find((item) => item.id === selectedProductId.value) ||
+    researchCatalog.value.find((item) => item.id === selectedProductId.value) ||
     filteredProducts.value[0] ||
     products.value[0] ||
     null
@@ -4935,8 +4873,32 @@ function openEvidenceProduct(productId) {
   const product = products.value.find((item) => item.id === id)
     || researchCatalog.value.find((item) => item.id === id);
   if (!product) return;
-  selectedProductId.value = id;
-  productPreviewOpen.value = true;
+  openProductPreview(product);
+}
+
+function groupedEvidenceClaims(claims) {
+  const groups = new Map();
+  (claims || []).forEach((claim, index) => {
+    const productEvidence = (claim?.evidence || []).find((evidence) => String(evidence?.productId || '').trim());
+    const productId = String(productEvidence?.productId || '').trim();
+    const key = productId || `claim-${index}`;
+    if (!groups.has(key)) {
+      groups.set(key, {
+        key,
+        productId,
+        productName: productEvidence?.productName || '',
+        claims: [],
+      });
+    }
+    groups.get(key).claims.push(claim);
+  });
+  return [...groups.values()];
+}
+
+function claimDetail(text, productName) {
+  const claimText = String(text || '').trim();
+  if (!productName || !claimText.startsWith(productName)) return claimText;
+  return claimText.slice(productName.length).replace(/^[：:，,、\s-]+/, '').trim();
 }
 
 function recommendationLabel(value) {
