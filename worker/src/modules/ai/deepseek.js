@@ -10,7 +10,7 @@ export async function completeDeepSeek(config, systemPrompt, messageHistory, use
   const response = await postDeepSeek(config, {
     model: config.deepseek_model || 'deepseek-chat',
     messages,
-    temperature: 0.7,
+    temperature: normalizeTemperature(config.ai_temperature),
     stream: false,
     ...(options.responseFormat ? { response_format: options.responseFormat } : {}),
   }, options);
@@ -143,6 +143,11 @@ async function readDeepSeekCompletion(response) {
 
 function normalizeBaseUrl(value) {
   return String(value || 'https://api.deepseek.com').replace(/\/+$/, '');
+}
+
+function normalizeTemperature(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.min(2, Math.max(0, number)) : 0.7;
 }
 
 async function readProviderError(response) {

@@ -3295,6 +3295,42 @@ img {
   white-space: nowrap;
 }
 
+.ai-claim-section,
+.ai-unknown-section,
+.ai-claim,
+.research-claim-list {
+  display: grid;
+  gap: 8px;
+}
+
+.evidence-link {
+  width: fit-content;
+  max-width: 100%;
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--button-bg);
+  color: var(--accent-strong);
+  text-align: left;
+  cursor: pointer;
+}
+
+.evidence-link:hover { text-decoration: underline; }
+
+.ai-run-meta {
+  display: block;
+  margin-top: 10px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.research-claim-list {
+  margin-top: 8px;
+  padding: 10px;
+  border-left: 3px solid var(--accent);
+  background: var(--button-bg);
+}
+
 .evidence-status-confirmed {
   color: var(--status-completed-text);
   background: var(--status-completed-bg);

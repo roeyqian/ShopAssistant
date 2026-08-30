@@ -7,6 +7,8 @@ import { getStructuredAgentPrompt, parseStructuredAgentResponse, parseStoredAsse
 import { getResearchReportPrompt, parseResearchReport } from "./research-report.js";
 import { getLocaleFromRequest, normalizeProduct } from "../shop/utils.js";
 import { persistCompletedResearchContent } from "../research/service.js";
+import { buildAiRunMetadata } from "./provenance.js";
+import { detectPromptInjection, evaluateAgentFixture } from "./evaluation.js";
 
 const HIDDEN_METADATA_KEY = 'hiddenFromUser';
 const MAX_CONSECUTIVE_AUTOMATIC_PROMOTIONS = 3;
@@ -236,6 +238,14 @@ export async function chat({ request, env, url }) {
     buildResearchDialoguePrompt(aiType, researchDialogueTurn, locale),
     getStructuredAgentPrompt(locale),
   ].filter(Boolean).join('\n\n');
+  const aiRun = buildAiRunMetadata({
+    config,
+    aiType,
+    systemPrompt: structuredSystemPrompt,
+    products: [productInfo, ...catalogProducts],
+    responseFormat: { type: 'json_object' },
+  });
+  const promptInjectionDetected = detectPromptInjection(message);
 
   const messageRecordId = createId("conv");
   const userTimestamp = new Date().toISOString();
@@ -259,6 +269,8 @@ export async function chat({ request, env, url }) {
       researchTechniqueContext,
       researchRunId,
       researchDialogueTurn,
+      promptInjectionDetected,
+      aiRunRequest: aiRun,
     }),
     userTimestamp
   ).run().catch(async (error) => {
@@ -284,6 +296,8 @@ export async function chat({ request, env, url }) {
       userMessage: message,
       locale,
       request,
+      aiType,
+      evidenceContext: { product: productInfo, catalogProducts },
     });
   } catch (error) {
     await env.db.prepare('DELETE FROM ai_conversations WHERE user_id = ? AND client_message_id = ?')
@@ -315,11 +329,19 @@ export async function chat({ request, env, url }) {
         researchDialogueTurn,
         finishReason: result.finishReason || null,
         providerError: result.providerError || null,
+        aiRun,
+        evaluation: evaluateAgentFixture({
+          aiType,
+          input: message,
+          reply: result.content,
+          claims: result.assessment?.claims,
+          unknowns: result.assessment?.unknowns,
+        }),
       }),
       assistantTimestamp,
   ).run();
 
-  return json({ response: result.content, aiType, assessment: result.assessment, providerError: result.providerError || null });
+  return json({ response: result.content, aiType, assessment: result.assessment, provenance: aiRun, providerError: result.providerError || null });
 }
 
 export async function decision({ request, env, url, requestId }) {
@@ -360,6 +382,12 @@ export async function decision({ request, env, url, requestId }) {
   }
 
   const systemPrompt = getDecisionPrompt(productInfo, locale);
+  const aiRun = buildAiRunMetadata({
+    config,
+    aiType: 'neutral',
+    systemPrompt,
+    products: [productInfo],
+  });
   const messageRecordId = createId("decision");
   const userTimestamp = new Date().toISOString();
   const reservation = await env.db.prepare(
@@ -432,6 +460,7 @@ export async function decision({ request, env, url, requestId }) {
         assessment,
         finishReason: result.finishReason || null,
         providerError: result.providerError || null,
+        aiRun,
       }),
       assistantTimestamp,
     ).run();
@@ -474,9 +503,11 @@ export async function synthesis({ request, env, url }) {
     throw { status: 400, message: locale === 'en-US' ? 'Both AI conversations need at least one answer before synthesis.' : '卖家 AI 和管家 AI 都至少需要一条回复后才能综合。' };
   }
 
+  const systemPrompt = getSynthesisPrompt(productInfo, sellerTranscript, guardianTranscript, locale);
+  const aiRun = buildAiRunMetadata({ config, aiType: 'synthesis', systemPrompt, products: [productInfo] });
   const result = await completeDeepSeek(
     config,
-    getSynthesisPrompt(productInfo, sellerTranscript, guardianTranscript, locale),
+    systemPrompt,
     [],
     locale === 'en-US' ? 'Generate the final synthesis now.' : '请现在生成最终综合建议。',
     { signal: request.signal },
@@ -504,6 +535,7 @@ export async function synthesis({ request, env, url }) {
       sellerConversationId,
       guardianConversationId,
       finishReason: result.finishReason || null,
+      aiRun,
     }),
     timestamp,
   ).run();
@@ -568,17 +600,19 @@ export async function researchReport({ request, env, url }) {
   }
   let profile = {};
   try { profile = JSON.parse(archive.profile_json || '{}'); } catch { /* preserve a safe empty context */ }
+  const reportSystemPrompt = getResearchReportPrompt({
+    productInfo,
+    profile,
+    finalDecision: archive.final_decision,
+    sellerTranscript: buildAgentTranscript(sellerRows, locale),
+    guardianTranscript: buildAgentTranscript(guardianRows, locale),
+    agentGroup,
+    locale,
+  });
+  const aiRun = buildAiRunMetadata({ config, aiType: 'research_report', systemPrompt: reportSystemPrompt, products: [productInfo] });
   const result = await completeDeepSeek(
     config,
-    getResearchReportPrompt({
-      productInfo,
-      profile,
-      finalDecision: archive.final_decision,
-      sellerTranscript: buildAgentTranscript(sellerRows, locale),
-      guardianTranscript: buildAgentTranscript(guardianRows, locale),
-      agentGroup,
-      locale,
-    }),
+    reportSystemPrompt,
     [],
     locale === 'en-US' ? 'Generate the structured research report now.' : '请现在生成结构化研究报告。',
     { signal: request.signal },
@@ -590,7 +624,7 @@ export async function researchReport({ request, env, url }) {
   ).bind(
     createId('research_report'), session.userId, token, `report-${researchRunId}`, report.summary,
     archive.selected_product_id || null,
-    JSON.stringify({ source: 'research-report', researchRunId, report, model: config.deepseek_model || 'deepseek-chat', finishReason: result.finishReason || null }),
+    JSON.stringify({ source: 'research-report', researchRunId, report, model: config.deepseek_model || 'deepseek-chat', finishReason: result.finishReason || null, aiRun }),
     timestamp,
   ).run();
   await persistCompletedResearchContent(env, archive, report, {
@@ -665,12 +699,14 @@ export async function sellerNudge({ request, env, url, requestId }) {
 
   const promotionalNudgeStep = consecutiveAutomaticPromotions + 1;
   const nudgeInstruction = buildSellerNudgePrompt(productInfo, locale, promotionalNudgeStep);
+  const nudgeSystemPrompt = `${getSellerPrompt(productInfo, locale)}\n\n${nudgeInstruction}`;
+  const aiRun = buildAiRunMetadata({ config, aiType: 'seller', systemPrompt: nudgeSystemPrompt, products: [productInfo] });
 
   return streamAiResponse(async (sendDelta) => {
     const userTimestamp = new Date().toISOString();
     const result = await getStreamedAiResponse({
       config,
-      systemPrompt: `${getSellerPrompt(productInfo, locale)}\n\n${nudgeInstruction}`,
+      systemPrompt: nudgeSystemPrompt,
       messages,
       userMessage: locale === 'en-US' ? 'Please send the proactive message now.' : '请现在发送这条主动消息。',
       locale,
@@ -698,11 +734,17 @@ export async function sellerNudge({ request, env, url, requestId }) {
         automaticPromotionStep: promotionalNudgeStep,
         finishReason: result.finishReason || null,
         providerError: result.providerError || null,
+        aiRun,
+        evaluation: evaluateAgentFixture({
+          aiType: 'seller',
+          input: locale === 'en-US' ? 'Please send the proactive message now.' : '请现在发送这条主动消息。',
+          reply: result.content,
+        }),
       }),
       assistantTimestamp,
     ).run();
 
-    return { response: result.content, aiType: 'seller', providerError: result.providerError || null };
+    return { response: result.content, aiType: 'seller', provenance: aiRun, providerError: result.providerError || null };
   }, { requestId, endpoint: 'seller-nudge', aiType: 'seller' });
 }
 
@@ -802,14 +844,14 @@ async function getStreamedAiResponse({ config, systemPrompt, messages, userMessa
   }
 }
 
-async function getStructuredAgentResponse({ config, systemPrompt, messages, userMessage, locale, request }) {
+async function getStructuredAgentResponse({ config, systemPrompt, messages, userMessage, locale, request, evidenceContext = {} }) {
   const result = await completeDeepSeek(config, systemPrompt, messages, userMessage, {
     signal: request.signal,
     // The assistant response is parsed before it reaches the participant.
     // Ask OpenAI-compatible providers to enforce that contract at generation time.
     responseFormat: { type: 'json_object' },
   });
-  const parsed = parseStructuredAgentResponse(result.content, locale);
+  const parsed = parseStructuredAgentResponse(result.content, locale, evidenceContext);
   if (!parsed.valid) {
     throw {
       status: 502,

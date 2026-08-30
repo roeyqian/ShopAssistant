@@ -142,9 +142,26 @@ npm run db:add-product-type-depth
 
 已有旧数据库时，请补跑 `worker/store/migrations/0003_order_events.sql`、`worker/store/migrations/0004_product_i18n.sql`、`worker/store/migrations/0006_intervention_behavior.sql`、`worker/store/migrations/0007_ai_conversation_safety.sql`、`worker/store/migrations/0008_product_chat_history.sql`、`worker/store/migrations/0009_add_more_products.sql`、`worker/store/migrations/0010_more_product_i18n.sql`、`worker/store/migrations/0011_add_27_products.sql` 和 `worker/store/migrations/0012_add_product_type_depth.sql`。
 
+使用 AI 证据链功能前，还需执行：
+
+```bash
+npm run db:ai-provenance
+```
+
 ## AI 配置
 
-以管理员身份登录后，在研究后台填写 DeepSeek API Key、Base URL 和模型名，并按实验条件启用或停用卖家 AI 与管家 AI。请在正式数据收集前记录模型、提示词、参数、样本材料和项目版本。
+以管理员身份登录后，在研究后台填写 DeepSeek API Key、Base URL、模型名和 Temperature，并按实验条件启用或停用卖家 AI 与管家 AI。请在正式数据收集前记录模型、提示词、参数、样本材料和项目版本。
+
+### AI 证据链与回归评测
+
+- 每条保存的 AI 回复会记录模型、Temperature、提示词版本与指纹，以及本轮受控商品目录版本；记录写入对话元数据，不会保存 API Key。
+- 卖家与管家回复中的商品事实必须以 `商品 ID + 商品字段` 形式引用。前端会将已验证的引用显示为可点击证据；没有目录依据的关键信息会标为“仍待核实”。
+- 本地回归评测覆盖提示注入识别、虚构商品字段引用、卖家制造购买压力和管家强制不买。运行：
+
+```bash
+cd worker
+npm run test:ai-evals
+```
 
 ## API 概览
 

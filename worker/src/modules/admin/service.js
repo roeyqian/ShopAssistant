@@ -13,7 +13,8 @@ export async function getAiConfig({ request, env }) {
       deepseek_base_url: 'https://api.deepseek.com',
       deepseek_model: 'deepseek-chat',
       seller_ai_enabled: true,
-      guardian_ai_enabled: true
+      guardian_ai_enabled: true,
+      ai_temperature: 0.7,
     });
   }
 
@@ -22,18 +23,20 @@ export async function getAiConfig({ request, env }) {
 
 export async function updateAiConfig({ request, env }) {
   const session = await requireAdmin(request, env);
-  const { deepseek_api_key, deepseek_base_url, deepseek_model, seller_ai_enabled, guardian_ai_enabled } = await readJsonBody(request);
+  const { deepseek_api_key, deepseek_base_url, deepseek_model, seller_ai_enabled, guardian_ai_enabled, ai_temperature } = await readJsonBody(request);
+  const temperature = normalizeTemperature(ai_temperature);
 
   await env.db.prepare(`
     INSERT OR REPLACE INTO ai_config
-    (id, deepseek_api_key, deepseek_base_url, deepseek_model, seller_ai_enabled, guardian_ai_enabled, updated_at, updated_by)
-    VALUES (1, ?, ?, ?, ?, ?, datetime('now'), ?)
+    (id, deepseek_api_key, deepseek_base_url, deepseek_model, seller_ai_enabled, guardian_ai_enabled, ai_temperature, updated_at, updated_by)
+    VALUES (1, ?, ?, ?, ?, ?, ?, datetime('now'), ?)
   `).bind(
     String(deepseek_api_key ?? ''),
     deepseek_base_url || 'https://api.deepseek.com',
     deepseek_model || 'deepseek-chat',
     seller_ai_enabled ? 1 : 0,
     guardian_ai_enabled ? 1 : 0,
+    temperature,
     session.userId
   ).run();
 
@@ -56,6 +59,7 @@ export async function testAiConfig({ request, env }) {
     deepseek_api_key: hasSubmittedKey ? deepseekApiKey : savedConfig?.deepseek_api_key || '',
     deepseek_base_url: deepseekBaseUrl || 'https://api.deepseek.com',
     deepseek_model: deepseekModel || 'deepseek-chat',
+    ai_temperature: normalizeTemperature(body.ai_temperature ?? savedConfig?.ai_temperature),
   };
 
   if (!config.deepseek_api_key) {
@@ -320,3 +324,9 @@ const STATUS_TIMESTAMPS = {
   completed: 'completed_at',
   cancelled: 'cancelled_at',
 };
+
+function normalizeTemperature(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number < 0 || number > 2) return 0.7;
+  return Math.round(number * 100) / 100;
+}

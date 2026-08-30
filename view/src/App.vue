@@ -635,6 +635,11 @@
                   <input v-model="adminForm.deepseek_model" type="text" />
                 </label>
 
+                <label class="field">
+                  <span>Temperature (0–2)</span>
+                  <input v-model.number="adminForm.ai_temperature" type="number" min="0" max="2" step="0.1" />
+                </label>
+
                 <label class="check-row">
                   <input v-model="adminForm.seller_ai_enabled" type="checkbox" />
                   <span>{{ t('admin.enableSeller') }}</span>
@@ -1312,6 +1317,15 @@
                     v-html="renderMarkdown(chatMessage.content)"
                   ></div>
                   <div v-else class="research-chat-bubble">{{ chatMessage.content }}</div>
+                  <div v-if="chatMessage.role === 'assistant' && chatMessage.assessment?.claims?.length" class="research-claim-list">
+                    <div v-for="claim in chatMessage.assessment.claims" :key="claim.text" class="ai-claim">
+                      <strong>{{ claim.text }}</strong>
+                      <button v-for="evidence in claim.evidence" :key="`${evidence.productId}-${evidence.field}`" class="evidence-link" type="button" @click="openEvidenceProduct(evidence.productId)">
+                        {{ evidence.productName }} · {{ evidence.fieldLabel }}：{{ evidence.value }}
+                      </button>
+                    </div>
+                    <p v-if="chatMessage.assessment.unknowns?.length" class="research-protocol-note">{{ t('ai.unknowns') }}：{{ chatMessage.assessment.unknowns.join('、') }}</p>
+                  </div>
                 </div>
               </div>
               <div v-else-if="researchAiSending" class="research-chat-row assistant">
@@ -1999,6 +2013,28 @@
                     <span class="decision-kicker">{{ t('ai.nextQuestions') }}</span>
                     <ul><li v-for="item in message.assessment.analysis.next_questions" :key="item">{{ item }}</li></ul>
                   </div>
+                  <div v-if="message.assessment.claims?.length" class="decision-section ai-claim-section">
+                    <span class="decision-kicker">{{ t('ai.productClaims') }}</span>
+                    <div v-for="claim in message.assessment.claims" :key="claim.text" class="ai-claim">
+                      <strong>{{ claim.text }}</strong>
+                      <button
+                        v-for="evidence in claim.evidence"
+                        :key="`${evidence.productId}-${evidence.field}`"
+                        class="evidence-link"
+                        type="button"
+                        @click="openEvidenceProduct(evidence.productId)"
+                      >
+                        {{ evidence.productName }} · {{ evidence.fieldLabel }}：{{ evidence.value }}
+                      </button>
+                    </div>
+                  </div>
+                  <div v-if="message.assessment.unknowns?.length" class="decision-section ai-unknown-section">
+                    <span class="decision-kicker">{{ t('ai.unknowns') }}</span>
+                    <ul><li v-for="item in message.assessment.unknowns" :key="item">{{ item }}</li></ul>
+                  </div>
+                  <small v-if="message.provenance" class="ai-run-meta">
+                    {{ t('ai.runMetadata') }} · {{ message.provenance.model }} · T={{ message.provenance.temperature }} · {{ message.provenance.prompt?.version }} · {{ message.provenance.catalog?.version }}
+                  </small>
                 </section>
                 <div v-else-if="message.role === 'assistant' && message.streaming && !message.content" class="typing-bubble" :aria-label="t('ai.thinking')">
                   <span></span>
@@ -2669,6 +2705,7 @@ const adminForm = reactive({
   deepseek_api_key: '',
   deepseek_base_url: 'https://api.deepseek.com',
   deepseek_model: 'deepseek-chat',
+  ai_temperature: 0.7,
   seller_ai_enabled: true,
   guardian_ai_enabled: true,
 });
@@ -3853,6 +3890,7 @@ async function loadResearchHistory(type) {
     researchThreads[type] = (result.history || []).slice().reverse().map((message) => ({
       ...message,
       assessment: message.assessment || parseMetadataAssessment(message.metadata_json),
+      provenance: message.provenance || parseMetadataProvenance(message.metadata_json),
     }));
     const latestAssessment = researchThreads[type].slice().reverse().find((item) => item.role === 'assistant' && item.assessment);
     revealResearchProducts(latestAssessment?.assessment, latestAssessment?.content);
@@ -3974,6 +4012,7 @@ async function sendResearchMessage(explicitMessage, protocolStep = researchCurre
       const response = researchThreads[type][streamMessageIndex];
       response.content = String(result.response || response.content);
       response.assessment = streamedAssessment || result.assessment || null;
+      response.provenance = result.provenance || null;
       response.streaming = false;
       revealResearchProducts(response.assessment, response.content);
       if (response.assessment?.analysis?.inclination) {
@@ -4906,6 +4945,23 @@ function parseMetadataAssessment(metadataJson) {
   }
 }
 
+function parseMetadataProvenance(metadataJson) {
+  try {
+    return JSON.parse(metadataJson || '{}')?.aiRun || null;
+  } catch {
+    return null;
+  }
+}
+
+function openEvidenceProduct(productId) {
+  const id = String(productId || '').trim();
+  const product = products.value.find((item) => item.id === id)
+    || researchCatalog.value.find((item) => item.id === id);
+  if (!product) return;
+  selectedProductId.value = id;
+  productPreviewOpen.value = true;
+}
+
 function recommendationLabel(value) {
   return t(`ai.recommendation.${value || 'verify'}`);
 }
@@ -5200,6 +5256,7 @@ async function loadAdmin() {
     adminOrders.value = ordersData.orders || [];
     adminForm.deepseek_base_url = config.deepseek_base_url || 'https://api.deepseek.com';
     adminForm.deepseek_model = config.deepseek_model || 'deepseek-chat';
+    adminForm.ai_temperature = Number.isFinite(Number(config.ai_temperature)) ? Number(config.ai_temperature) : 0.7;
     adminForm.seller_ai_enabled = Boolean(config.seller_ai_enabled);
     adminForm.guardian_ai_enabled = Boolean(config.guardian_ai_enabled);
     adminForm.deepseek_api_key = config.deepseek_api_key || '';
@@ -5429,6 +5486,7 @@ async function saveAdminConfig() {
       deepseek_api_key: adminForm.deepseek_api_key,
       deepseek_base_url: adminForm.deepseek_base_url,
       deepseek_model: adminForm.deepseek_model,
+      ai_temperature: adminForm.ai_temperature,
       seller_ai_enabled: adminForm.seller_ai_enabled,
       guardian_ai_enabled: adminForm.guardian_ai_enabled,
     });
@@ -5453,11 +5511,12 @@ async function testAdminAi() {
   aiTesting.value = true;
   aiTestResult.value = null;
   try {
-    const result = await AdminAPI.testAiConfig({
-      deepseek_api_key: adminForm.deepseek_api_key.trim(),
-      deepseek_base_url: adminForm.deepseek_base_url,
-      deepseek_model: adminForm.deepseek_model,
-    });
+      const result = await AdminAPI.testAiConfig({
+        deepseek_api_key: adminForm.deepseek_api_key.trim(),
+        deepseek_base_url: adminForm.deepseek_base_url,
+        deepseek_model: adminForm.deepseek_model,
+        ai_temperature: adminForm.ai_temperature,
+      });
     aiTestResult.value = {
       ok: true,
       message: t('admin.aiTestSuccess', { model: result.model || adminForm.deepseek_model }),
@@ -5487,6 +5546,7 @@ async function loadAiHistory(type, conversationId = aiConversationId.value) {
       aiThreads[aiThreadKey(type, conversationId)] = (result.history || []).slice().reverse().map((message) => ({
         ...message,
         assessment: message.assessment || parseMetadataAssessment(message.metadata_json),
+        provenance: message.provenance || parseMetadataProvenance(message.metadata_json),
       }));
     }
   } catch (error) {
@@ -5594,6 +5654,7 @@ async function sendAiMessage() {
       const streamedMessage = getAiThread(type, conversationId)[streamMessageIndex];
       streamedMessage.content = String(result.response || streamedMessage.content);
       streamedMessage.assessment = streamedAssessment || result.assessment || null;
+      streamedMessage.provenance = result.provenance || null;
       streamedMessage.streaming = false;
     }
     await nextTick();
