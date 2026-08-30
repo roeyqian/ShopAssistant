@@ -168,7 +168,7 @@ function stripCheckoutReviewFence(value) {
   return value.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
 }
 
-export async function chat({ request, env, url }) {
+export async function chat({ request, env, url, executionCtx }) {
   const { token, session } = await requireStandardUser(request, env);
   const locale = getLocaleFromRequest(request, url);
   const body = await readJsonBody(request);
@@ -287,24 +287,71 @@ export async function chat({ request, env, url }) {
     throw { status: 409, message: 'AI request is still being processed' };
   }
 
+  const completion = {
+    config,
+    systemPrompt: structuredSystemPrompt,
+    messages,
+    userMessage: message,
+    locale,
+    request,
+    aiType,
+    evidenceContext: { product: productInfo, catalogProducts },
+    env,
+    session,
+    token,
+    conversationId,
+    clientMessageId,
+    productId,
+    messageRecordId,
+    userTimestamp,
+    researchTechnique,
+    researchTechniqueContext,
+    researchRunId,
+    researchDialogueTurn,
+    aiRun,
+  };
+
+  // Product consultations should not depend on the browser keeping this
+  // request alive. Research chats remain synchronous because their protocol
+  // advances only after the reply has been received.
+  if (!isResearchChat && typeof executionCtx?.waitUntil === 'function') {
+    executionCtx.waitUntil(
+      completeBackgroundChat(completion).catch((error) => {
+        console.error('Background AI chat failed', { conversationId, clientMessageId, error: getStreamErrorMessage(error) });
+      }),
+    );
+    return json({ queued: true, aiType, clientMessageId }, 202);
+  }
+
   let result;
   try {
-    result = await getStructuredAgentResponse({
-      config,
-      systemPrompt: structuredSystemPrompt,
-      messages,
-      userMessage: message,
-      locale,
-      request,
-      aiType,
-      evidenceContext: { product: productInfo, catalogProducts },
-    });
+    result = await completeChatResponse(completion);
   } catch (error) {
     await env.db.prepare('DELETE FROM ai_conversations WHERE user_id = ? AND client_message_id = ?')
       .bind(session.userId, clientMessageId)
       .run();
     throw error;
   }
+
+  return json({ response: result.content, aiType, assessment: result.assessment, provenance: aiRun, providerError: result.providerError || null });
+}
+
+async function completeChatResponse({
+  config, systemPrompt, messages, userMessage, locale, request, aiType,
+  evidenceContext, env, session, token, conversationId, clientMessageId,
+  productId, messageRecordId, userTimestamp, researchTechnique,
+  researchTechniqueContext, researchRunId, researchDialogueTurn, aiRun,
+}) {
+  const result = await getStructuredAgentResponse({
+    config,
+    systemPrompt,
+    messages,
+    userMessage,
+    locale,
+    request,
+    aiType,
+    evidenceContext,
+  });
   const assistantTimestamp = createLaterIsoTimestamp(userTimestamp);
 
   await env.db.prepare(`
@@ -341,7 +388,36 @@ export async function chat({ request, env, url }) {
       assistantTimestamp,
   ).run();
 
-  return json({ response: result.content, aiType, assessment: result.assessment, provenance: aiRun, providerError: result.providerError || null });
+  return result;
+}
+
+async function completeBackgroundChat(completion) {
+  try {
+    await completeChatResponse({ ...completion, request: null });
+  } catch (error) {
+    const { env, session, token, conversationId, clientMessageId, aiType, productId, messageRecordId, userTimestamp, locale, config, aiRun } = completion;
+    const content = formatProviderFailure(locale, error);
+    await env.db.prepare(`
+      INSERT INTO ai_conversations (id, user_id, session_id, conversation_id, reply_to_message_id, ai_type, role, content, product_id, metadata_json, timestamp)
+      VALUES (?, ?, ?, ?, ?, ?, 'assistant', ?, ?, ?, ?)
+    `).bind(
+      `${messageRecordId}_a`,
+      session.userId,
+      token,
+      conversationId,
+      clientMessageId,
+      aiType,
+      content,
+      productId || null,
+      JSON.stringify({
+        model: config.deepseek_model || 'deepseek-chat',
+        structured: true,
+        providerError: getStreamErrorMessage(error),
+        aiRun,
+      }),
+      createLaterIsoTimestamp(userTimestamp),
+    ).run();
+  }
 }
 
 export async function decision({ request, env, url, requestId }) {
@@ -846,7 +922,7 @@ async function getStreamedAiResponse({ config, systemPrompt, messages, userMessa
 
 async function getStructuredAgentResponse({ config, systemPrompt, messages, userMessage, locale, request, evidenceContext = {} }) {
   const result = await completeDeepSeek(config, systemPrompt, messages, userMessage, {
-    signal: request.signal,
+    signal: request?.signal,
     // The assistant response is parsed before it reaches the participant.
     // Ask OpenAI-compatible providers to enforce that contract at generation time.
     responseFormat: { type: 'json_object' },

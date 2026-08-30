@@ -2007,22 +2007,11 @@
             @keydown="handleAiKeydown"
           ></textarea>
           <button
-            v-if="aiSending"
-            class="secondary-btn send-btn"
-            type="button"
-            :aria-label="t('ai.stop')"
-            :title="t('ai.stop')"
-            @click="stopAiGeneration"
-          >
-            <X :size="18" />
-          </button>
-          <button
-            v-else
             class="primary-btn send-btn"
             type="submit"
             :aria-label="t('ai.send')"
             :title="t('ai.send')"
-            :disabled="aiHistoryLoading || !aiMessage.trim()"
+            :disabled="aiSending || aiHistoryLoading || !aiMessage.trim()"
           >
             <SendHorizontal :size="18" />
           </button>
@@ -2500,7 +2489,6 @@ const aiSending = ref(false);
 const aiClearing = ref(false);
 const aiHistoryLoading = ref(false);
 const aiHistoryRequestId = ref(0);
-const aiAbortController = ref(null);
 const aiConversationId = ref('');
 const aiMessagesEl = ref(null);
 const aiInputEl = ref(null);
@@ -4178,8 +4166,6 @@ function resetResearch({ clearDraft = true } = {}) {
 }
 
 function resetAccountScopedState() {
-  stopAiGeneration();
-  aiAbortController.value = null;
   aiHistoryRequestId.value += 1;
   aiOpen.value = false;
   aiType.value = 'seller';
@@ -4384,7 +4370,6 @@ function showAiDrawer() {
 }
 
 function closeAi() {
-  stopAiGeneration();
   aiOpen.value = false;
   if (productPreviewOpen.value) {
     void nextTick(() => productPreviewDialog.value?.focus());
@@ -5571,8 +5556,6 @@ async function sendAiMessage() {
     }
     getAiThread(type, conversationId)[streamMessageIndex].content += content;
   };
-  const controller = new AbortController();
-  aiAbortController.value = controller;
   void trackBehavior('chat_ai', {
     aiType: type,
     productId: productId || null,
@@ -5581,13 +5564,17 @@ async function sendAiMessage() {
 
   try {
     const result = await AIAPI.chat(message, type, productId, conversationId, clientMessageId, {
-      signal: controller.signal,
       onDelta: appendStreamDelta,
       onDone: (data) => {
         streamedAssessment = data.assessment || null;
       },
     });
     if (!isCurrentAccountContext(context)) return;
+    if (result.queued) {
+      toast(t('toast.aiReplyQueued'));
+      await waitForAiReply(type, conversationId, clientMessageId, context);
+      return;
+    }
     if (streamMessageIndex < 0) appendStreamDelta(String(result.response || ''));
     if (streamMessageIndex >= 0) {
       const streamedMessage = getAiThread(type, conversationId)[streamMessageIndex];
@@ -5599,26 +5586,26 @@ async function sendAiMessage() {
     await nextTick();
   } catch (error) {
     if (!isCurrentAccountContext(context)) return;
-    if (error.name === 'AbortError' || error.status === 499) {
-      await loadAiHistory(type, conversationId);
-    } else if (error.status === 401) {
+    if (error.status === 401) {
       openAuth('login');
     } else {
       toast(error.message || t('toast.aiFailed'), 'error');
     }
-    if (error.name !== 'AbortError' && error.status !== 499) {
-      await loadAiHistory(type, conversationId);
-    }
+    await loadAiHistory(type, conversationId);
   } finally {
-    if (aiAbortController.value === controller) {
-      aiAbortController.value = null;
-      aiSending.value = false;
-    }
+    aiSending.value = false;
   }
 }
 
-function stopAiGeneration() {
-  aiAbortController.value?.abort();
+async function waitForAiReply(type, conversationId, clientMessageId, context) {
+  for (let attempt = 0; attempt < 30 && isCurrentAccountContext(context); attempt += 1) {
+    await new Promise((resolve) => window.setTimeout(resolve, 1000));
+    await loadAiHistory(type, conversationId);
+    const replyReceived = getAiThread(type, conversationId).some((item) =>
+      item.role === 'assistant' && item.reply_to_message_id === clientMessageId,
+    );
+    if (replyReceived) return;
+  }
 }
 
 async function clearAiHistory() {

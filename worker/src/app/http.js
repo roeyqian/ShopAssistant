@@ -38,12 +38,12 @@ export function createRouter() {
   };
 }
 
-export async function handleApi(request, env, url, router) {
+export async function handleApi(request, env, url, router, context = {}) {
   if (request.method === "OPTIONS") return withCors(new Response(null, { status: 204 }));
 
   const requestId = createId("req");
   try {
-    const response = await router.handle(request, env, url, { requestId });
+    const response = await router.handle(request, env, url, { ...context, requestId });
     return withCors(response, { "x-request-id": requestId });
   } catch (error) {
     const status = getErrorStatus(error);
