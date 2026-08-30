@@ -345,6 +345,11 @@ export const OrderAPI = {
 };
 
 export const AIAPI = {
+  reviewCheckout: () =>
+    request('/ai/checkout-review', {
+      method: 'POST',
+      body: JSON.stringify({}),
+    }),
   getResearchReport: (researchRunId) =>
     request(`/ai/research-report?researchRunId=${encodeURIComponent(researchRunId)}`),
   createResearchReport: (researchRunId) =>

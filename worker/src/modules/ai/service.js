@@ -23,6 +23,149 @@ const HISTORY_ORDER_DESC = `
       id DESC
   `;
 
+export async function checkoutReview({ request, env, url }) {
+  const { session } = await requireStandardUser(request, env);
+  const locale = getLocaleFromRequest(request, url);
+  const config = await env.db.prepare("SELECT * FROM ai_config WHERE id = 1").first();
+
+  if (!config?.deepseek_api_key) {
+    throw { status: 503, message: locale === 'en-US' ? 'AI service is not configured.' : 'AI 服务尚未配置。' };
+  }
+  if (!config.guardian_ai_enabled) {
+    throw { status: 503, message: locale === 'en-US' ? 'Butler AI is currently disabled.' : '管家 AI 当前未启用。' };
+  }
+
+  const { results: cartRows } = await env.db.prepare(`
+    SELECT p.*, ci.quantity
+    FROM cart_items ci
+    JOIN products p ON p.id = ci.product_id
+    WHERE ci.user_id = ?
+    ORDER BY ci.added_at DESC
+  `).bind(session.userId).all();
+
+  if (!cartRows.length) return json({ intervene: false, message: '', reasons: [], flaggedProductIds: [] });
+
+  const categoryIds = [...new Set(cartRows.map((item) => item.category_id).filter(Boolean))];
+  const placeholders = categoryIds.map(() => '?').join(', ');
+  const { results: comparisonRows } = await env.db.prepare(`
+    SELECT * FROM products WHERE category_id IN (${placeholders})
+    ORDER BY category_id ASC, price ASC
+  `).bind(...categoryIds).all();
+
+  const cartItems = cartRows.map((item) => checkoutProductSnapshot(item, locale, item.quantity));
+  const comparisonItems = comparisonRows.map((item) => checkoutProductSnapshot(item, locale));
+  const result = await completeDeepSeek(
+    config,
+    getCheckoutReviewPrompt(session, cartItems, comparisonItems, locale),
+    [],
+    locale === 'en-US'
+      ? 'Review the cart now and return the required JSON object only.'
+      : '请现在审核购物车，并且只返回要求的 JSON 对象。',
+    { signal: request.signal, responseFormat: { type: 'json_object' } },
+  );
+
+  return json(normalizeCheckoutReview(result.content, cartItems, locale));
+}
+
+function checkoutProductSnapshot(product, locale, quantity = null) {
+  const name = locale === 'en-US' && product.name_en ? product.name_en : product.name;
+  return {
+    id: String(product.id),
+    categoryId: String(product.category_id || ''),
+    name: String(name || ''),
+    price: Number(product.price || 0),
+    originalPrice: product.original_price == null ? null : Number(product.original_price),
+    rating: product.rating == null ? null : Number(product.rating),
+    salesCount: product.sales_count == null ? null : Number(product.sales_count),
+    guardianInterventionRequired: Number(product.guardian_ai_intervention_required || 0) === 1,
+    subtitle: String(locale === 'en-US' && product.subtitle_en ? product.subtitle_en : product.subtitle || ''),
+    description: String(locale === 'en-US' && product.description_en ? product.description_en : product.description || ''),
+    ...(quantity == null ? {} : { quantity: Number(quantity || 1) }),
+  };
+}
+
+function getCheckoutReviewPrompt(session, cartItems, comparisonItems, locale) {
+  const rolePrompt = getGuardianPrompt(session, null, locale);
+  const isEnglish = locale === 'en-US';
+  const contract = isEnglish
+    ? [
+      'This is a checkout gate. Review the cart against the supplied same-category catalog entries only.',
+      'Set intervene to true when a cart item is marked guardianInterventionRequired, or when it has concrete evidence that its current price is materially high for its comparable catalog options, or its price-to-evidence value is materially weak (for example, a higher price with no supported rating or feature advantage).',
+      'Every cart item marked guardianInterventionRequired must appear in flagged_product_ids and receive a light, evidence-based checkout reminder.',
+      'Do not treat an item as poor value solely because it is expensive, discounted, popular, or has a lower rating by a trivial amount. If catalog evidence is insufficient, set intervene to false.',
+      'Never invent outside-market prices, reviews, policies, product features, or user needs. This review cannot decide for the user.',
+      'Return only one valid JSON object: {"intervene":boolean,"message":"brief warm Butler AI reminder","reasons":["1-3 concrete, checkable reasons"],"flagged_product_ids":["cart item ids only"]}.',
+      'When intervene is false, message, reasons, and flagged_product_ids must be empty.',
+    ].join('\n')
+    : [
+      '这是结算前的审核。只能根据提供的购物车和同类商品目录进行判断。',
+      '当购物车商品被标记为 guardianInterventionRequired 时，或该商品有明确证据显示相对同类样本当前价格明显偏高、或价格相对于已有评分、功能等可核验依据的性价比明显偏低时，将 intervene 设为 true。',
+      '每个标记为 guardianInterventionRequired 的购物车商品都必须出现在 flagged_product_ids 中，并得到一条轻量、基于证据的结算前提醒。',
+      '不要仅因商品价格高、正在折扣、销量高，或评分存在很小差异就判定性价比低；证据不足时必须设为 false。',
+      '绝不编造站外价格、评价、政策、商品功能或用户需求。本审核不能替用户作决定。',
+      '只能返回一个有效 JSON 对象：{"intervene":布尔值,"message":"一两句温和的管家 AI 提醒","reasons":["1-3 条具体且可核验的理由"],"flagged_product_ids":["仅限购物车中的商品 ID"]}。',
+      '当 intervene 为 false 时，message、reasons 和 flagged_product_ids 必须为空。',
+    ].join('\n');
+  const payload = JSON.stringify({ cartItems, comparisonItems });
+  return `${rolePrompt}\n\n${contract}\n\n${isEnglish ? 'Catalog data:' : '目录数据：'}\n${payload}`;
+}
+
+function normalizeCheckoutReview(raw, cartItems, locale) {
+  let parsed;
+  try {
+    parsed = JSON.parse(stripCheckoutReviewFence(String(raw || '').trim()));
+  } catch {
+    throw {
+      status: 502,
+      stage: 'provider-response',
+      message: locale === 'en-US' ? 'AI service returned an invalid checkout review.' : 'AI 服务返回了无效的结算审核结果。',
+    };
+  }
+
+  const cartIds = new Set(cartItems.map((item) => item.id));
+  const requiredProductIds = cartItems
+    .filter((item) => item.guardianInterventionRequired)
+    .map((item) => item.id);
+  const aiFlaggedProductIds = Array.isArray(parsed?.flagged_product_ids)
+    ? [...new Set(parsed.flagged_product_ids.map((id) => String(id || '').trim()).filter((id) => cartIds.has(id)))].slice(0, 5)
+    : [];
+  const flaggedProductIds = [...new Set([...requiredProductIds, ...aiFlaggedProductIds])].slice(0, 5);
+  const intervene = requiredProductIds.length > 0 || (parsed?.intervene === true && flaggedProductIds.length > 0);
+  if (!intervene) return { intervene: false, message: '', reasons: [], flaggedProductIds: [] };
+
+  let message = String(parsed?.message || '').trim().slice(0, 500);
+  let reasons = Array.isArray(parsed?.reasons)
+    ? parsed.reasons.map((reason) => String(reason || '').trim()).filter(Boolean).slice(0, 3).map((reason) => reason.slice(0, 300))
+    : [];
+  if (requiredProductIds.length && (!message || !reasons.length)) {
+    const requiredProducts = cartItems.filter((item) => requiredProductIds.includes(item.id));
+    const names = requiredProducts.map((item) => item.name).join(isEnglishLocale(locale) ? ', ' : '、');
+    message = isEnglishLocale(locale)
+      ? `${names} needs a brief Guardian AI check before checkout. You can still continue after reviewing the facts.`
+      : `${names} 已标记为需要在结算前由管家 AI 简要复核；核对事实后，你仍可以自行继续确认。`;
+    reasons = requiredProducts.slice(0, 3).map((item) => isEnglishLocale(locale)
+      ? `${item.name} is marked for a checkout review at its current listed price of ¥${item.price}.`
+      : `${item.name} 已标记为需要结算前复核，当前标价为 ¥${item.price}。`);
+  }
+  if (!message || !reasons.length) {
+    throw {
+      status: 502,
+      stage: 'provider-response',
+      message: locale === 'en-US' ? 'AI service returned an incomplete checkout review.' : 'AI 服务返回了不完整的结算审核结果。',
+    };
+  }
+
+  return { intervene: true, message, reasons, flaggedProductIds };
+}
+
+function isEnglishLocale(locale) {
+  return locale === 'en-US';
+}
+
+function stripCheckoutReviewFence(value) {
+  return value.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+}
+
 export async function chat({ request, env, url }) {
   const { token, session } = await requireStandardUser(request, env);
   const locale = getLocaleFromRequest(request, url);

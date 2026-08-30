@@ -1486,9 +1486,9 @@
                 <strong>{{ formatMoney(cartTotal) }}</strong>
                 <span>{{ t('common.total') }}</span>
               </div>
-              <button class="primary-btn" type="button" @click="openCheckout">
+              <button class="primary-btn" type="button" :disabled="checkoutReviewLoading" @click="openCheckout">
                 <ClipboardCheck :size="16" />
-                {{ t('cart.toCheckout') }}
+                {{ checkoutReviewLoading ? t('checkout.reviewing') : t('cart.toCheckout') }}
               </button>
             </div>
           </template>
@@ -1546,24 +1546,29 @@
                 <textarea v-model="checkoutForm.remark" rows="4"></textarea>
               </label>
 
-              <div class="field full reflection-box">
-                <div>
+              <section
+                class="field full reflection-box"
+                :aria-label="t('checkout.reflectionTitle')"
+              >
+                <div class="reflection-heading">
                   <strong>{{ t('checkout.reflectionTitle') }}</strong>
                   <span>{{ t('checkout.reflectionSubtitle') }}</span>
                 </div>
-                <label
-                  v-for="item in checkoutChecklist"
-                  :key="item.key"
-                  class="check-row reflection-row"
-                >
-                  <input
-                    v-model="checkoutReflection[item.key]"
-                    type="checkbox"
-                    @change="trackCheckoutReflection(item)"
-                  />
-                  <span>{{ item.label }}</span>
-                </label>
-              </div>
+                <div class="reflection-checklist">
+                  <label
+                    v-for="item in checkoutChecklist"
+                    :key="item.key"
+                    class="check-row reflection-row"
+                  >
+                    <input
+                      v-model="checkoutReflection[item.key]"
+                      type="checkbox"
+                      @change="trackCheckoutReflection(item)"
+                    />
+                    <span>{{ item.label }}</span>
+                  </label>
+                </div>
+              </section>
 
               <div class="form-actions">
                 <button class="primary-btn" type="submit">
@@ -1600,6 +1605,51 @@
         </div>
       </section>
     </main>
+
+    <div v-if="checkoutIntervention" class="overlay" @click.self="dismissCheckoutIntervention">
+      <aside
+        class="drawer checkout-intervention-drawer"
+        role="dialog"
+        aria-modal="true"
+        :aria-label="t('checkout.interventionTitle')"
+      >
+        <div class="drawer-head ai-head">
+          <div class="ai-title-block">
+            <span class="ai-avatar guardian">
+              <ShieldCheck :size="18" />
+            </span>
+            <div>
+              <strong>{{ t('checkout.interventionTitle') }}</strong>
+              <span>{{ t('checkout.interventionSubtitle') }}</span>
+            </div>
+          </div>
+          <button class="icon-close" type="button" :aria-label="t('common.close')" @click="dismissCheckoutIntervention">
+            <X :size="18" />
+          </button>
+        </div>
+
+        <div class="checkout-intervention-content">
+          <p>{{ checkoutIntervention.message }}</p>
+          <div>
+            <strong>{{ t('checkout.interventionReasons') }}</strong>
+            <ul>
+              <li v-for="reason in checkoutIntervention.reasons" :key="reason">{{ reason }}</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="checkout-intervention-actions">
+          <button class="secondary-btn" type="button" @click="dismissCheckoutIntervention">
+            <ArrowLeft :size="16" />
+            {{ t('checkout.reconsiderCart') }}
+          </button>
+          <button class="primary-btn" type="button" @click="continueToCheckout">
+            {{ t('checkout.continueCheckout') }}
+            <ArrowRight :size="16" />
+          </button>
+        </div>
+      </aside>
+    </div>
 
     <div
       v-if="aiOpen && !isAdminUser"
@@ -2494,6 +2544,8 @@ const checkoutReflection = reactive({
   persuasion_reframe: false,
   delay: false,
 });
+const checkoutReviewLoading = ref(false);
+const checkoutIntervention = ref(null);
 const pressureOpen = ref(false);
 const pressurePage = ref(0);
 const pressurePageSize = PRESSURE_PAGE_SIZE;
@@ -3182,7 +3234,7 @@ const pressureLevel = computed(() => {
 const pressureLevelLabel = computed(() => pressureLevelName(pressureLevel.value));
 const pressureRecommendation = computed(() => t(`pressure.recommendation.${pressureLevel.value}`));
 const isOverlayOpen = computed(
-  () => productPreviewOpen.value || aiOpen.value || pressureOpen.value || authOpen.value,
+  () => productPreviewOpen.value || aiOpen.value || pressureOpen.value || authOpen.value || Boolean(checkoutIntervention.value),
 );
 
 watch(
@@ -4076,8 +4128,57 @@ function openCart() {
   go('cart');
 }
 
-function openCheckout() {
+async function openCheckout() {
   if (!ensureStandardUser()) return;
+  if (checkoutReviewLoading.value) return;
+
+  checkoutIntervention.value = null;
+  checkoutReviewLoading.value = true;
+  try {
+    const review = await AIAPI.reviewCheckout();
+    void trackBehavior('intervention_check', {
+      strategy: 'checkout_value_review',
+      source: 'checkout-entry',
+      cartValue: cartTotal.value,
+      itemCount: cartCount.value,
+      metadata: {
+        intervene: Boolean(review.intervene),
+        flaggedProductIds: Array.isArray(review.flaggedProductIds) ? review.flaggedProductIds : [],
+      },
+    });
+    if (review.intervene) {
+      checkoutIntervention.value = review;
+      return;
+    }
+    go('checkout');
+  } catch (error) {
+    if (error.status === 401) {
+      openAuth('login');
+      return;
+    }
+    toast(t('toast.checkoutReviewUnavailable'), 'error');
+    go('checkout');
+  } finally {
+    checkoutReviewLoading.value = false;
+  }
+}
+
+function dismissCheckoutIntervention() {
+  checkoutIntervention.value = null;
+}
+
+function continueToCheckout() {
+  const review = checkoutIntervention.value;
+  checkoutIntervention.value = null;
+  void trackBehavior('intervention_check', {
+    strategy: 'checkout_value_review_continue',
+    source: 'checkout-entry',
+    cartValue: cartTotal.value,
+    itemCount: cartCount.value,
+    metadata: {
+      flaggedProductIds: Array.isArray(review?.flaggedProductIds) ? review.flaggedProductIds : [],
+    },
+  });
   go('checkout');
 }
 
