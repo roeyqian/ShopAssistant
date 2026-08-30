@@ -214,8 +214,7 @@
                 class="product-card"
                 :class="{ active: selectedProduct?.id === product.id }"
                 type="button"
-                @click="pickProduct(product.id)"
-                @dblclick="openProductPreview(product)"
+                @click="openProductPreview(product)"
               >
                 <div class="product-image-wrap">
                   <img
