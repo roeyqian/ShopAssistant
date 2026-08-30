@@ -4200,12 +4200,7 @@ textarea:focus-visible {
 
 .research-ai-feedback .research-chat-list {
   flex: none;
-  min-height: 0;
-  max-height: clamp(560px, 84vh, 1040px);
-  overflow-y: auto;
-  overscroll-behavior: contain;
   padding: 4px 10px 4px 4px;
-  scroll-behavior: smooth;
 }
 
 .research-workspace-chat {
@@ -4697,11 +4692,8 @@ textarea:focus-visible {
 
 .research-chat-list {
   display: flex;
-  flex: 1;
   flex-direction: column;
   gap: 14px;
-  min-height: 320px;
-  overflow: auto;
   padding: 20px 4px;
 }
 

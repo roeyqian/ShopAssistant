@@ -1301,7 +1301,7 @@
             </div>
             <section class="research-ai-feedback" aria-live="polite">
               <span class="eyebrow">{{ t('research.protocolAiFeedback') }}</span>
-              <div ref="researchMessagesEl" v-if="researchCurrentMessages.length" class="research-chat-list">
+              <div v-if="researchCurrentMessages.length" class="research-chat-list">
                 <div
                   v-for="(chatMessage, index) in researchCurrentMessages"
                   :key="chatMessage.client_message_id || `${chatMessage.role}-${index}`"
@@ -2585,7 +2585,6 @@ const researchMessage = ref('');
 const researchAiSending = ref(false);
 const researchAbortController = ref(null);
 const researchRetryRequest = ref(null);
-const researchMessagesEl = ref(null);
 const researchSellerTurns = ref(0);
 const researchGuardianTurns = ref(0);
 const researchSellerDialogueTurns = ref(0);
@@ -2922,11 +2921,6 @@ const researchCurrentMessages = computed(() =>
 const researchLatestAssistantMessage = computed(() =>
   researchCurrentMessages.value.slice().reverse().find((message) => message.role === 'assistant' && message.content) || null,
 );
-const researchCurrentMessageTail = computed(() => {
-  const messages = researchCurrentMessages.value;
-  const latestMessage = messages[messages.length - 1];
-  return `${messages.length}:${latestMessage?.content || ''}`;
-});
 const researchChatReady = computed(() => Boolean(researchLatestAssistantMessage.value));
 const researchCompletedDialogueTurns = computed(() =>
   researchSellerDialogueTurns.value + researchGuardianDialogueTurns.value,
@@ -2939,23 +2933,6 @@ const researchThirdDialogueSummaryDue = computed(() =>
   (researchStage.value === 2 || researchStage.value === 3)
   && !researchStepUnlocked.value
   && researchRemainingDialogueTurns.value === 1,
-);
-
-let researchChatScrollScheduled = false;
-function keepResearchChatAtLatestMessage() {
-  if (researchChatScrollScheduled) return;
-  researchChatScrollScheduled = true;
-  requestAnimationFrame(() => {
-    researchChatScrollScheduled = false;
-    const container = researchMessagesEl.value;
-    if (container) container.scrollTop = container.scrollHeight;
-  });
-}
-
-watch(
-  [() => researchStage.value, researchCurrentMessageTail],
-  keepResearchChatAtLatestMessage,
-  { flush: 'post' },
 );
 
 const researchCurrentProtocol = computed(() => {
